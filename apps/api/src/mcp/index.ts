@@ -9,6 +9,7 @@ import {
   getClient,
   registerClient,
 } from "./oauth";
+import { verifyApiKey } from "../utils/verify-api-key";
 import { registerMcpTools } from "./tools";
 
 const clientUrl = process.env.KANEO_CLIENT_URL || "http://localhost:5173";
@@ -37,12 +38,22 @@ async function validateBearerToken(
   if (!match?.[1]) return null;
   const token = match[1];
 
+  // API key sent as Bearer (agent/server-to-server, e.g. Hermes). Mirrors
+  // REST authenticateApiRequest: verify the API key first, then fall back
+  // to session (OAuth/session Bearer) resolution.
+  const apiKeyResult = await verifyApiKey(token);
+  if (apiKeyResult?.valid && apiKeyResult.key) {
+    return { userId: apiKeyResult.key.userId, token };
+  }
+
   const headers = new Headers();
   headers.set("authorization", `Bearer ${token}`);
   const session = await auth.api.getSession({ headers });
+  if (session?.user?.id) {
+    return { userId: session.user.id, token };
+  }
 
-  if (!session?.user?.id) return null;
-  return { userId: session.user.id, token };
+  return null;
 }
 
 const mcp = new Hono();
