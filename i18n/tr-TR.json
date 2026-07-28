@@ -603,9 +603,7 @@
 			"toastDeleteError": "Proje silinemedi",
 			"validation": {
 				"nameRequired": "Proje adı gereklidir",
-				"nameShort": "Proje adı en az 2 karakter olmalıdır",
 				"keyRequired": "Anahtar gereklidir",
-				"keyShort": "Anahtar en az 2 karakter olmalıdır",
 				"keyMax": "Anahtar en fazla 8 karakter olmalıdır",
 				"iconRequired": "Simge gereklidir"
 			},
