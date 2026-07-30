@@ -2046,5 +2046,10 @@
 		"branding": {
 			"poweredBy": "Mogelijk gemaakt door"
 		}
+	},
+	"pwa": {
+		"updateAvailable": "Er is een nieuwe versie beschikbaar",
+		"refresh": "Vernieuwen",
+		"offlineReady": "De app is klaar om offline te werken"
 	}
 }

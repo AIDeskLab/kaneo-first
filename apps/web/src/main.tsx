@@ -10,6 +10,7 @@ import AuthProvider from "./components/providers/auth-provider";
 import { ThemeProvider } from "./components/providers/theme-provider";
 import { KeyboardShortcutsProvider } from "./hooks/use-keyboard-shortcuts";
 import { AppI18nProvider } from "./lib/i18n/provider";
+import { initServiceWorker } from "./lib/pwa/register-sw";
 import { routeTree } from "./routeTree.gen";
 
 console.log(`
@@ -68,4 +69,5 @@ if (!rootElement.innerHTML) {
       </QueryClientProvider>
     </StrictMode>,
   );
+  initServiceWorker();
 }

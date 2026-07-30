@@ -2052,5 +2052,10 @@
 		"branding": {
 			"poweredBy": "Працює на"
 		}
+	},
+	"pwa": {
+		"updateAvailable": "Доступна нова версія",
+		"refresh": "Оновити",
+		"offlineReady": "Додаток готовий до роботи офлайн"
 	}
 }

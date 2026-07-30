@@ -16,6 +16,10 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "@i18n": path.resolve(__dirname, "../../i18n"),
+      "virtual:pwa-register": path.resolve(
+        __dirname,
+        "./src/test/mocks/virtual-pwa-register.ts",
+      ),
     },
   },
 });
