@@ -55,8 +55,9 @@ assert(
 );
 
 function iconHasSizeAndPurpose(icon, size) {
-  const sizes = String(icon.sizes ?? "");
-  if (!sizes.includes(String(size))) {
+  const sizeToken = size === 192 ? "192x192" : "512x512";
+  const sizes = String(icon.sizes ?? "").split(/\s+/);
+  if (!sizes.includes(sizeToken)) {
     return false;
   }
   const purpose = String(icon.purpose ?? "any");
