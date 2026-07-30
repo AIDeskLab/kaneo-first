@@ -1608,6 +1608,9 @@
 						"onlyYoutube": "Sólo los enlaces de YouTube pueden ser incrustados."
 					},
 					"onlyYoutubeInline": "Sólo los enlaces de YouTube pueden ser incrustados. Añádelo como enlace."
+				},
+				"mermaid": {
+					"renderFailed": "No se pudo renderizar el diagrama de Mermaid"
 				}
 			}
 		},

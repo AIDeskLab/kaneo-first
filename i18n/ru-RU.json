@@ -1623,6 +1623,9 @@
 						"onlyYoutube": "Можно встраивать только ссылки YouTube."
 					},
 					"onlyYoutubeInline": "Можно встраивать только URL YouTube. Используйте режим ссылки."
+				},
+				"mermaid": {
+					"renderFailed": "Не удалось отобразить диаграмму Mermaid"
 				}
 			}
 		},

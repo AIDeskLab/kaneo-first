@@ -1608,6 +1608,9 @@
 						"onlyYoutube": "Yalnızca YouTube bağlantıları gömülebilir."
 					},
 					"onlyYoutubeInline": "Yalnızca YouTube URL'leri gömülebilir. Bağlantı modunu kullanın."
+				},
+				"mermaid": {
+					"renderFailed": "Mermaid diyagramı oluşturulamadı"
 				}
 			}
 		},
