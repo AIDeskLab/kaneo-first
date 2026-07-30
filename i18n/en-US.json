@@ -2057,5 +2057,10 @@
 		"branding": {
 			"poweredBy": "Powered by"
 		}
+	},
+	"pwa": {
+		"updateAvailable": "A new version is available",
+		"refresh": "Refresh",
+		"offlineReady": "App is ready to work offline"
 	}
 }

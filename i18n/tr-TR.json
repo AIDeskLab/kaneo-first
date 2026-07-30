@@ -2046,5 +2046,10 @@
 		"branding": {
 			"poweredBy": "Tarafından desteklenmektedir"
 		}
+	},
+	"pwa": {
+		"updateAvailable": "Yeni bir sürüm mevcut",
+		"refresh": "Yenile",
+		"offlineReady": "Uygulama çevrimdışı çalışmaya hazır"
 	}
 }

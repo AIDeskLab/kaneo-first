@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"build": "vite build",
+		"build": "pnpm --filter @kaneo/permissions build && vite build",
 		"preview": "vite preview",
 		"lint": "biome check --write .",
 		"typecheck": "tsc --noEmit -p tsconfig.app.json",

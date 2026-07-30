@@ -2046,5 +2046,10 @@
 		"branding": {
 			"poweredBy": "Propulsé par"
 		}
+	},
+	"pwa": {
+		"updateAvailable": "Une nouvelle version est disponible",
+		"refresh": "Actualiser",
+		"offlineReady": "L'application est prête à fonctionner hors ligne"
 	}
 }

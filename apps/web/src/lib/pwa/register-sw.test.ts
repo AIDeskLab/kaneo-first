@@ -3,12 +3,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockRegisterSW = vi.fn();
 const mockToast = vi.fn();
 const mockToastSuccess = vi.fn();
+const mockI18nT = vi.fn((key: string) => key);
 
 vi.mock("virtual:pwa-register", () => ({
   registerSW: (...args: unknown[]) => mockRegisterSW(...args),
 }));
 
-vi.mock("sonner", () => ({
+vi.mock("i18next", () => ({
+  default: {
+    t: (key: string) => mockI18nT(key),
+  },
+}));
+
+vi.mock("@/lib/toast", () => ({
   toast: Object.assign((...args: unknown[]) => mockToast(...args), {
     success: (...args: unknown[]) => mockToastSuccess(...args),
   }),
@@ -21,6 +28,8 @@ describe("initServiceWorker", () => {
     mockRegisterSW.mockReset();
     mockToast.mockReset();
     mockToastSuccess.mockReset();
+    mockI18nT.mockReset();
+    mockI18nT.mockImplementation((key: string) => key);
   });
   it("registers the service worker with immediate: true", () => {
     mockRegisterSW.mockReturnValue(vi.fn());
@@ -47,11 +56,13 @@ describe("initServiceWorker", () => {
 
     initServiceWorker();
 
+    expect(mockI18nT).toHaveBeenCalledWith("pwa:updateAvailable");
+    expect(mockI18nT).toHaveBeenCalledWith("pwa:refresh");
     expect(mockToast).toHaveBeenCalledWith(
-      "Доступна новая версия",
+      "pwa:updateAvailable",
       expect.objectContaining({
         action: expect.objectContaining({
-          label: "Обновить",
+          label: "pwa:refresh",
           onClick: expect.any(Function),
         }),
       }),
@@ -74,8 +85,7 @@ describe("initServiceWorker", () => {
 
     initServiceWorker();
 
-    expect(mockToastSuccess).toHaveBeenCalledWith(
-      "Приложение готово к работе офлайн",
-    );
+    expect(mockI18nT).toHaveBeenCalledWith("pwa:offlineReady");
+    expect(mockToastSuccess).toHaveBeenCalledWith("pwa:offlineReady");
   });
 });

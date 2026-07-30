@@ -2046,5 +2046,10 @@
 		"branding": {
 			"poweredBy": "Didukung oleh"
 		}
+	},
+	"pwa": {
+		"updateAvailable": "Versi baru tersedia",
+		"refresh": "Muat ulang",
+		"offlineReady": "Aplikasi siap digunakan secara offline"
 	}
 }

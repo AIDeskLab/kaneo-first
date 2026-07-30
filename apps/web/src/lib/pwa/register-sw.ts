@@ -1,13 +1,14 @@
 import { registerSW } from "virtual:pwa-register";
-import { toast } from "sonner";
+import i18n from "i18next";
+import { toast } from "@/lib/toast";
 
 export function initServiceWorker() {
   const updateSW = registerSW({
     immediate: true,
     onNeedRefresh() {
-      toast("Доступна новая версия", {
+      toast(i18n.t("pwa:updateAvailable"), {
         action: {
-          label: "Обновить",
+          label: i18n.t("pwa:refresh"),
           onClick: () => {
             updateSW(true);
           },
@@ -15,7 +16,7 @@ export function initServiceWorker() {
       });
     },
     onOfflineReady() {
-      toast.success("Приложение готово к работе офлайн");
+      toast.success(i18n.t("pwa:offlineReady"));
     },
   });
 }
