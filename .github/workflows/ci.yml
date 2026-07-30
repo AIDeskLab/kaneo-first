@@ -164,9 +164,5 @@ jobs:
       - name: Build web app
         run: pnpm build
 
-      - name: Run Lighthouse CI (PWA category)
-        uses: treosh/lighthouse-ci-action@v12
-        with:
-          configPath: ./apps/web/lighthouserc.json
-          uploadArtifacts: true
-          temporaryPublicStorage: true
+      - name: Verify PWA artifacts
+        run: node apps/web/scripts/verify-pwa.mjs
