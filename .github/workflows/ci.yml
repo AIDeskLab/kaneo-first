@@ -167,10 +167,6 @@ jobs:
       - name: Run Lighthouse CI (PWA category)
         uses: treosh/lighthouse-ci-action@v12
         with:
-          urls: |
-            http://localhost:4173/
           configPath: ./apps/web/lighthouserc.json
-          startServerCommand: pnpm --filter @kaneo/web preview -- --port 4173
-          startServerReadyPattern: "Local:"
           uploadArtifacts: true
           temporaryPublicStorage: true
