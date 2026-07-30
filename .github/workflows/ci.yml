@@ -139,3 +139,38 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  pwa-audit:
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.32.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20.20.2
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web app
+        run: pnpm --filter @kaneo/web build
+
+      - name: Run Lighthouse CI (PWA category)
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: |
+            http://localhost:4173/
+          configPath: ./apps/web/lighthouserc.json
+          startServerCommand: pnpm --filter @kaneo/web preview -- --port 4173
+          startServerReadyPattern: "Local:"
+          uploadArtifacts: true
+          temporaryPublicStorage: true
