@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, isNull, min, notInArray } from "drizzle-orm";
+import { and, count, eq, isNull, min, notInArray } from "drizzle-orm";
 import db from "../../database";
 import { projectTable, taskTable } from "../../database/schema";
 
@@ -28,12 +28,17 @@ function createEmptySummary(): ProjectSummary {
   };
 }
 
-async function getProjectSummaries(projectIds: string[]) {
+async function getProjectSummaries(
+  workspaceId: string,
+  includeArchived: boolean,
+) {
   const summariesByProject = new Map<string, ProjectSummary>();
-
-  if (projectIds.length === 0) {
-    return summariesByProject;
-  }
+  const projectScope = includeArchived
+    ? eq(projectTable.workspaceId, workspaceId)
+    : and(
+        eq(projectTable.workspaceId, workspaceId),
+        isNull(projectTable.archivedAt),
+      );
 
   const rows = await db
     .select({
@@ -43,9 +48,10 @@ async function getProjectSummaries(projectIds: string[]) {
       dueDate: min(taskTable.dueDate),
     })
     .from(taskTable)
+    .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
     .where(
       and(
-        inArray(taskTable.projectId, projectIds),
+        projectScope,
         notInArray(taskTable.status, EXCLUDED_TASK_STATUSES),
       ),
     )
@@ -92,7 +98,8 @@ async function getProjects(workspaceId: string, includeArchived = false) {
   });
 
   const summariesByProject = await getProjectSummaries(
-    projects.map((project) => project.id),
+    workspaceId,
+    includeArchived,
   );
 
   return projects.map((project) => {
