@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +31,14 @@ export function UserWorkspaceAccessDialog({
     (workspace) => workspace.id === workspaceId,
   );
   const [role, setRole] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setWorkspaceId("");
+      setRole("");
+    }
+  }, [open]);
+
   const submit = () => {
     if (workspaceId && role) onSubmit(workspaceId, role);
   };

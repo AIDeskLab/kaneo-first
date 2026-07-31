@@ -14,7 +14,9 @@ import { UserWorkspaceAccessDialog } from "./UserWorkspaceAccessDialog";
 export function UsersManagementPage() {
   const { t } = useTranslation();
   const [selectedUser, setSelectedUser] = useState<InstanceUser | null>(null);
-  const { data, isLoading, isError, refetch } = useInstanceUsers();
+  const [limit] = useState(50);
+  const [offset, setOffset] = useState(0);
+  const { data, isLoading, isError, refetch } = useInstanceUsers(limit, offset);
   const { data: workspaces = [] } = useInstanceWorkspaces();
   const add = useAddUserToWorkspace();
   const updateRole = useUpdateUserWorkspaceRole();
@@ -30,6 +32,11 @@ export function UsersManagementPage() {
         </Button>
       </div>
     );
+  const total = data.total ?? 0;
+  const pageStart = offset + 1;
+  const pageEnd = offset + data.users.length;
+  const hasPrev = offset > 0;
+  const hasNext = pageEnd < total;
   return (
     <div className="space-y-6">
       <div>
@@ -54,6 +61,33 @@ export function UsersManagementPage() {
           }
         />
       )}
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-muted-foreground">
+          {total > 0
+            ? t("admin.users.pagination", {
+                start: pageStart,
+                end: pageEnd,
+                total,
+              })
+            : ""}
+        </span>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            disabled={!hasPrev}
+            onClick={() => setOffset(Math.max(0, offset - limit))}
+          >
+            {t("admin.users.prev")}
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!hasNext}
+            onClick={() => setOffset(offset + limit)}
+          >
+            {t("admin.users.next")}
+          </Button>
+        </div>
+      </div>
       <UserWorkspaceAccessDialog
         open={Boolean(selectedUser)}
         onOpenChange={(open) => !open && setSelectedUser(null)}

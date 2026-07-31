@@ -2094,6 +2094,9 @@
 			"confirmUnban": "Unban this user?",
 			"accessDenied": "Access denied.",
 			"notFound": "User not found.",
+			"pagination": "Showing {{start}}–{{end}} of {{total}}",
+			"prev": "Previous",
+			"next": "Next",
 			"toast": {
 				"added": "User added to workspace.",
 				"addFailed": "Failed to add user.",

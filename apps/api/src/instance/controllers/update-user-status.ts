@@ -25,6 +25,11 @@ export default async function updateUserStatus(
       throw new HTTPException(400, { message: "Invalid ban expiration date" });
     }
   }
+  if (banned) {
+    await db
+      .delete(schema.sessionTable)
+      .where(eq(schema.sessionTable.userId, userId));
+  }
   const [updated] = await db
     .update(schema.userTable)
     .set({
