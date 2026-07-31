@@ -16,12 +16,14 @@ import {
 } from "@/components/ui/sidebar";
 import { usePendingInvitations } from "@/hooks/queries/invitation/use-pending-invitations";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
+import { authClient } from "@/lib/auth-client";
 
 export function NavMain() {
   const { t } = useTranslation();
   const { data: workspace } = useActiveWorkspace();
   const navigate = useNavigate();
   const { data: invitations = [] } = usePendingInvitations();
+  const { data: session } = authClient.useSession();
 
   if (!workspace) return null;
 
@@ -49,6 +51,16 @@ export function NavMain() {
       isActive: window.location.pathname === "/dashboard/invitations",
       badge: pendingCount > 0 ? pendingCount : null,
     },
+    ...(session?.user.role === "admin"
+      ? [
+          {
+            title: t("admin.users.navigationLabel"),
+            url: "/admin/users",
+            isActive: window.location.pathname === "/admin/users",
+            badge: null,
+          },
+        ]
+      : []),
   ];
 
   return (

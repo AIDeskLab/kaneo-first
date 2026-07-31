@@ -2058,6 +2058,62 @@
 			"poweredBy": "Powered by"
 		}
 	},
+	"admin": {
+		"users": {
+			"pageTitle": "User management",
+			"title": "Users",
+			"subtitle": "Manage instance users and workspace access.",
+			"navigationLabel": "Users",
+			"loading": "Loading users...",
+			"loadError": "Unable to load users.",
+			"empty": "No users found.",
+			"name": "Name",
+			"email": "Email",
+			"locale": "Locale",
+			"globalRole": "Global role",
+			"createdAt": "Created",
+			"banned": "Status",
+			"active": "Active",
+			"bannedStatus": "Banned",
+			"workspaces": "Workspaces",
+			"noWorkspaces": "No workspaces",
+			"addToWorkspace": "Add to workspace",
+			"workspace": "Workspace",
+			"role": "Role",
+			"selectWorkspace": "Select workspace",
+			"selectRole": "Select role",
+			"add": "Add",
+			"changeRole": "Change role",
+			"removeFromWorkspace": "Remove from workspace",
+			"removeConfirmation": "Remove this user's workspace access?",
+			"ban": "Ban",
+			"unban": "Unban",
+			"banReason": "Reason",
+			"banExpires": "Expires",
+			"confirmBan": "Ban this user?",
+			"confirmUnban": "Unban this user?",
+			"accessDenied": "Access denied.",
+			"notFound": "User not found.",
+			"pagination": "Showing {{start}}–{{end}} of {{total}}",
+			"prev": "Previous",
+			"next": "Next",
+			"toast": {
+				"added": "User added to workspace.",
+				"addFailed": "Failed to add user.",
+				"roleUpdated": "Workspace role updated.",
+				"roleUpdateFailed": "Failed to update role.",
+				"removed": "User removed from workspace.",
+				"removeFailed": "Failed to remove user.",
+				"statusUpdated": "User status updated.",
+				"statusUpdateFailed": "Failed to update user status."
+			},
+			"validation": {
+				"workspaceRequired": "Workspace is required.",
+				"roleRequired": "Role is required.",
+				"invalidDate": "Invalid date."
+			}
+		}
+	},
 	"pwa": {
 		"updateAvailable": "A new version is available",
 		"refresh": "Refresh",

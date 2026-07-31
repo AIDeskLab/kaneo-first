@@ -34,6 +34,7 @@ import giteaIntegration, { handleGiteaWebhookRoute } from "./gitea-integration";
 import githubIntegration, {
   handleGithubWebhookRoute,
 } from "./github-integration";
+import instance from "./instance";
 import getInstanceStatus from "./instance/controllers/get-instance-status";
 import invitation from "./invitation";
 import label from "./label";
@@ -580,6 +581,7 @@ export function createApp() {
   const externalLinkApi = api.route("/external-link", externalLink);
   const workflowRuleApi = api.route("/workflow-rule", workflowRule);
   const invitationApi = api.route("/invitation", invitation);
+  const instanceApi = api.route("/instance", instance);
   const workspaceApi = api.route("/workspace", workspace);
 
   app.route(
@@ -730,6 +732,7 @@ export function createApp() {
     githubIntegrationApi,
     giteaIntegrationApi,
     invitationApi,
+    instanceApi,
     invitationPublicApi,
     labelApi,
     notificationApi,
@@ -846,6 +849,7 @@ const {
   githubIntegrationApi,
   giteaIntegrationApi,
   invitationApi,
+  instanceApi,
   invitationPublicApi,
   labelApi,
   notificationApi,
@@ -893,6 +897,7 @@ export type AppType =
   | typeof externalLinkApi
   | typeof workflowRuleApi
   | typeof invitationApi
+  | typeof instanceApi
   | typeof workspaceApi
   | typeof publicProjectApi
   | typeof invitationPublicApi

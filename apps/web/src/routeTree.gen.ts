@@ -28,6 +28,7 @@ import { Route as LayoutAuthenticatedInvitationsRouteImport } from './routes/_la
 import { Route as LayoutAuthenticatedOnboardingRouteImport } from './routes/_layout/_authenticated/onboarding'
 import { Route as LayoutAuthenticatedProfileSetupRouteImport } from './routes/_layout/_authenticated/profile-setup'
 import { Route as InvitationAcceptInviteIdRouteImport } from './routes/invitation/accept.$inviteId'
+import { Route as LayoutAuthenticatedAdminUsersRouteImport } from './routes/_layout/_authenticated/admin/users'
 import { Route as LayoutAuthenticatedDashboardIndexRouteImport } from './routes/_layout/_authenticated/dashboard/index'
 import { Route as LayoutAuthenticatedDashboardInvitationsRouteImport } from './routes/_layout/_authenticated/dashboard/invitations'
 import { Route as LayoutAuthenticatedDashboardSettingsRouteImport } from './routes/_layout/_authenticated/dashboard/settings'
@@ -153,6 +154,12 @@ const InvitationAcceptInviteIdRoute =
     id: '/invitation/accept/$inviteId',
     path: '/invitation/accept/$inviteId',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const LayoutAuthenticatedAdminUsersRoute =
+  LayoutAuthenticatedAdminUsersRouteImport.update({
+    id: '/admin/users',
+    path: '/admin/users',
+    getParentRoute: () => LayoutAuthenticatedRoute,
   } as any)
 const LayoutAuthenticatedDashboardIndexRoute =
   LayoutAuthenticatedDashboardIndexRouteImport.update({
@@ -358,6 +365,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof LayoutAuthenticatedOnboardingRoute
   '/profile-setup': typeof LayoutAuthenticatedProfileSetupRoute
   '/invitation/accept/$inviteId': typeof InvitationAcceptInviteIdRoute
+  '/admin/users': typeof LayoutAuthenticatedAdminUsersRoute
   '/dashboard/invitations': typeof LayoutAuthenticatedDashboardInvitationsRoute
   '/dashboard/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
   '/dashboard/': typeof LayoutAuthenticatedDashboardIndexRoute
@@ -402,6 +410,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof LayoutAuthenticatedOnboardingRoute
   '/profile-setup': typeof LayoutAuthenticatedProfileSetupRoute
   '/invitation/accept/$inviteId': typeof InvitationAcceptInviteIdRoute
+  '/admin/users': typeof LayoutAuthenticatedAdminUsersRoute
   '/dashboard/invitations': typeof LayoutAuthenticatedDashboardInvitationsRoute
   '/dashboard/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
   '/dashboard': typeof LayoutAuthenticatedDashboardIndexRoute
@@ -450,6 +459,7 @@ export interface FileRoutesById {
   '/_layout/_authenticated/onboarding': typeof LayoutAuthenticatedOnboardingRoute
   '/_layout/_authenticated/profile-setup': typeof LayoutAuthenticatedProfileSetupRoute
   '/invitation/accept/$inviteId': typeof InvitationAcceptInviteIdRoute
+  '/_layout/_authenticated/admin/users': typeof LayoutAuthenticatedAdminUsersRoute
   '/_layout/_authenticated/dashboard/invitations': typeof LayoutAuthenticatedDashboardInvitationsRoute
   '/_layout/_authenticated/dashboard/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
   '/_layout/_authenticated/dashboard/': typeof LayoutAuthenticatedDashboardIndexRoute
@@ -498,6 +508,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/profile-setup'
     | '/invitation/accept/$inviteId'
+    | '/admin/users'
     | '/dashboard/invitations'
     | '/dashboard/settings'
     | '/dashboard/'
@@ -542,6 +553,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/profile-setup'
     | '/invitation/accept/$inviteId'
+    | '/admin/users'
     | '/dashboard/invitations'
     | '/dashboard/settings'
     | '/dashboard'
@@ -589,6 +601,7 @@ export interface FileRouteTypes {
     | '/_layout/_authenticated/onboarding'
     | '/_layout/_authenticated/profile-setup'
     | '/invitation/accept/$inviteId'
+    | '/_layout/_authenticated/admin/users'
     | '/_layout/_authenticated/dashboard/invitations'
     | '/_layout/_authenticated/dashboard/settings'
     | '/_layout/_authenticated/dashboard/'
@@ -763,6 +776,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/invitation/accept/$inviteId'
       preLoaderRoute: typeof InvitationAcceptInviteIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_layout/_authenticated/admin/users': {
+      id: '/_layout/_authenticated/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof LayoutAuthenticatedAdminUsersRouteImport
+      parentRoute: typeof LayoutAuthenticatedRoute
     }
     '/_layout/_authenticated/dashboard/': {
       id: '/_layout/_authenticated/dashboard/'
@@ -1114,6 +1134,7 @@ interface LayoutAuthenticatedRouteChildren {
   LayoutAuthenticatedInvitationsRoute: typeof LayoutAuthenticatedInvitationsRoute
   LayoutAuthenticatedOnboardingRoute: typeof LayoutAuthenticatedOnboardingRoute
   LayoutAuthenticatedProfileSetupRoute: typeof LayoutAuthenticatedProfileSetupRoute
+  LayoutAuthenticatedAdminUsersRoute: typeof LayoutAuthenticatedAdminUsersRoute
 }
 
 const LayoutAuthenticatedRouteChildren: LayoutAuthenticatedRouteChildren = {
@@ -1122,6 +1143,7 @@ const LayoutAuthenticatedRouteChildren: LayoutAuthenticatedRouteChildren = {
   LayoutAuthenticatedInvitationsRoute: LayoutAuthenticatedInvitationsRoute,
   LayoutAuthenticatedOnboardingRoute: LayoutAuthenticatedOnboardingRoute,
   LayoutAuthenticatedProfileSetupRoute: LayoutAuthenticatedProfileSetupRoute,
+  LayoutAuthenticatedAdminUsersRoute: LayoutAuthenticatedAdminUsersRoute,
 }
 
 const LayoutAuthenticatedRouteWithChildren =
