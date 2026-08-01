@@ -61,7 +61,13 @@ export function UsersTable({
             <TableRow key={user.id}>
               <TableCell>{user.name}</TableCell>
               <TableCell>{user.email}</TableCell>
-              <TableCell>{user.role ?? "—"}</TableCell>
+              <TableCell>
+                {user.role === "admin" ? (
+                  <Badge>{t("admin.users.superUser")}</Badge>
+                ) : (
+                  (user.role ?? "—")
+                )}
+              </TableCell>
               <TableCell>
                 <Badge variant={user.banned ? "destructive" : "secondary"}>
                   {user.banned
