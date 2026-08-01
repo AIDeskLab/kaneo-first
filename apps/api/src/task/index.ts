@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { Hono } from "hono";
+import { type Context, Hono, type Next } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import * as v from "valibot";
@@ -37,6 +37,40 @@ import updateTaskPriority from "./controllers/update-task-priority";
 import updateTaskStatus from "./controllers/update-task-status";
 import updateTaskTitle from "./controllers/update-task-title";
 import { VALID_PRIORITIES } from "./validate-task-fields";
+
+async function requireBulkTaskPermission(c: Context, next: Next) {
+  const { operation } = c.req.valid("json");
+
+  if (operation === "delete") {
+    return requireWorkspacePermission({ task: ["delete"] })(c, next);
+  }
+
+  if (operation === "updateAssignee") {
+    return requireWorkspacePermission({ task: ["assign"] })(c, next);
+  }
+
+  if (operation === "addLabel" || operation === "removeLabel") {
+    return requireWorkspacePermission({ label: ["update"] })(c, next);
+  }
+
+  return requireWorkspacePermission({ task: ["update"] })(c, next);
+}
+
+async function requireTaskAssigneePermission(c: Context, next: Next) {
+  const { id } = c.req.valid("param");
+  const { userId } = c.req.valid("json");
+  const [existingTask] = await db
+    .select({ userId: taskTable.userId })
+    .from(taskTable)
+    .where(eq(taskTable.id, id))
+    .limit(1);
+
+  if (existingTask && existingTask.userId !== (userId || null)) {
+    return requireWorkspacePermission({ task: ["assign"] })(c, next);
+  }
+
+  return next();
+}
 
 const task = new Hono<{
   Variables: {
@@ -153,6 +187,8 @@ const task = new Hono<{
         value: v.optional(v.nullable(v.string())),
       }),
     ),
+    workspaceAccess.fromTasks(),
+    requireBulkTaskPermission,
     async (c) => {
       const { taskIds, operation, value } = c.req.valid("json");
       const userId = c.get("userId");
@@ -342,6 +378,7 @@ const task = new Hono<{
     ),
     workspaceAccess.fromTask(),
     requireWorkspacePermission({ task: ["update"] }),
+    requireTaskAssigneePermission,
     async (c) => {
       const { id } = c.req.valid("param");
       const {
