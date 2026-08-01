@@ -2133,6 +2133,7 @@
 			"email": "Email",
 			"locale": "Язык",
 			"globalRole": "Глобальная роль",
+			"superUser": "Супер-пользователь",
 			"createdAt": "Создан",
 			"banned": "Статус",
 			"active": "Активен",

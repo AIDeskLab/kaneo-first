@@ -2071,6 +2071,7 @@
 			"email": "Email",
 			"locale": "Locale",
 			"globalRole": "Global role",
+			"superUser": "Super User",
 			"createdAt": "Created",
 			"banned": "Status",
 			"active": "Active",
