@@ -11,7 +11,9 @@
 			"remove": "Remove",
 			"reset": "Reset",
 			"filter": "Filter",
-			"clearAllFilters": "Clear all filters"
+			"clearAllFilters": "Clear all filters",
+			"edit": "Edit",
+			"save": "Save"
 		},
 		"a11y": {
 			"toggleSidebar": "Toggle sidebar"
@@ -2127,6 +2129,8 @@
 		"pageTitle": "Project Groups",
 		"create": "Create group",
 		"name": "Name",
-		"empty": "No project groups"
+		"empty": "No project groups",
+		"emptyTitle": "No project groups",
+		"emptyDescription": "Create your first project group to organize projects."
 	}
 }

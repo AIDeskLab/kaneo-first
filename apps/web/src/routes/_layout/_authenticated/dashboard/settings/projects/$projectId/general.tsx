@@ -560,7 +560,7 @@ function RouteComponent() {
                         </div>
                         <FormControl>
                           <select
-                            className="h-9 w-64 rounded border border-input bg-background px-3 text-sm"
+                            className="h-9 w-64 rounded-md border border-input bg-background px-3 text-sm"
                             value={field.value ?? ""}
                             onChange={(e) =>
                               field.onChange(e.target.value || null)
