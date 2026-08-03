@@ -54,7 +54,7 @@ export function NavMain() {
     ...(session?.user.role === "admin"
       ? [
           {
-            title: t("admin.users.navigationLabel"),
+            title: t("admin:users.navigationLabel"),
             url: "/admin/users",
             isActive: window.location.pathname === "/admin/users",
             badge: null,

@@ -22,11 +22,11 @@ export function UsersManagementPage() {
   const updateRole = useUpdateUserWorkspaceRole();
   const remove = useRemoveUserFromWorkspace();
   const status = useUpdateUserStatus();
-  if (isLoading) return <p>{t("admin.users.loading")}</p>;
+  if (isLoading) return <p>{t("admin:users.loading")}</p>;
   if (isError || !data)
     return (
       <div className="space-y-2">
-        <p className="text-destructive">{t("admin.users.loadError")}</p>
+        <p className="text-destructive">{t("admin:users.loadError")}</p>
         <Button onClick={() => void refetch()}>
           {t("common:error.tryAgain")}
         </Button>
@@ -40,11 +40,11 @@ export function UsersManagementPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">{t("admin.users.title")}</h1>
-        <p className="text-muted-foreground">{t("admin.users.subtitle")}</p>
+        <h1 className="text-2xl font-semibold">{t("admin:users.title")}</h1>
+        <p className="text-muted-foreground">{t("admin:users.subtitle")}</p>
       </div>
       {data.users.length === 0 ? (
-        <p>{t("admin.users.empty")}</p>
+        <p>{t("admin:users.empty")}</p>
       ) : (
         <UsersTable
           users={data.users}
@@ -64,7 +64,7 @@ export function UsersManagementPage() {
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">
           {total > 0
-            ? t("admin.users.pagination", {
+            ? t("admin:users.pagination", {
                 start: pageStart,
                 end: pageEnd,
                 total,
@@ -77,14 +77,14 @@ export function UsersManagementPage() {
             disabled={!hasPrev}
             onClick={() => setOffset(Math.max(0, offset - limit))}
           >
-            {t("admin.users.prev")}
+            {t("admin:users.prev")}
           </Button>
           <Button
             variant="outline"
             disabled={!hasNext}
             onClick={() => setOffset(offset + limit)}
           >
-            {t("admin.users.next")}
+            {t("admin:users.next")}
           </Button>
         </div>
       </div>

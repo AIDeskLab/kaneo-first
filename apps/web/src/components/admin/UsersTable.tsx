@@ -48,11 +48,11 @@ export function UsersTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>{t("admin.users.name")}</TableHead>
-            <TableHead>{t("admin.users.email")}</TableHead>
-            <TableHead>{t("admin.users.globalRole")}</TableHead>
-            <TableHead>{t("admin.users.banned")}</TableHead>
-            <TableHead>{t("admin.users.workspaces")}</TableHead>
+            <TableHead>{t("admin:users.name")}</TableHead>
+            <TableHead>{t("admin:users.email")}</TableHead>
+            <TableHead>{t("admin:users.globalRole")}</TableHead>
+            <TableHead>{t("admin:users.banned")}</TableHead>
+            <TableHead>{t("admin:users.workspaces")}</TableHead>
             <TableHead />
           </TableRow>
         </TableHeader>
@@ -63,7 +63,7 @@ export function UsersTable({
               <TableCell>{user.email}</TableCell>
               <TableCell>
                 {user.role === "admin" ? (
-                  <Badge>{t("admin.users.superUser")}</Badge>
+                  <Badge>{t("admin:users.superUser")}</Badge>
                 ) : (
                   (user.role ?? "—")
                 )}
@@ -71,8 +71,8 @@ export function UsersTable({
               <TableCell>
                 <Badge variant={user.banned ? "destructive" : "secondary"}>
                   {user.banned
-                    ? t("admin.users.bannedStatus")
-                    : t("admin.users.active")}
+                    ? t("admin:users.bannedStatus")
+                    : t("admin:users.active")}
                 </Badge>
               </TableCell>
               <TableCell>
@@ -89,14 +89,14 @@ export function UsersTable({
               </TableCell>
               <TableCell className="space-x-2">
                 <Button size="xs" variant="outline" onClick={() => onAdd(user)}>
-                  {t("admin.users.addToWorkspace")}
+                  {t("admin:users.addToWorkspace")}
                 </Button>
                 <Button
                   size="xs"
                   variant={user.banned ? "outline" : "destructive"}
                   onClick={() => onStatusChange(user)}
                 >
-                  {user.banned ? t("admin.users.unban") : t("admin.users.ban")}
+                  {user.banned ? t("admin:users.unban") : t("admin:users.ban")}
                 </Button>
               </TableCell>
             </TableRow>
@@ -110,10 +110,10 @@ export function UsersTable({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t("admin.users.removeFromWorkspace")}
+              {t("admin:users.removeFromWorkspace")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t("admin.users.removeConfirmation")}
+              {t("admin:users.removeConfirmation")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
