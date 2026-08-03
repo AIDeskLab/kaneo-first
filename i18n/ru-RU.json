@@ -607,7 +607,9 @@
 				"nameRequired": "Название проекта обязательно",
 				"keyRequired": "Ключ обязателен",
 				"keyMax": "Ключ должен содержать не более 8 символов",
-				"iconRequired": "Иконка обязательна"
+				"iconRequired": "Иконка обязательна",
+				"nameShort": "Название проекта должно содержать не менее 2 символов",
+				"keyShort": "Ключ должен содержать не менее 2 символов"
 			},
 			"importExportTasks": "Import/Export",
 			"importExportTasksDescription": "Import and export tasks.",
@@ -2058,7 +2060,10 @@
 			"emailPlaceholder": "colleague@company.com",
 			"sendInvitation": "Отправить приглашение",
 			"success": "Приглашение успешно отправлено",
-			"error": "Не удалось пригласить участника команды"
+			"error": "Не удалось пригласить участника команды",
+			"createdTitle": "Invitation created",
+			"shareLinkDescription": "Share this link with {{email}} so they can join the workspace.",
+			"done": "Done"
 		},
 		"membersTable": {
 			"emptyTitle": "Участников команды пока нет",
@@ -2087,11 +2092,16 @@
 			"copyInviteLinkAria": "Скопировать ссылку на приглашение",
 			"copyInviteLinkHint": "Нажмите, чтобы скопировать ссылку на приглашение",
 			"roleUpdateError": "Failed to update role",
-			"roleUpdateSuccess": "Role updated"
+			"roleUpdateSuccess": "Role updated",
+			"ariaInvitationActions": "Invitation actions"
 		},
 		"invitations": {
 			"expires": "Expires {{date}}",
-			"pendingBadge": "pending"
+			"pendingBadge": "pending",
+			"linkLabel": "Invitation link",
+			"copyLink": "Copy link",
+			"linkCopied": "Invitation link copied",
+			"copyFailed": "Couldn't copy automatically. Select the link and press Ctrl+C."
 		}
 	},
 	"publicProject": {

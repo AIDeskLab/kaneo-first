@@ -252,7 +252,7 @@
 			"inviteBodySignedIn": "<inviter>{{inviterName}}</inviter> запросив вас приєднатися до свого робочого простору.",
 			"inviteBodySignedOut": "<inviter>{{inviterName}}</inviter> запросив вас приєднатися до свого робочого простору в Kaneo.",
 			"createAccountOrSignIn": "Create an account to accept this invitation, or sign in if you already have one.",
-			"createAccount": "Create Account",
+			"createAccount": "Create account",
 			"accepting": "Приймається...",
 			"acceptInvitation": "Прийняти запрошення",
 			"goToDashboard": "Перейти до панелі керування",
@@ -265,8 +265,8 @@
 				"acceptSuccess": "Запрошення прийнято! Ласкаво просимо до команди."
 			},
 			"createAccountToAccept": "Create an account and set a password to accept this invitation.",
-			"createAccount": "Create account",
-			"alreadyHaveAccount": "Already have an account?"
+			"alreadyHaveAccount": "Already have an account?",
+			"signInToAccept": "Увійдіть, щоб прийняти це запрошення."
 		},
 		"onboarding": {
 			"pageTitle": "Ласкаво просимо до Kaneo",
@@ -606,7 +606,9 @@
 				"nameRequired": "Назва проєкту є обов'язковою",
 				"keyRequired": "Ключ є обов'язковим",
 				"keyMax": "Ключ може містити не більше 8 символів",
-				"iconRequired": "Іконка є обов'язковою"
+				"iconRequired": "Іконка є обов'язковою",
+				"nameShort": "Назва проєкту має містити щонайменше 2 символи",
+				"keyShort": "Ключ має містити щонайменше 2 символи"
 			},
 			"importExportTasks": "Import/Export",
 			"importExportTasksDescription": "Import and export tasks."
@@ -1987,7 +1989,10 @@
 			"emailPlaceholder": "colleague@company.com",
 			"sendInvitation": "Надіслати запрошення",
 			"success": "Запрошення успішно надіслано",
-			"error": "Не вдалося запросити учасника команди"
+			"error": "Не вдалося запросити учасника команди",
+			"createdTitle": "Invitation created",
+			"shareLinkDescription": "Share this link with {{email}} so they can join the workspace.",
+			"done": "Done"
 		},
 		"membersTable": {
 			"emptyTitle": "Учасників команди ще немає",
@@ -2016,11 +2021,16 @@
 			"copyInviteLinkHint": "Click to copy invite link",
 			"copyInviteLinkSuccess": "Invite link copied",
 			"roleUpdateError": "Failed to update role",
-			"roleUpdateSuccess": "Role updated"
+			"roleUpdateSuccess": "Role updated",
+			"ariaInvitationActions": "Invitation actions"
 		},
 		"invitations": {
 			"expires": "Expires {{date}}",
-			"pendingBadge": "pending"
+			"pendingBadge": "pending",
+			"linkLabel": "Invitation link",
+			"copyLink": "Copy link",
+			"linkCopied": "Invitation link copied",
+			"copyFailed": "Couldn't copy automatically. Select the link and press Ctrl+C."
 		}
 	},
 	"publicProject": {

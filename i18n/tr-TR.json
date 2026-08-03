@@ -252,7 +252,7 @@
 			"inviteBodySignedIn": "<inviter>{{inviterName}}</inviter> sizi çalışma alanına katılmaya davet etti.",
 			"inviteBodySignedOut": "<inviter>{{inviterName}}</inviter> sizi Kaneo üzerindeki çalışma alanına katılmaya davet etti.",
 			"createAccountOrSignIn": "Create an account to accept this invitation, or sign in if you already have one.",
-			"createAccount": "Create Account",
+			"createAccount": "Create account",
 			"accepting": "Kabul ediliyor...",
 			"acceptInvitation": "Daveti Kabul Et",
 			"goToDashboard": "Panele Git",
@@ -265,8 +265,8 @@
 				"acceptSuccess": "Davet kabul edildi! Aramıza hoş geldiniz."
 			},
 			"createAccountToAccept": "Create an account and set a password to accept this invitation.",
-			"createAccount": "Create account",
-			"alreadyHaveAccount": "Already have an account?"
+			"alreadyHaveAccount": "Already have an account?",
+			"signInToAccept": "Bu daveti kabul etmek için giriş yapın."
 		},
 		"onboarding": {
 			"pageTitle": "Kaneo'ya Hoş Geldiniz",
@@ -606,7 +606,9 @@
 				"nameRequired": "Proje adı gereklidir",
 				"keyRequired": "Anahtar gereklidir",
 				"keyMax": "Anahtar en fazla 8 karakter olmalıdır",
-				"iconRequired": "Simge gereklidir"
+				"iconRequired": "Simge gereklidir",
+				"nameShort": "Proje adı en az 2 karakter olmalıdır",
+				"keyShort": "Anahtar en az 2 karakter olmalıdır"
 			},
 			"importExportTasks": "İçe/Dışa Aktar",
 			"importExportTasksDescription": "Talepleri içe ve dışa aktarın."
@@ -1981,7 +1983,10 @@
 			"emailPlaceholder": "arkadas@sirket.com",
 			"sendInvitation": "Davet Gönder",
 			"success": "Davet başarıyla gönderildi",
-			"error": "Ekip üyesi davet edilemedi"
+			"error": "Ekip üyesi davet edilemedi",
+			"createdTitle": "Invitation created",
+			"shareLinkDescription": "Share this link with {{email}} so they can join the workspace.",
+			"done": "Done"
 		},
 		"membersTable": {
 			"emptyTitle": "Henüz ekip üyesi yok",
@@ -2010,11 +2015,16 @@
 			"copyInviteLinkAria": "Copy invite link",
 			"copyInviteLinkError": "Failed to copy invite link",
 			"copyInviteLinkHint": "Click to copy invite link",
-			"copyInviteLinkSuccess": "Invite link copied"
+			"copyInviteLinkSuccess": "Invite link copied",
+			"ariaInvitationActions": "Invitation actions"
 		},
 		"invitations": {
 			"expires": "Expires {{date}}",
-			"pendingBadge": "pending"
+			"pendingBadge": "pending",
+			"linkLabel": "Invitation link",
+			"copyLink": "Copy link",
+			"linkCopied": "Invitation link copied",
+			"copyFailed": "Couldn't copy automatically. Select the link and press Ctrl+C."
 		}
 	},
 	"publicProject": {

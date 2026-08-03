@@ -252,7 +252,7 @@
 			"inviteBodySignedIn": "<inviter>{{inviterName}}</inviter> hat dich eingeladen, ihrem Workspace beizutreten.",
 			"inviteBodySignedOut": "<inviter>{{inviterName}}</inviter> hat dich eingeladen, ihrem Workspace auf Kaneo beizutreten.",
 			"createAccountOrSignIn": "Create an account to accept this invitation, or sign in if you already have one.",
-			"createAccount": "Create Account",
+			"createAccount": "Create account",
 			"accepting": "Wird angenommen...",
 			"acceptInvitation": "Einladung annehmen",
 			"goToDashboard": "Zum Dashboard",
@@ -265,8 +265,8 @@
 				"acceptSuccess": "Einladung angenommen! Willkommen im Team."
 			},
 			"createAccountToAccept": "Create an account and set a password to accept this invitation.",
-			"createAccount": "Create account",
-			"alreadyHaveAccount": "Already have an account?"
+			"alreadyHaveAccount": "Already have an account?",
+			"signInToAccept": "Melde dich an, um die Einladung anzunehmen."
 		},
 		"onboarding": {
 			"pageTitle": "Willkommen bei Kaneo",
@@ -606,7 +606,9 @@
 				"nameRequired": "Projektname ist erforderlich",
 				"keyRequired": "Schlüssel ist erforderlich",
 				"keyMax": "Der Schlüssel darf höchstens 8 Zeichen lang sein",
-				"iconRequired": "Symbol ist erforderlich"
+				"iconRequired": "Symbol ist erforderlich",
+				"nameShort": "Der Projektname muss mindestens 2 Zeichen lang sein",
+				"keyShort": "Der Schlüssel muss mindestens 2 Zeichen lang sein"
 			},
 			"importExportTasks": "Import/Export",
 			"importExportTasksDescription": "Importieren und Exportieren von Aufgaben."
@@ -1981,7 +1983,10 @@
 			"emailPlaceholder": "kollege@firma.com",
 			"sendInvitation": "Einladung senden",
 			"success": "Einladung erfolgreich gesendet",
-			"error": "Teammitglied konnte nicht eingeladen werden"
+			"error": "Teammitglied konnte nicht eingeladen werden",
+			"createdTitle": "Invitation created",
+			"shareLinkDescription": "Share this link with {{email}} so they can join the workspace.",
+			"done": "Done"
 		},
 		"membersTable": {
 			"emptyTitle": "Noch keine Teammitglieder",
@@ -2010,11 +2015,16 @@
 			"copyInviteLinkHint": "Click to copy invite link",
 			"copyInviteLinkSuccess": "Invite link copied",
 			"roleUpdateError": "Failed to update role",
-			"roleUpdateSuccess": "Role updated"
+			"roleUpdateSuccess": "Role updated",
+			"ariaInvitationActions": "Invitation actions"
 		},
 		"invitations": {
 			"expires": "Expires {{date}}",
-			"pendingBadge": "pending"
+			"pendingBadge": "pending",
+			"linkLabel": "Invitation link",
+			"copyLink": "Copy link",
+			"linkCopied": "Invitation link copied",
+			"copyFailed": "Couldn't copy automatically. Select the link and press Ctrl+C."
 		}
 	},
 	"publicProject": {

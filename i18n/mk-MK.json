@@ -252,7 +252,7 @@
 			"inviteBodySignedIn": "<inviter>{{inviterName}}</inviter> те покани да се приклучиш на нивниот работен простор.",
 			"inviteBodySignedOut": "<inviter>{{inviterName}}</inviter> те покани да се приклучиш на нивниот работен простор на Kaneo.",
 			"createAccountOrSignIn": "Create an account to accept this invitation, or sign in if you already have one.",
-			"createAccount": "Create Account",
+			"createAccount": "Create account",
 			"accepting": "Се прифаќа...",
 			"acceptInvitation": "Прифати покана",
 			"goToDashboard": "Оди на контролна табла",
@@ -265,8 +265,8 @@
 				"acceptSuccess": "Поканата е прифатена! Добредојде во тимот."
 			},
 			"createAccountToAccept": "Create an account and set a password to accept this invitation.",
-			"createAccount": "Create account",
-			"alreadyHaveAccount": "Already have an account?"
+			"alreadyHaveAccount": "Already have an account?",
+			"signInToAccept": "Најави се за да ја прифатиш поканата."
 		},
 		"onboarding": {
 			"pageTitle": "Добредојде на Kaneo",
@@ -606,7 +606,9 @@
 				"nameRequired": "Името на проектот е задолжително",
 				"keyRequired": "Клучот е задолжителен",
 				"keyMax": "Клучот мора да има најмногу 8 знаци",
-				"iconRequired": "Иконата е задолжителна"
+				"iconRequired": "Иконата е задолжителна",
+				"nameShort": "Името на проектот мора да има најмалку 2 знаци",
+				"keyShort": "Клучот мора да има најмалку 2 знаци"
 			},
 			"importExportTasks": "Импортирање/Експортирање",
 			"importExportTasksDescription": "Импортирање/Експортирање на задачи"
@@ -1981,7 +1983,10 @@
 			"emailPlaceholder": "kolega@kompanija.com",
 			"sendInvitation": "Испрати покана",
 			"success": "Поканата е успешно испратена",
-			"error": "Неуспешно поканување на член на тим"
+			"error": "Неуспешно поканување на член на тим",
+			"createdTitle": "Invitation created",
+			"shareLinkDescription": "Share this link with {{email}} so they can join the workspace.",
+			"done": "Done"
 		},
 		"membersTable": {
 			"emptyTitle": "Нема членови на тим засега",
@@ -2010,11 +2015,16 @@
 			"copyInviteLinkHint": "Click to copy invite link",
 			"copyInviteLinkSuccess": "Invite link copied",
 			"roleUpdateError": "Failed to update role",
-			"roleUpdateSuccess": "Role updated"
+			"roleUpdateSuccess": "Role updated",
+			"ariaInvitationActions": "Invitation actions"
 		},
 		"invitations": {
 			"expires": "Expires {{date}}",
-			"pendingBadge": "pending"
+			"pendingBadge": "pending",
+			"linkLabel": "Invitation link",
+			"copyLink": "Copy link",
+			"linkCopied": "Invitation link copied",
+			"copyFailed": "Couldn't copy automatically. Select the link and press Ctrl+C."
 		}
 	},
 	"publicProject": {

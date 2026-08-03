@@ -252,7 +252,7 @@
 			"inviteBodySignedIn": "<inviter>{{inviterName}}</inviter> vous a invité à rejoindre son espace de travail.",
 			"inviteBodySignedOut": "<inviter>{{inviterName}}</inviter> vous a invité à rejoindre son espace de travail sur Kaneo.",
 			"createAccountOrSignIn": "Create an account to accept this invitation, or sign in if you already have one.",
-			"createAccount": "Create Account",
+			"createAccount": "Create account",
 			"accepting": "Acceptation...",
 			"acceptInvitation": "Accepter l'invitation",
 			"goToDashboard": "Aller au tableau de bord",
@@ -265,8 +265,8 @@
 				"acceptSuccess": "Invitation acceptée! Bienvenue dans l'équipe."
 			},
 			"createAccountToAccept": "Create an account and set a password to accept this invitation.",
-			"createAccount": "Create account",
-			"alreadyHaveAccount": "Already have an account?"
+			"alreadyHaveAccount": "Already have an account?",
+			"signInToAccept": "Connectez-vous pour accepter cette invitation."
 		},
 		"onboarding": {
 			"pageTitle": "Bienvenue sur Kaneo",
@@ -606,7 +606,9 @@
 				"nameRequired": "Le nom du projet est requis",
 				"keyRequired": "La clé est requise",
 				"keyMax": "La clé doit contenir au plus 8 caractères",
-				"iconRequired": "L'icône est requise"
+				"iconRequired": "L'icône est requise",
+				"nameShort": "Le nom du projet doit contenir au moins 2 caractères",
+				"keyShort": "La clé doit contenir au moins 2 caractères"
 			},
 			"importExportTasks": "Importation/Exportation",
 			"importExportTasksDescription": "Importation/Exportation des Tâches"
@@ -1977,7 +1979,11 @@
 		},
 		"invitations": {
 			"pendingBadge": "En attente",
-			"expires": "Expire {{date}}"
+			"expires": "Expire {{date}}",
+			"linkLabel": "Invitation link",
+			"copyLink": "Copy link",
+			"linkCopied": "Invitation link copied",
+			"copyFailed": "Couldn't copy automatically. Select the link and press Ctrl+C."
 		},
 		"inviteModal": {
 			"title": "Inviter un membre de l'équipe",
@@ -1985,7 +1991,10 @@
 			"emailPlaceholder": "collegue@entreprise.fr",
 			"sendInvitation": "Envoyer l'invitation",
 			"success": "Invitation envoyée avec succès",
-			"error": "Échec de l'envoi de l'invitation"
+			"error": "Échec de l'envoi de l'invitation",
+			"createdTitle": "Invitation created",
+			"shareLinkDescription": "Share this link with {{email}} so they can join the workspace.",
+			"done": "Done"
 		},
 		"membersTable": {
 			"emptyTitle": "Aucun membre de l'équipe pour le moment",
@@ -2014,7 +2023,8 @@
 			"copyInviteLinkAria": "Copy invite link",
 			"copyInviteLinkError": "Failed to copy invite link",
 			"copyInviteLinkHint": "Click to copy invite link",
-			"copyInviteLinkSuccess": "Invite link copied"
+			"copyInviteLinkSuccess": "Invite link copied",
+			"ariaInvitationActions": "Invitation actions"
 		}
 	},
 	"publicProject": {

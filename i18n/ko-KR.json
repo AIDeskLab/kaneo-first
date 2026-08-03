@@ -252,7 +252,7 @@
 			"inviteBodySignedIn": "<inviter>{{inviterName}}</inviter>님이 워크스페이스에 초대했습니다.",
 			"inviteBodySignedOut": "<inviter>{{inviterName}}</inviter>님이 Kaneo 워크스페이스에 초대했습니다.",
 			"createAccountOrSignIn": "Create an account to accept this invitation, or sign in if you already have one.",
-			"createAccount": "Create Account",
+			"createAccount": "Create account",
 			"accepting": "수락 중...",
 			"acceptInvitation": "초대 수락",
 			"goToDashboard": "대시보드로 이동",
@@ -265,8 +265,8 @@
 				"acceptSuccess": "초대가 수락되었습니다! 팀에 오신 것을 환영합니다."
 			},
 			"createAccountToAccept": "Create an account and set a password to accept this invitation.",
-			"createAccount": "Create account",
-			"alreadyHaveAccount": "Already have an account?"
+			"alreadyHaveAccount": "Already have an account?",
+			"signInToAccept": "이 초대를 수락하려면 로그인하세요."
 		},
 		"onboarding": {
 			"pageTitle": "Kaneo에 오신 것을 환영합니다",
@@ -606,7 +606,9 @@
 				"nameRequired": "프로젝트 이름은 필수입니다",
 				"keyRequired": "키는 필수입니다",
 				"keyMax": "키는 8자 이하여야 합니다",
-				"iconRequired": "아이콘은 필수입니다"
+				"iconRequired": "아이콘은 필수입니다",
+				"nameShort": "프로젝트 이름은 2자 이상이어야 합니다",
+				"keyShort": "키는 2자 이상이어야 합니다"
 			},
 			"importExportTasks": "가져오기/내보내기",
 			"importExportTasksDescription": "작업을 가져오고 내보냅니다."
@@ -1981,7 +1983,10 @@
 			"emailPlaceholder": "colleague@company.com",
 			"sendInvitation": "초대 전송",
 			"success": "초대가 전송되었습니다",
-			"error": "팀 멤버 초대에 실패했습니다"
+			"error": "팀 멤버 초대에 실패했습니다",
+			"createdTitle": "Invitation created",
+			"shareLinkDescription": "Share this link with {{email}} so they can join the workspace.",
+			"done": "Done"
 		},
 		"membersTable": {
 			"emptyTitle": "아직 팀 멤버가 없습니다",
@@ -2010,11 +2015,16 @@
 			"copyInviteLinkHint": "Click to copy invite link",
 			"copyInviteLinkSuccess": "Invite link copied",
 			"roleUpdateError": "Failed to update role",
-			"roleUpdateSuccess": "Role updated"
+			"roleUpdateSuccess": "Role updated",
+			"ariaInvitationActions": "Invitation actions"
 		},
 		"invitations": {
 			"expires": "Expires {{date}}",
-			"pendingBadge": "pending"
+			"pendingBadge": "pending",
+			"linkLabel": "Invitation link",
+			"copyLink": "Copy link",
+			"linkCopied": "Invitation link copied",
+			"copyFailed": "Couldn't copy automatically. Select the link and press Ctrl+C."
 		}
 	},
 	"publicProject": {
