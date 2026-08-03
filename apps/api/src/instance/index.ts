@@ -33,7 +33,7 @@ const instance = new Hono()
             v.transform(Number),
             v.integer(),
             v.minValue(1),
-            v.maxValue(100),
+            v.maxValue(1000),
           ),
         ),
         offset: v.optional(
