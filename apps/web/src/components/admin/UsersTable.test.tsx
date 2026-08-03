@@ -44,7 +44,7 @@ describe("UsersTable", () => {
     );
     expect(screen.getByText("Ada")).toBeInTheDocument();
     expect(screen.getByText("Main")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("admin.users.addToWorkspace"));
+    fireEvent.click(screen.getByText("admin:users.addToWorkspace"));
     expect(onAdd).toHaveBeenCalledWith(user);
   });
 });

@@ -19,7 +19,7 @@ export function UserWorkspaceMemberships({
   if (user.workspaces.length === 0) {
     return (
       <span className="text-muted-foreground">
-        {t("admin.users.noWorkspaces")}
+        {t("admin:users.noWorkspaces")}
       </span>
     );
   }
@@ -29,7 +29,7 @@ export function UserWorkspaceMemberships({
         <Badge key={workspace.id} variant="secondary" className="gap-1">
           <span>{workspace.name}</span>
           <select
-            aria-label={`${workspace.name} ${t("admin.users.role")}`}
+            aria-label={`${workspace.name} ${t("admin:users.role")}`}
             className="bg-transparent text-xs"
             value={workspace.role}
             onChange={(event) => onRoleChange(workspace.id, event.target.value)}
@@ -47,7 +47,7 @@ export function UserWorkspaceMemberships({
           <button
             type="button"
             onClick={() => onRemove(workspace.id)}
-            aria-label={t("admin.users.removeFromWorkspace")}
+            aria-label={t("admin:users.removeFromWorkspace")}
           >
             ×
           </button>

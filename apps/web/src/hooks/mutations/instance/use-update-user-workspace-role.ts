@@ -10,13 +10,13 @@ export default function useUpdateUserWorkspaceRole() {
     mutationFn: updateUserWorkspaceRole,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["instance", "users"] });
-      toast.success(t("admin.users.toast.roleUpdated"));
+      toast.success(t("admin:users.toast.roleUpdated"));
     },
     onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
-          : t("admin.users.toast.roleUpdateFailed"),
+          : t("admin:users.toast.roleUpdateFailed"),
       ),
   });
 }

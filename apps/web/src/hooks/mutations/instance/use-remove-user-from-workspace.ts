@@ -10,13 +10,13 @@ export default function useRemoveUserFromWorkspace() {
     mutationFn: removeUserFromWorkspace,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["instance", "users"] });
-      toast.success(t("admin.users.toast.removed"));
+      toast.success(t("admin:users.toast.removed"));
     },
     onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
-          : t("admin.users.toast.removeFailed"),
+          : t("admin:users.toast.removeFailed"),
       ),
   });
 }

@@ -46,11 +46,11 @@ export function UserWorkspaceAccessDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("admin.users.addToWorkspace")}</DialogTitle>
+          <DialogTitle>{t("admin:users.addToWorkspace")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <label className="block space-y-1">
-            <span>{t("admin.users.workspace")}</span>
+            <span>{t("admin:users.workspace")}</span>
             <select
               className="w-full rounded border p-2"
               value={workspaceId}
@@ -59,7 +59,7 @@ export function UserWorkspaceAccessDialog({
                 setRole("");
               }}
             >
-              <option value="">{t("admin.users.selectWorkspace")}</option>
+              <option value="">{t("admin:users.selectWorkspace")}</option>
               {workspaces.map((workspace) => (
                 <option key={workspace.id} value={workspace.id}>
                   {workspace.name}
@@ -68,14 +68,14 @@ export function UserWorkspaceAccessDialog({
             </select>
           </label>
           <label className="block space-y-1">
-            <span>{t("admin.users.role")}</span>
+            <span>{t("admin:users.role")}</span>
             <select
               className="w-full rounded border p-2"
               value={role}
               onChange={(event) => setRole(event.target.value)}
               disabled={!selectedWorkspace}
             >
-              <option value="">{t("admin.users.selectRole")}</option>
+              <option value="">{t("admin:users.selectRole")}</option>
               {selectedWorkspace?.roles.map((item) => (
                 <option key={item.name} value={item.name}>
                   {item.name}
@@ -92,7 +92,7 @@ export function UserWorkspaceAccessDialog({
             onClick={submit}
             disabled={!workspaceId || !role || isPending}
           >
-            {t("admin.users.add")}
+            {t("admin:users.add")}
           </Button>
         </DialogFooter>
       </DialogContent>

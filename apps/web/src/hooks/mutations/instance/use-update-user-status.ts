@@ -10,13 +10,13 @@ export default function useUpdateUserStatus() {
     mutationFn: updateUserStatus,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["instance", "users"] });
-      toast.success(t("admin.users.toast.statusUpdated"));
+      toast.success(t("admin:users.toast.statusUpdated"));
     },
     onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
-          : t("admin.users.toast.statusUpdateFailed"),
+          : t("admin:users.toast.statusUpdateFailed"),
       ),
   });
 }

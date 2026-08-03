@@ -10,13 +10,13 @@ export default function useAddUserToWorkspace() {
     mutationFn: addUserToWorkspace,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["instance", "users"] });
-      toast.success(t("admin.users.toast.added"));
+      toast.success(t("admin:users.toast.added"));
     },
     onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
-          : t("admin.users.toast.addFailed"),
+          : t("admin:users.toast.addFailed"),
       ),
   });
 }
