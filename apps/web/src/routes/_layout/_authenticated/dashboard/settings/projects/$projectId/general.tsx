@@ -39,6 +39,7 @@ import { Separator } from "@/components/ui/separator";
 import icons from "@/constants/project-icons";
 import useDeleteProject from "@/hooks/mutations/project/use-delete-project";
 import useUpdateProject from "@/hooks/mutations/project/use-update-project";
+import useGetProjectGroups from "@/hooks/queries/project-group/use-get-project-groups";
 import { useGetTasks } from "@/hooks/queries/task/use-get-tasks";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
@@ -57,6 +58,7 @@ type ProjectFormValues = {
   slug: string;
   description?: string;
   icon: string;
+  projectGroupId?: string | null;
 };
 
 type NormalizedProjectValues = {
@@ -95,6 +97,7 @@ function RouteComponent() {
         icon: z
           .string()
           .min(1, t("settings:projectGeneral.validation.iconRequired")),
+        projectGroupId: z.string().nullable().optional(),
       }),
     [t],
   );
@@ -110,6 +113,7 @@ function RouteComponent() {
   const [iconSearch, setIconSearch] = useState("");
 
   const { data: workspace } = useActiveWorkspace();
+  const { data: projectGroups = [] } = useGetProjectGroups(workspace?.id ?? "");
   const { projectId: rawProjectId } = useParams({ strict: false });
   const projectId = rawProjectId ?? "";
   const { data: fetchedProject } = useGetTasks(projectId);
@@ -136,6 +140,7 @@ function RouteComponent() {
       slug: project?.slug || "",
       description: project?.description || "",
       icon: project?.icon || "Layout",
+      projectGroupId: (project as any)?.projectGroupId ?? null,
     },
   });
 
@@ -191,6 +196,7 @@ function RouteComponent() {
             : (project.description ?? ""),
           icon: iconChanged ? normalizedData.icon : (project.icon ?? "Layout"),
           isPublic: !!project.isPublic,
+          projectGroupId: data.projectGroupId ?? null,
         };
 
         await updateProject(updatePayload);
@@ -530,6 +536,46 @@ function RouteComponent() {
                             disabled={!canEdit}
                             {...field}
                           />
+                        </FormControl>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Separator />
+
+                <FormField
+                  control={projectForm.control}
+                  name="projectGroupId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-sm font-medium">
+                            {t("settings:projectGeneral.projectGroupLabel")}
+                          </FormLabel>
+                          <p className="text-xs text-muted-foreground">
+                            {t("settings:projectGeneral.projectGroupHint")}
+                          </p>
+                        </div>
+                        <FormControl>
+                          <select
+                            className="h-9 w-64 rounded border border-input bg-background px-3 text-sm"
+                            value={field.value ?? ""}
+                            onChange={(e) =>
+                              field.onChange(e.target.value || null)
+                            }
+                            disabled={!canEdit}
+                          >
+                            <option value="">
+                              {t("settings:projectGeneral.projectGroupNone")}
+                            </option>
+                            {projectGroups.map((group) => (
+                              <option key={group.id} value={group.id}>
+                                {group.name}
+                              </option>
+                            ))}
+                          </select>
                         </FormControl>
                       </div>
                       <FormMessage />

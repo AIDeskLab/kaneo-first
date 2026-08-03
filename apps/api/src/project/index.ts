@@ -132,13 +132,15 @@ const project = new Hono<{
         slug: v.string(),
         description: v.string(),
         isPublic: v.boolean(),
+        projectGroupId: v.optional(v.nullable(v.string())),
       }),
     ),
     workspaceAccess.fromProject(),
     requireWorkspacePermission({ project: ["update"] }),
     async (c) => {
       const { id } = c.req.valid("param");
-      const { name, icon, slug, description, isPublic } = c.req.valid("json");
+      const { name, icon, slug, description, isPublic, projectGroupId } =
+        c.req.valid("json");
       const workspaceId = c.get("workspaceId");
       const updatedProject = await updateProjectCtrl(
         id,
@@ -148,6 +150,7 @@ const project = new Hono<{
         description,
         isPublic,
         workspaceId,
+        projectGroupId,
       );
       return c.json(updatedProject);
     },

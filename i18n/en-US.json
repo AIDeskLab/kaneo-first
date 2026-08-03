@@ -772,7 +772,10 @@
 				"iconRequired": "Icon is required"
 			},
 			"importExportTasks": "Import/Export",
-			"importExportTasksDescription": "Import and export tasks."
+			"importExportTasksDescription": "Import and export tasks.",
+			"projectGroupLabel": "Project group",
+			"projectGroupHint": "Assign this project to a group",
+			"projectGroupNone": "None"
 		},
 		"projectIntegrations": {
 			"pageTitle": "Project Integrations",
@@ -2119,5 +2122,11 @@
 		"updateAvailable": "A new version is available",
 		"refresh": "Refresh",
 		"offlineReady": "App is ready to work offline"
+	},
+	"project-groups": {
+		"pageTitle": "Project Groups",
+		"create": "Create group",
+		"name": "Name",
+		"empty": "No project groups"
 	}
 }

@@ -47,6 +47,7 @@ import { initializePlugins } from "./plugins";
 import { migrateGitHubIntegration } from "./plugins/github/migration";
 import project from "./project";
 import { getPublicProject } from "./project/controllers/get-public-project";
+import projectGroup from "./project-group";
 import { initializeScheduler, shutdownScheduler } from "./scheduler";
 import search from "./search";
 import slackIntegration from "./slack-integration";
@@ -547,6 +548,7 @@ export function createApp() {
   const oauthApi = api.route("/oauth", oauth);
 
   const projectApi = api.route("/project", project);
+  const projectGroupApi = api.route("/project-group", projectGroup);
   const taskApi = api.route("/task", task);
   const columnApi = api.route("/column", column);
   const activityApi = api.route("/activity", activity);
