@@ -60,7 +60,7 @@ function RouteComponent() {
         </div>
       </Layout.Header>
       <Layout.Content>
-        <div className="max-w-4xl mx-auto space-y-6 py-6">
+        <div className="space-y-6 py-6">
           <PageTitle title={t("admin:users.pageTitle")} />
           <UsersManagementPage />
         </div>
