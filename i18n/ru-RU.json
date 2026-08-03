@@ -610,7 +610,10 @@
 				"iconRequired": "Иконка обязательна"
 			},
 			"importExportTasks": "Import/Export",
-			"importExportTasksDescription": "Import and export tasks."
+			"importExportTasksDescription": "Import and export tasks.",
+			"projectGroupLabel": "Группа проекта",
+			"projectGroupHint": "Назначить проект в группу",
+			"projectGroupNone": "Нет"
 		},
 		"projectIntegrations": {
 			"pageTitle": "Интеграции проекта",
@@ -2181,5 +2184,11 @@
 		"updateAvailable": "Доступна новая версия",
 		"refresh": "Обновить",
 		"offlineReady": "Приложение готово к работе офлайн"
+	},
+	"project-groups": {
+		"pageTitle": "Группы проектов",
+		"create": "Создать группу",
+		"name": "Название",
+		"empty": "Нет групп проектов"
 	}
 }

@@ -12,6 +12,7 @@ import {
   invitationTable,
   labelTable,
   notificationTable,
+  projectGroupTable,
   projectTable,
   sessionTable,
   taskRelationTable,
@@ -74,6 +75,7 @@ export const workspaceTableRelations = relations(
     teams: many(teamTable),
     members: many(workspaceUserTable),
     projects: many(projectTable),
+    projectGroups: many(projectGroupTable),
     assets: many(assetTable),
     invitations: many(invitationTable),
     notificationWorkspaceRules: many(userNotificationWorkspaceRuleTable),
@@ -101,6 +103,10 @@ export const projectTableRelations = relations(
       fields: [projectTable.workspaceId],
       references: [workspaceTable.id],
     }),
+    projectGroup: one(projectGroupTable, {
+      fields: [projectTable.projectGroupId],
+      references: [projectGroupTable.id],
+    }),
     tasks: many(taskTable),
     assets: many(assetTable),
     columns: many(columnTable),
@@ -108,6 +114,17 @@ export const projectTableRelations = relations(
     githubIntegration: many(githubIntegrationTable),
     integrations: many(integrationTable),
     notificationWorkspaceProjects: many(userNotificationWorkspaceProjectTable),
+  }),
+);
+
+export const projectGroupTableRelations = relations(
+  projectGroupTable,
+  ({ one, many }) => ({
+    workspace: one(workspaceTable, {
+      fields: [projectGroupTable.workspaceId],
+      references: [workspaceTable.id],
+    }),
+    projects: many(projectTable),
   }),
 );
 

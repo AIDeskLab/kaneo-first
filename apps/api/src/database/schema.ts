@@ -229,6 +229,25 @@ export const workspaceRoleTable = pgTable(
   ],
 );
 
+export const projectGroupTable = pgTable(
+  "project_group",
+  {
+    id: text("id")
+      .$defaultFn(() => createId())
+      .primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaceTable.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [index("project_group_workspaceId_idx").on(table.workspaceId)],
+);
+
 export const projectTable = pgTable(
   "project",
   {
@@ -249,6 +268,10 @@ export const projectTable = pgTable(
     isPublic: boolean("is_public").default(false),
     archivedAt: timestamp("archived_at", { mode: "date" }),
     lastTaskNumber: integer("last_task_number").notNull().default(0),
+    projectGroupId: text("project_group_id").references(
+      () => projectGroupTable.id,
+      { onDelete: "set null" },
+    ),
   },
   (table) => [
     unique("project_workspace_id_id_unique").on(table.workspaceId, table.id),

@@ -38,6 +38,14 @@ export function NavMain() {
       badge: null,
     },
     {
+      title: t("project-groups:pageTitle"),
+      url: `/dashboard/workspace/${workspace.id}/project-groups`,
+      isActive:
+        window.location.pathname ===
+        `/dashboard/workspace/${workspace.id}/project-groups`,
+      badge: null,
+    },
+    {
       title: t("navigation:sidebar.members"),
       url: `/dashboard/workspace/${workspace.id}/members`,
       isActive:
