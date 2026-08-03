@@ -410,4 +410,16 @@ describe("API integration: instance user management", () => {
     );
     expect([400, 422]).toContain(invalidRoleResponse.status);
   });
+
+  it("accepts limit=1000 (regression guard for #13) and rejects limit>1000", async () => {
+    const { admin } = await createInstanceAdmin();
+    mockAuthenticatedSession(admin);
+    const { app } = createApp();
+
+    const okResponse = await app.request("/api/instance/users?limit=1000");
+    expect(okResponse.status).toBe(200);
+
+    const tooBig = await app.request("/api/instance/users?limit=1001");
+    expect(tooBig.status).toBe(400);
+  });
 });
