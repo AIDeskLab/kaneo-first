@@ -368,6 +368,27 @@ export function registerMcpTools(
   );
 
   server.registerTool(
+    "get_my_tasks",
+    {
+      description:
+        "Get tasks assigned to the current user. Optionally filter by status: to-do, in-progress, in-review, done, planned. Returns tasks with project slug, project name, column name, and labels.",
+      inputSchema: z.object({
+        status: z
+          .enum(["to-do", "in-progress", "in-review", "done", "planned"])
+          .optional(),
+      }),
+    },
+    async (args) => {
+      const qs = args.status
+        ? `?status=${encodeURIComponent(args.status)}`
+        : "";
+      return run(() =>
+        client.json(`/api/task/tasks/my${qs}`, { method: "GET" }),
+      );
+    },
+  );
+
+  server.registerTool(
     "create_task",
     {
       description: "Create a task in a project.",
