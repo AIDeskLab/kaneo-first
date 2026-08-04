@@ -24,6 +24,7 @@ import bulkUpdateTasks from "./controllers/bulk-update-tasks";
 import createTask from "./controllers/create-task";
 import deleteTask from "./controllers/delete-task";
 import exportTasks from "./controllers/export-tasks";
+import getMyTasks from "./controllers/get-my-tasks";
 import getTask from "./controllers/get-task";
 import getTasks from "./controllers/get-tasks";
 import importTasks from "./controllers/import-tasks";
@@ -91,6 +92,27 @@ const task = new Hono<{
       const tasks = await getTasks(projectId, filters);
 
       return c.json(tasks);
+    },
+  )
+  .get(
+    "/my",
+    describeRoute({
+      operationId: "getMyTasks",
+      tags: ["Tasks"],
+      description:
+        "Get all tasks assigned to the current user across all projects",
+      responses: {
+        200: {
+          description: "Tasks assigned to the current user",
+          content: { "application/json": { schema: resolver(v.any()) } },
+        },
+      },
+    }),
+    validator("query", v.object({ status: v.optional(v.string()) })),
+    async (c) => {
+      const { status } = c.req.valid("query") || {};
+      const userId = c.get("userId");
+      return c.json(await getMyTasks(userId, status));
     },
   )
   .patch(
