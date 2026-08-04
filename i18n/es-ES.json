@@ -43,7 +43,8 @@
 			"french": "Francés",
 			"spanish": "Español",
 			"korean": "Coreano",
-			"dutch": "Dutch"
+			"dutch": "Dutch",
+			"chinese": "Chinese"
 		},
 		"people": {
 			"someone": "Alguien",
@@ -252,7 +253,7 @@
 			"inviteBodySignedIn": "<inviter>{{inviterName}}</inviter> te ha invitado a unirse a su espacio de trabajo.",
 			"inviteBodySignedOut": "<inviter>{{inviterName}}</inviter> te ha invitado a unirse a su espacio de trabajo en Kaneo.",
 			"createAccountOrSignIn": "Create an account to accept this invitation, or sign in if you already have one.",
-			"createAccount": "Create Account",
+			"createAccount": "Create account",
 			"accepting": "Aceptando...",
 			"acceptInvitation": "Aceptar invitación",
 			"goToDashboard": "Ir al Panel de Control",
@@ -265,8 +266,8 @@
 				"acceptSuccess": "¡Invitación aceptada! Bienvenido al equipo."
 			},
 			"createAccountToAccept": "Create an account and set a password to accept this invitation.",
-			"createAccount": "Create account",
-			"alreadyHaveAccount": "Already have an account?"
+			"alreadyHaveAccount": "Already have an account?",
+			"signInToAccept": "Inicia sesión para aceptar esta invitación."
 		},
 		"onboarding": {
 			"pageTitle": "Bienvenido a Kaneo",
@@ -503,7 +504,9 @@
 				"nameRequired": "El nombre del proyecto es obligatorio",
 				"keyRequired": "El identificador es obligatorio",
 				"keyMax": "El identificador debe contener como máximo 8 caracteres",
-				"iconRequired": "El icono es obligatorio"
+				"iconRequired": "El icono es obligatorio",
+				"nameShort": "El nombre del proyecto debe contener al menos 2 caracteres",
+				"keyShort": "El identificador debe contener al menos 2 caracteres"
 			},
 			"importExportTasks": "Importar/Exportar",
 			"importExportTasksDescription": "Importar/Exportar Tareas"
@@ -1976,10 +1979,8 @@
 			"you": "You"
 		},
 		"invitations": {
-			"linkLabel": "Enlace de invitación",
-			"copyLink": "Copiar enlace",
-			"linkCopied": "Enlace de invitación copiado",
-			"copyFailed": "No se pudo copiar automáticamente. Seleccioná el enlace y presioná Ctrl+C."
+			"expires": "Expires {{date}}",
+			"pendingBadge": "pending"
 		},
 		"inviteModal": {
 			"title": "Invitar miembro al equipo",
@@ -2021,10 +2022,6 @@
 			"copyInviteLinkSuccess": "Invite link copied",
 			"roleUpdateError": "Failed to update role",
 			"roleUpdateSuccess": "Role updated"
-		},
-		"invitations": {
-			"expires": "Expires {{date}}",
-			"pendingBadge": "pending"
 		}
 	},
 	"publicProject": {

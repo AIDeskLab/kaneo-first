@@ -13,6 +13,7 @@ import ruRU from "./ru-RU.json";
 import trTR from "./tr-TR.json";
 import ukUA from "./uk-UA.json";
 import viVN from "./vi-VN.json";
+import zhCN from "./zh-CN.json";
 
 export const supportedLocales = [
   "mk-MK",
@@ -30,6 +31,7 @@ export const supportedLocales = [
   "tr-TR",
   "uk-UA",
   "vi-VN",
+  "zh-CN",
 ] as const;
 
 export type AppLocale = (typeof supportedLocales)[number];
@@ -52,4 +54,5 @@ export const resources = {
   "tr-TR": trTR,
   "uk-UA": ukUA,
   "vi-VN": viVN,
+  "zh-CN": zhCN,
 } as const;

@@ -46,7 +46,8 @@
 			"spanish": "Spanish",
 			"dutch": "Dutch",
 			"korean": "Korean",
-			"italian": "Italian"
+			"italian": "Italian",
+			"chinese": "Chinese"
 		},
 		"people": {
 			"someone": "Someone",
@@ -770,7 +771,9 @@
 				"nameRequired": "Project name is required",
 				"keyRequired": "Key is required",
 				"keyMax": "Key must be at most 8 characters",
-				"iconRequired": "Icon is required"
+				"iconRequired": "Icon is required",
+				"nameShort": "Project name must be at least 2 characters",
+				"keyShort": "Key must be at least 2 characters"
 			},
 			"importExportTasks": "Import/Export",
 			"importExportTasksDescription": "Import and export tasks.",
