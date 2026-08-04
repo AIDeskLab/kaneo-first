@@ -44,7 +44,8 @@
 			"spanish": "Español",
 			"korean": "Coreano",
 			"dutch": "Dutch",
-			"chinese": "Chinese"
+			"chinese": "Chinese",
+			"italian": "Italiano"
 		},
 		"people": {
 			"someone": "Alguien",
@@ -1980,7 +1981,11 @@
 		},
 		"invitations": {
 			"expires": "Expires {{date}}",
-			"pendingBadge": "pending"
+			"pendingBadge": "pending",
+			"linkLabel": "Enlace de invitación",
+			"copyLink": "Copiar enlace",
+			"linkCopied": "Enlace de invitación copiado",
+			"copyFailed": "No se pudo copiar automáticamente. Selecciona el enlace y presiona Ctrl+C."
 		},
 		"inviteModal": {
 			"title": "Invitar miembro al equipo",

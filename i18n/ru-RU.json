@@ -46,7 +46,8 @@
 			"spanish": "Испанский",
 			"dutch": "Нидерландский",
 			"korean": "Корейский",
-			"chinese": "Chinese"
+			"chinese": "Chinese",
+			"italian": "Итальянский"
 		},
 		"people": {
 			"someone": "Кто-то",
@@ -268,7 +269,8 @@
 			"toast": {
 				"acceptFailed": "Не удалось принять приглашение",
 				"acceptSuccess": "Приглашение принято! Добро пожаловать в команду."
-			}
+			},
+			"createAccountOrSignIn": "Создайте аккаунт, чтобы принять это приглашение, или войдите, если он у вас уже есть."
 		},
 		"onboarding": {
 			"pageTitle": "Добро пожаловать в Kaneo",
