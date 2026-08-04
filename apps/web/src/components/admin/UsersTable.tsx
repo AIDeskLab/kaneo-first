@@ -45,64 +45,84 @@ export function UsersTable({
   } | null>(null);
   return (
     <>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("admin:users.name")}</TableHead>
-            <TableHead>{t("admin:users.email")}</TableHead>
-            <TableHead>{t("admin:users.globalRole")}</TableHead>
-            <TableHead>{t("admin:users.banned")}</TableHead>
-            <TableHead>{t("admin:users.workspaces")}</TableHead>
-            <TableHead />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {users.map((user) => (
-            <TableRow key={user.id}>
-              <TableCell>{user.name}</TableCell>
-              <TableCell>{user.email}</TableCell>
-              <TableCell>
-                {user.role === "admin" ? (
-                  <Badge>{t("admin:users.superUser")}</Badge>
-                ) : (
-                  (user.role ?? "—")
-                )}
-              </TableCell>
-              <TableCell>
-                <Badge variant={user.banned ? "destructive" : "secondary"}>
-                  {user.banned
-                    ? t("admin:users.bannedStatus")
-                    : t("admin:users.active")}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <UserWorkspaceMemberships
-                  user={user}
-                  workspaces={workspaces}
-                  onRemove={(workspaceId) =>
-                    setRemoval({ userId: user.id, workspaceId })
-                  }
-                  onRoleChange={(workspaceId, role) =>
-                    onRoleChange(user.id, workspaceId, role)
-                  }
-                />
-              </TableCell>
-              <TableCell className="space-x-2">
-                <Button size="xs" variant="outline" onClick={() => onAdd(user)}>
-                  {t("admin:users.addToWorkspace")}
-                </Button>
-                <Button
-                  size="xs"
-                  variant={user.banned ? "outline" : "destructive"}
-                  onClick={() => onStatusChange(user)}
-                >
-                  {user.banned ? t("admin:users.unban") : t("admin:users.ban")}
-                </Button>
-              </TableCell>
+      <div className="border border-border rounded-[var(--radius)] overflow-hidden">
+        <Table>
+          <TableHeader className="pointer-events-none">
+            <TableRow className="border-b-0">
+              <TableHead className="ps-6 py-3 text-sm">
+                {t("admin:users.name")}
+              </TableHead>
+              <TableHead className="py-3 text-sm">
+                {t("admin:users.email")}
+              </TableHead>
+              <TableHead className="py-3 text-sm">
+                {t("admin:users.globalRole")}
+              </TableHead>
+              <TableHead className="py-3 text-sm">
+                {t("admin:users.banned")}
+              </TableHead>
+              <TableHead className="py-3 text-sm">
+                {t("admin:users.workspaces")}
+              </TableHead>
+              <TableHead className="pe-6 py-3 text-sm" />
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {users.map((user) => (
+              <TableRow key={user.id} className="border-b-0">
+                <TableCell className="ps-6 py-3 text-sm">{user.name}</TableCell>
+                <TableCell className="py-3 text-sm text-muted-foreground">
+                  {user.email}
+                </TableCell>
+                <TableCell className="py-3 text-sm">
+                  {user.role === "admin" ? (
+                    <Badge>{t("admin:users.superUser")}</Badge>
+                  ) : (
+                    (user.role ?? "—")
+                  )}
+                </TableCell>
+                <TableCell className="py-3 text-sm">
+                  <Badge variant={user.banned ? "destructive" : "secondary"}>
+                    {user.banned
+                      ? t("admin:users.bannedStatus")
+                      : t("admin:users.active")}
+                  </Badge>
+                </TableCell>
+                <TableCell className="py-3 text-sm">
+                  <UserWorkspaceMemberships
+                    user={user}
+                    workspaces={workspaces}
+                    onRemove={(workspaceId) =>
+                      setRemoval({ userId: user.id, workspaceId })
+                    }
+                    onRoleChange={(workspaceId, role) =>
+                      onRoleChange(user.id, workspaceId, role)
+                    }
+                  />
+                </TableCell>
+                <TableCell className="pe-6 py-3 text-right space-x-2 text-sm">
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => onAdd(user)}
+                  >
+                    {t("admin:users.addToWorkspace")}
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant={user.banned ? "outline" : "destructive"}
+                    onClick={() => onStatusChange(user)}
+                  >
+                    {user.banned
+                      ? t("admin:users.unban")
+                      : t("admin:users.ban")}
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
       <AlertDialog
         open={Boolean(removal)}
         onOpenChange={(open) => !open && setRemoval(null)}

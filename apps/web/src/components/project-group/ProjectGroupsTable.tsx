@@ -59,7 +59,7 @@ export function ProjectGroupsTable({ groups, workspaceId }: Props) {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({
-            queryKey: ["projectGroups", workspaceId],
+            queryKey: ["project-groups", workspaceId],
           });
           setEditGroup(null);
         },
@@ -72,7 +72,7 @@ export function ProjectGroupsTable({ groups, workspaceId }: Props) {
     await deleteMutation.mutateAsync(deleteGroup.id, {
       onSuccess: () => {
         queryClient.invalidateQueries({
-          queryKey: ["projectGroups", workspaceId],
+          queryKey: ["project-groups", workspaceId],
         });
         setDeleteGroup(null);
       },
