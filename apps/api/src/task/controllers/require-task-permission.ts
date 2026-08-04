@@ -4,7 +4,42 @@ import db from "../../database";
 import { taskTable } from "../../database/schema";
 import { requireWorkspacePermission } from "../../utils/require-workspace-permission";
 
-export async function requireBulkTaskPermission(c: Context, next: Next) {
+type TaskEnv = {
+  Variables: {
+    userId: string;
+  };
+};
+
+type BulkTaskOperation =
+  | "updateStatus"
+  | "updatePriority"
+  | "updateAssignee"
+  | "delete"
+  | "addLabel"
+  | "removeLabel"
+  | "updateDueDate";
+
+type BulkTaskContext = Context<
+  TaskEnv,
+  string,
+  { out: { json: { operation: BulkTaskOperation } } }
+>;
+
+type TaskAssigneeContext = Context<
+  TaskEnv,
+  string,
+  {
+    out: {
+      param: { id: string };
+      json: { userId?: string };
+    };
+  }
+>;
+
+export async function requireBulkTaskPermission(
+  c: BulkTaskContext,
+  next: Next,
+) {
   const { operation } = c.req.valid("json");
 
   if (operation === "delete") {
@@ -22,7 +57,10 @@ export async function requireBulkTaskPermission(c: Context, next: Next) {
   return requireWorkspacePermission({ task: ["update"] })(c, next);
 }
 
-export async function requireTaskAssigneePermission(c: Context, next: Next) {
+export async function requireTaskAssigneePermission(
+  c: TaskAssigneeContext,
+  next: Next,
+) {
   const { id } = c.req.valid("param");
   const { userId } = c.req.valid("json");
   const [existingTask] = await db
