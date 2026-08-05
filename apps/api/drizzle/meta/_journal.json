@@ -253,6 +253,13 @@
 			"when": 1785759967026,
 			"tag": "0035_wakeful_shiva",
 			"breakpoints": true
+		},
+		{
+			"idx": 36,
+			"version": "7",
+			"when": 1785921085773,
+			"tag": "0036_strong_pandemic",
+			"breakpoints": true
 		}
 	]
 }

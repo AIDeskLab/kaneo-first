@@ -94,7 +94,7 @@ mcp.post(
     },
   }),
   validator("json", clientRegistrationSchema),
-  (c) => c.json(registerMcpClient(c.req.valid("json"))),
+  async (c) => c.json(await registerMcpClient(c.req.valid("json"))),
 );
 
 mcp.get(
@@ -115,7 +115,7 @@ mcp.get(
     },
   }),
   validator("query", authorizationQuerySchema),
-  (c) => c.redirect(beginMcpAuthorization(c.req.valid("query"))),
+  async (c) => c.redirect(await beginMcpAuthorization(c.req.valid("query"))),
 );
 
 mcp.get(
@@ -149,9 +149,9 @@ mcp.get(
     },
   }),
   validator("param", authorizationRequestParamSchema),
-  (c) => {
+  async (c) => {
     const { requestId } = c.req.valid("param");
-    return c.json(getMcpAuthorizationRequest(requestId));
+    return c.json(await getMcpAuthorizationRequest(requestId));
   },
 );
 
