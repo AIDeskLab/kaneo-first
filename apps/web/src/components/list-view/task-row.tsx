@@ -30,7 +30,6 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/preview-card";
 import { useDeleteTask } from "@/hooks/mutations/task/use-delete-task";
-import useExternalLinks from "@/hooks/queries/external-link/use-external-links";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
 import { useGetActiveWorkspaceUsers } from "@/hooks/queries/workspace-users/use-get-active-workspace-users";
 import type { HierarchyMode } from "@/lib/build-task-hierarchy";
@@ -46,7 +45,7 @@ import useProjectStore from "@/store/project";
 import { useUserPreferencesStore } from "@/store/user-preferences";
 import type Task from "@/types/task";
 import TaskCardContextMenuContent from "../kanban-board/task-card-context-menu/task-card-context-menu-content";
-import TaskCardLabels from "../kanban-board/task-labels";
+import { TaskLabels } from "../kanban-board/task-labels";
 import { ContextMenu, ContextMenuTrigger } from "../ui/context-menu";
 
 type TaskRowProps = {
@@ -103,7 +102,6 @@ function TaskRow({
   } = useUserPreferencesStore();
   const [isDeleteTaskModalOpen, setIsDeleteTaskModalOpen] = useState(false);
   const { mutateAsync: deleteTask } = useDeleteTask();
-  const { data: externalLinks } = useExternalLinks(task.id);
   const { toggleSelection, isSelected, isFocused } = useBulkSelectionStore();
   const isTaskSelected = isSelected(task.id);
   const isTaskFocused = isFocused(task.id);
@@ -119,9 +117,10 @@ function TaskRow({
   }, [workspaceUsers, task.userId]);
 
   const pullRequests = useMemo(() => {
-    if (!externalLinks) return [];
-    return externalLinks.filter((link) => link.resourceType === "pull_request");
-  }, [externalLinks]);
+    return (task.externalLinks ?? []).filter(
+      (link) => link.resourceType === "pull_request",
+    );
+  }, [task.externalLinks]);
 
   const getPRInfo = (pr: (typeof pullRequests)[number]) => {
     const isMerged = pr.metadata?.merged === true;
@@ -316,7 +315,7 @@ function TaskRow({
                       </span>
                     </div>
                   )}
-                  {showLabels && <TaskCardLabels taskId={task.id} />}
+                  {showLabels && <TaskLabels labels={task.labels ?? []} />}
 
                   {pullRequests.length === 1 && (
                     <HoverCard openDelay={200} closeDelay={100}>
