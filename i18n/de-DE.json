@@ -158,7 +158,8 @@
 				"account_not_linked": "This identity could not be linked to the existing account. Sign in by email to verify the account, then try SSO again. If email sign-in is unavailable, contact your administrator.",
 				"oauth_code_verification_failed": "OAuth verification failed. Please try again.",
 				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Registration is currently disabled. You need a valid invitation to create an account."
-			}
+			},
+			"instanceStatusError": "Der Server konnte nicht erreicht werden. Bitte versuche es gleich noch einmal."
 		},
 		"providers": {
 			"google": "Google",
@@ -193,7 +194,10 @@
 			"signingIn": "Anmeldung läuft...",
 			"continueAsGuest": "Als Gast fortfahren",
 			"toggleMessage": "Du hast bereits ein Konto?",
-			"toggleLink": "Anmelden"
+			"toggleLink": "Anmelden",
+			"instanceStatusError": "Der Server konnte nicht erreicht werden. Bitte versuche es gleich noch einmal.",
+			"instanceAdminTitle": "Richte deine Kaneo-Instanz ein",
+			"instanceAdminSubtitle": "Dieses Konto wird zum Instanz-Administrator mit vollem Zugriff."
 		},
 		"verifyOtp": {
 			"pageTitle": "Code verifizieren",
@@ -573,6 +577,21 @@
 			"validation": {
 				"nameRequired": "Workspace-Name ist erforderlich",
 				"nameShort": "Der Workspace-Name muss mindestens 2 Zeichen lang sein"
+			},
+			"transferOwnership": {
+				"toastSuccess": "Eigentümerschaft übertragen",
+				"toastError": "Eigentümerschaft konnte nicht übertragen werden",
+				"title": "Eigentümerschaft übertragen",
+				"subtitle": "Übergib diesen Workspace an ein anderes Mitglied. Du wirst zum Admin herabgestuft und verlierst die Rechte, die nur Eigentümern vorbehalten sind.",
+				"pickerLabel": "Neuer Eigentümer",
+				"noEligibleMembers": "Lade mindestens ein weiteres Mitglied ein, bevor du die Eigentümerschaft übertragen kannst.",
+				"pickerHint": "Diese Person wird alleiniger Eigentümer dieses Workspaces.",
+				"pickerPlaceholder": "Mitglied auswählen",
+				"button": "Übertragen",
+				"dialogTitle": "Eigentümerschaft übertragen?",
+				"dialogDescription": "{{name}} wird alleiniger Eigentümer von {{workspace}}. Du behältst Admin-Zugriff, verlierst aber Rechte, die nur Eigentümern vorbehalten sind, etwa das Löschen des Workspaces oder eine erneute Übertragung.",
+				"transferring": "Wird übertragen…",
+				"confirm": "Eigentümerschaft übertragen"
 			}
 		},
 		"projectGeneral": {
@@ -1484,6 +1503,15 @@
 				},
 				"mermaid": {
 					"renderFailed": "Mermaid-Diagramm konnte nicht gerendert werden"
+				},
+				"table": {
+					"addColumnBefore": "Spalte links einfügen",
+					"addColumnAfter": "Spalte rechts einfügen",
+					"deleteColumn": "Spalte löschen",
+					"addRowBefore": "Zeile oberhalb einfügen",
+					"addRowAfter": "Zeile unterhalb einfügen",
+					"deleteRow": "Zeile löschen",
+					"deleteTable": "Tabelle löschen"
 				}
 			}
 		}
@@ -1654,7 +1682,8 @@
 			"deleteError": "Aufgabe konnte nicht gelöscht werden",
 			"deleteDialogTitle": "Aufgabe löschen?",
 			"deleteDialogDescription": "Dadurch wird die Aufgabe und alle zugehörigen Daten dauerhaft entfernt. Diese Aktion kann nicht rückgängig gemacht werden.",
-			"deleteAction": "Aufgabe löschen"
+			"deleteAction": "Aufgabe löschen",
+			"completeAria": "Teilaufgabe als erledigt markieren"
 		},
 		"properties": {
 			"title": "Eigenschaften",
@@ -1883,6 +1912,17 @@
 			"searchActions": "Aktionen suchen...",
 			"noActionsFound": "Keine Aktionen gefunden.",
 			"changeStatus": "Status ändern"
+		},
+		"editor": {
+			"table": {
+				"addColumnBefore": "Spalte links einfügen",
+				"addColumnAfter": "Spalte rechts einfügen",
+				"deleteColumn": "Spalte löschen",
+				"addRowBefore": "Zeile oberhalb einfügen",
+				"addRowAfter": "Zeile unterhalb einfügen",
+				"deleteRow": "Zeile löschen",
+				"deleteTable": "Tabelle löschen"
+			}
 		}
 	},
 	"invitations": {

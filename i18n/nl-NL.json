@@ -158,7 +158,8 @@
 				"account_not_linked": "This identity could not be linked to the existing account. Sign in by email to verify the account, then try SSO again. If email sign-in is unavailable, contact your administrator.",
 				"oauth_code_verification_failed": "OAuth verification failed. Please try again.",
 				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Registration is currently disabled. You need a valid invitation to create an account."
-			}
+			},
+			"instanceStatusError": "Kan de server niet bereiken. Probeer het over een moment opnieuw."
 		},
 		"providers": {
 			"google": "Google",
@@ -193,7 +194,10 @@
 			"signingIn": "Inloggen...",
 			"continueAsGuest": "Doorgaan als gast",
 			"toggleMessage": "Heb je al een account?",
-			"toggleLink": "Inloggen"
+			"toggleLink": "Inloggen",
+			"instanceStatusError": "Kan de server niet bereiken. Probeer het over een moment opnieuw.",
+			"instanceAdminTitle": "Stel je Kaneo-instantie in",
+			"instanceAdminSubtitle": "Dit account wordt de instantiebeheerder met volledige toegang."
 		},
 		"verifyOtp": {
 			"pageTitle": "Code verifiëren",
@@ -470,6 +474,21 @@
 			"validation": {
 				"nameRequired": "Werkruimtenaam is verplicht",
 				"nameShort": "Werkruimtenaam moet minimaal 2 tekens bevatten"
+			},
+			"transferOwnership": {
+				"toastSuccess": "Eigendom overgedragen",
+				"toastError": "Overdragen eigendom mislukt",
+				"title": "Eigendom overdragen",
+				"subtitle": "Draag deze werkruimte over aan een ander lid. Je wordt teruggezet naar beheerder en verliest rechten die alleen eigenaren hebben.",
+				"pickerLabel": "Nieuwe eigenaar",
+				"noEligibleMembers": "Nodig eerst minstens één ander lid uit voordat je het eigendom kunt overdragen.",
+				"pickerHint": "Diegene wordt de enige eigenaar van deze werkruimte.",
+				"pickerPlaceholder": "Selecteer een lid",
+				"button": "Overdragen",
+				"dialogTitle": "Eigendom overdragen?",
+				"dialogDescription": "{{name}} wordt de enige eigenaar van {{workspace}}. Je behoudt beheerderstoegang, maar verliest rechten die alleen eigenaren hebben, zoals het verwijderen of opnieuw overdragen van de werkruimte.",
+				"transferring": "Overdragen…",
+				"confirm": "Eigendom overdragen"
 			}
 		},
 		"projectGeneral": {
@@ -1484,6 +1503,15 @@
 				},
 				"mermaid": {
 					"renderFailed": "Mermaid-diagram kon niet worden weergegeven"
+				},
+				"table": {
+					"addColumnBefore": "Kolom links invoegen",
+					"addColumnAfter": "Kolom rechts invoegen",
+					"deleteColumn": "Kolom verwijderen",
+					"addRowBefore": "Rij erboven invoegen",
+					"addRowAfter": "Rij eronder invoegen",
+					"deleteRow": "Rij verwijderen",
+					"deleteTable": "Tabel verwijderen"
 				}
 			}
 		}
@@ -1654,7 +1682,8 @@
 			"deleteError": "Verwijderen taak mislukt",
 			"deleteDialogTitle": "Taak verwijderen?",
 			"deleteDialogDescription": "Dit zal de taak en alle data permanent verwijderen. Dit kan niet ongedaan worden gemaakt.",
-			"deleteAction": "Taak verwijderen"
+			"deleteAction": "Taak verwijderen",
+			"completeAria": "Markeer subtaak als voltooid"
 		},
 		"properties": {
 			"title": "Eigenschappen",
@@ -1883,6 +1912,17 @@
 			"statusLabel": "Destination status",
 			"success": "Task moved successfully",
 			"title": "Move task"
+		},
+		"editor": {
+			"table": {
+				"addColumnBefore": "Kolom links invoegen",
+				"addColumnAfter": "Kolom rechts invoegen",
+				"deleteColumn": "Kolom verwijderen",
+				"addRowBefore": "Rij erboven invoegen",
+				"addRowAfter": "Rij eronder invoegen",
+				"deleteRow": "Rij verwijderen",
+				"deleteTable": "Tabel verwijderen"
+			}
 		}
 	},
 	"invitations": {

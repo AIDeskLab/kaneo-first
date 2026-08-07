@@ -158,7 +158,8 @@
 				"account_not_linked": "This identity could not be linked to the existing account. Sign in by email to verify the account, then try SSO again. If email sign-in is unavailable, contact your administrator.",
 				"oauth_code_verification_failed": "OAuth verification failed. Please try again.",
 				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Registration is currently disabled. You need a valid invitation to create an account."
-			}
+			},
+			"instanceStatusError": "No se ha podido contactar con el servidor. Vuelve a intentarlo en un momento."
 		},
 		"providers": {
 			"google": "Google",
@@ -193,7 +194,10 @@
 			"signingIn": "Iniciando sesión...",
 			"continueAsGuest": "Continuar como invitado",
 			"toggleMessage": "¿Ya tienes cuenta?",
-			"toggleLink": "Iniciar sesión"
+			"toggleLink": "Iniciar sesión",
+			"instanceStatusError": "No se ha podido contactar con el servidor. Vuelve a intentarlo en un momento.",
+			"instanceAdminTitle": "Configura tu instancia de Kaneo",
+			"instanceAdminSubtitle": "Esta cuenta se convierte en la administradora de la instancia con acceso completo."
 		},
 		"verifyOtp": {
 			"pageTitle": "Verificar Código",
@@ -470,6 +474,21 @@
 			"validation": {
 				"nameRequired": "El nombre del espacio de trabajo es obligatorio",
 				"nameShort": "El nombre del espacio de trabajo debe contener al menos 2 caracteres"
+			},
+			"transferOwnership": {
+				"toastSuccess": "Propiedad transferida",
+				"toastError": "Error al transferir la propiedad",
+				"title": "Transferir propiedad",
+				"subtitle": "Cede este espacio de trabajo a otro miembro. Pasarás a ser admin y perderás las capacidades exclusivas del propietario.",
+				"pickerLabel": "Nuevo propietario",
+				"noEligibleMembers": "Invita al menos a otro miembro antes de poder transferir la propiedad.",
+				"pickerHint": "Se convertirá en el único propietario de este espacio de trabajo.",
+				"pickerPlaceholder": "Selecciona un miembro",
+				"button": "Transferir",
+				"dialogTitle": "¿Transferir la propiedad?",
+				"dialogDescription": "{{name}} se convertirá en el único propietario de {{workspace}}. Mantendrás acceso de admin, pero perderás las capacidades exclusivas del propietario, como eliminar el espacio de trabajo o volver a transferirlo.",
+				"transferring": "Transfiriendo…",
+				"confirm": "Transferir propiedad"
 			}
 		},
 		"projectGeneral": {
@@ -1484,6 +1503,15 @@
 				},
 				"mermaid": {
 					"renderFailed": "No se pudo renderizar el diagrama de Mermaid"
+				},
+				"table": {
+					"addColumnBefore": "Insertar columna a la izquierda",
+					"addColumnAfter": "Insertar columna a la derecha",
+					"deleteColumn": "Eliminar columna",
+					"addRowBefore": "Insertar fila encima",
+					"addRowAfter": "Insertar fila debajo",
+					"deleteRow": "Eliminar fila",
+					"deleteTable": "Eliminar tabla"
 				}
 			}
 		}
@@ -1654,7 +1682,8 @@
 			"deleteError": "Error al eliminar tarea",
 			"deleteDialogTitle": "¿Eliminar tarea?",
 			"deleteDialogDescription": "Esto eliminará permanentemente la tarea y sus datos. Esta acción no puede deshacerse.",
-			"deleteAction": "Eliminar tarea"
+			"deleteAction": "Eliminar tarea",
+			"completeAria": "Marcar subtarea como completada"
 		},
 		"properties": {
 			"title": "Propiedades",
@@ -1883,6 +1912,17 @@
 			"statusLabel": "Destination status",
 			"success": "Task moved successfully",
 			"title": "Move task"
+		},
+		"editor": {
+			"table": {
+				"addColumnBefore": "Insertar columna a la izquierda",
+				"addColumnAfter": "Insertar columna a la derecha",
+				"deleteColumn": "Eliminar columna",
+				"addRowBefore": "Insertar fila encima",
+				"addRowAfter": "Insertar fila debajo",
+				"deleteRow": "Eliminar fila",
+				"deleteTable": "Eliminar tabla"
+			}
 		}
 	},
 	"invitations": {

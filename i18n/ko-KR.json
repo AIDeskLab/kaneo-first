@@ -158,7 +158,8 @@
 				"account_not_linked": "This identity could not be linked to the existing account. Sign in by email to verify the account, then try SSO again. If email sign-in is unavailable, contact your administrator.",
 				"oauth_code_verification_failed": "OAuth verification failed. Please try again.",
 				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Registration is currently disabled. You need a valid invitation to create an account."
-			}
+			},
+			"instanceStatusError": "서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
 		},
 		"providers": {
 			"google": "Google",
@@ -193,7 +194,10 @@
 			"signingIn": "로그인 중...",
 			"continueAsGuest": "게스트로 계속하기",
 			"toggleMessage": "이미 계정이 있으신가요?",
-			"toggleLink": "로그인"
+			"toggleLink": "로그인",
+			"instanceStatusError": "서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요.",
+			"instanceAdminTitle": "Kaneo 인스턴스 설정",
+			"instanceAdminSubtitle": "이 계정은 전체 권한을 가진 인스턴스 관리자가 됩니다."
 		},
 		"verifyOtp": {
 			"pageTitle": "인증 코드 확인",
@@ -573,6 +577,21 @@
 			"validation": {
 				"nameRequired": "워크스페이스 이름은 필수입니다",
 				"nameShort": "워크스페이스 이름은 2자 이상이어야 합니다"
+			},
+			"transferOwnership": {
+				"toastSuccess": "소유권이 이전되었습니다",
+				"toastError": "소유권 이전에 실패했습니다",
+				"title": "소유권 이전",
+				"subtitle": "이 워크스페이스를 다른 멤버에게 이전합니다. 이후 관리자로 변경되며 소유자 전용 권한을 잃게 됩니다.",
+				"pickerLabel": "새 소유자",
+				"noEligibleMembers": "소유권을 이전하려면 먼저 다른 멤버를 한 명 이상 초대하세요.",
+				"pickerHint": "선택한 멤버가 이 워크스페이스의 단독 소유자가 됩니다.",
+				"pickerPlaceholder": "멤버 선택",
+				"button": "이전",
+				"dialogTitle": "소유권을 이전하시겠습니까?",
+				"dialogDescription": "{{name}}님이 {{workspace}}의 단독 소유자가 됩니다. 관리자 권한은 유지되지만 워크스페이스 삭제나 재이전 같은 소유자 전용 기능은 잃게 됩니다.",
+				"transferring": "이전 중...",
+				"confirm": "소유권 이전"
 			}
 		},
 		"projectGeneral": {
@@ -1484,6 +1503,15 @@
 				},
 				"mermaid": {
 					"renderFailed": "Mermaid 다이어그램을 렌더링할 수 없습니다"
+				},
+				"table": {
+					"addColumnBefore": "왼쪽에 열 삽입",
+					"addColumnAfter": "오른쪽에 열 삽입",
+					"deleteColumn": "열 삭제",
+					"addRowBefore": "위에 행 삽입",
+					"addRowAfter": "아래에 행 삽입",
+					"deleteRow": "행 삭제",
+					"deleteTable": "표 삭제"
 				}
 			}
 		}
@@ -1654,7 +1682,8 @@
 			"deleteError": "작업 삭제에 실패했습니다",
 			"deleteDialogTitle": "작업을 삭제하시겠습니까?",
 			"deleteDialogDescription": "작업과 모든 데이터가 영구적으로 제거됩니다. 이 작업은 취소할 수 없습니다.",
-			"deleteAction": "작업 삭제"
+			"deleteAction": "작업 삭제",
+			"completeAria": "하위 작업을 완료로 표시"
 		},
 		"properties": {
 			"title": "속성",
@@ -1883,6 +1912,17 @@
 			"searchActions": "작업 검색...",
 			"noActionsFound": "작업을 찾을 수 없습니다.",
 			"changeStatus": "상태 변경"
+		},
+		"editor": {
+			"table": {
+				"addColumnBefore": "왼쪽에 열 삽입",
+				"addColumnAfter": "오른쪽에 열 삽입",
+				"deleteColumn": "열 삭제",
+				"addRowBefore": "위에 행 삽입",
+				"addRowAfter": "아래에 행 삽입",
+				"deleteRow": "행 삭제",
+				"deleteTable": "표 삭제"
+			}
 		}
 	},
 	"invitations": {

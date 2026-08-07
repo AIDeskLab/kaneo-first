@@ -158,7 +158,8 @@
 				"account_not_linked": "This identity could not be linked to the existing account. Sign in by email to verify the account, then try SSO again. If email sign-in is unavailable, contact your administrator.",
 				"oauth_code_verification_failed": "Verifikasi OAuth gagal. Silakan coba lagi.",
 				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Pendaftaran saat ini dinonaktifkan. Anda memerlukan undangan yang valid untuk membuat akun."
-			}
+			},
+			"instanceStatusError": "Tidak dapat menghubungi server. Silakan coba lagi beberapa saat lagi."
 		},
 		"providers": {
 			"google": "Google",
@@ -193,7 +194,10 @@
 			"signingIn": "Masuk...",
 			"continueAsGuest": "Lanjutkan sebagai tamu",
 			"toggleMessage": "Sudah punya akun?",
-			"toggleLink": "Masuk"
+			"toggleLink": "Masuk",
+			"instanceStatusError": "Tidak dapat menghubungi server. Silakan coba lagi beberapa saat lagi.",
+			"instanceAdminTitle": "Siapkan instans Kaneo Anda",
+			"instanceAdminSubtitle": "Akun ini menjadi administrator instans dengan akses penuh."
 		},
 		"verifyOtp": {
 			"pageTitle": "Verifikasi Kode",
@@ -573,6 +577,21 @@
 			"validation": {
 				"nameRequired": "Nama ruang kerja wajib diisi",
 				"nameShort": "Nama ruang kerja harus minimal 2 karakter"
+			},
+			"transferOwnership": {
+				"toastSuccess": "Kepemilikan ditransfer",
+				"toastError": "Gagal mentransfer kepemilikan",
+				"title": "Transfer kepemilikan",
+				"subtitle": "Serahkan ruang kerja ini kepada anggota lain. Anda akan diturunkan menjadi admin dan kehilangan kemampuan khusus pemilik.",
+				"pickerLabel": "Pemilik baru",
+				"noEligibleMembers": "Undang minimal satu anggota lain sebelum Anda dapat mentransfer kepemilikan.",
+				"pickerHint": "Mereka akan menjadi satu-satunya pemilik ruang kerja ini.",
+				"pickerPlaceholder": "Pilih anggota",
+				"button": "Transfer",
+				"dialogTitle": "Transfer kepemilikan?",
+				"dialogDescription": "{{name}} akan menjadi satu-satunya pemilik {{workspace}}. Anda tetap memiliki akses admin tetapi kehilangan kemampuan khusus pemilik seperti menghapus ruang kerja atau mentransfernya lagi.",
+				"transferring": "Mentransfer…",
+				"confirm": "Transfer kepemilikan"
 			}
 		},
 		"projectGeneral": {
@@ -1484,6 +1503,15 @@
 				},
 				"mermaid": {
 					"renderFailed": "Diagram Mermaid tidak dapat dirender"
+				},
+				"table": {
+					"addColumnBefore": "Sisipkan kolom di kiri",
+					"addColumnAfter": "Sisipkan kolom di kanan",
+					"deleteColumn": "Hapus kolom",
+					"addRowBefore": "Sisipkan baris di atas",
+					"addRowAfter": "Sisipkan baris di bawah",
+					"deleteRow": "Hapus baris",
+					"deleteTable": "Hapus tabel"
 				}
 			}
 		}
@@ -1654,7 +1682,8 @@
 			"deleteError": "Gagal menghapus tugas",
 			"deleteDialogTitle": "Hapus Tugas?",
 			"deleteDialogDescription": "Ini akan menghapus tugas dan semua datanya secara permanen. Anda tidak dapat membatalkan tindakan ini.",
-			"deleteAction": "Hapus Tugas"
+			"deleteAction": "Hapus Tugas",
+			"completeAria": "Tandai subtugas selesai"
 		},
 		"properties": {
 			"title": "Properti",
@@ -1883,6 +1912,17 @@
 			"searchActions": "Cari aksi...",
 			"noActionsFound": "Tidak ada aksi ditemukan.",
 			"changeStatus": "Ubah Status"
+		},
+		"editor": {
+			"table": {
+				"addColumnBefore": "Sisipkan kolom di kiri",
+				"addColumnAfter": "Sisipkan kolom di kanan",
+				"deleteColumn": "Hapus kolom",
+				"addRowBefore": "Sisipkan baris di atas",
+				"addRowAfter": "Sisipkan baris di bawah",
+				"deleteRow": "Hapus baris",
+				"deleteTable": "Hapus tabel"
+			}
 		}
 	},
 	"invitations": {

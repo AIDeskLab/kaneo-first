@@ -158,7 +158,8 @@
 				"account_not_linked": "This identity could not be linked to the existing account. Sign in by email to verify the account, then try SSO again. If email sign-in is unavailable, contact your administrator.",
 				"oauth_code_verification_failed": "OAuth verification failed. Please try again.",
 				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Registration is currently disabled. You need a valid invitation to create an account."
-			}
+			},
+			"instanceStatusError": "Не можеше да се воспостави врска со серверот. Обиди се повторно за момент."
 		},
 		"providers": {
 			"google": "Google",
@@ -193,7 +194,10 @@
 			"signingIn": "Се најавува...",
 			"continueAsGuest": "Продолжи како гостин",
 			"toggleMessage": "Веќе имаш сметка?",
-			"toggleLink": "Најави се"
+			"toggleLink": "Најави се",
+			"instanceStatusError": "Не можеше да се воспостави врска со серверот. Обиди се повторно за момент.",
+			"instanceAdminTitle": "Постави ја твојата Kaneo инстанца",
+			"instanceAdminSubtitle": "Оваа сметка станува администратор на инстанцата со целосен пристап."
 		},
 		"verifyOtp": {
 			"pageTitle": "Потврди код",
@@ -573,6 +577,21 @@
 			"validation": {
 				"nameRequired": "Името на работниот простор е задолжително",
 				"nameShort": "Името на работниот простор мора да има најмалку 2 знаци"
+			},
+			"transferOwnership": {
+				"toastSuccess": "Сопственоста е префрлена",
+				"toastError": "Неуспешно префрлање на сопственоста",
+				"title": "Префрли сопственост",
+				"subtitle": "Предај го овој работен простор на друг член. Твојата улога ќе се смени во администратор и ќе ги изгубиш можностите резервирани за сопственикот.",
+				"pickerLabel": "Нов сопственик",
+				"noEligibleMembers": "Покани барем уште еден член пред да можеш да ја префрлиш сопственоста.",
+				"pickerHint": "Тој член станува единствен сопственик на овој работен простор.",
+				"pickerPlaceholder": "Избери член",
+				"button": "Префрли",
+				"dialogTitle": "Префрли сопственост?",
+				"dialogDescription": "{{name}} ќе стане единствен сопственик на {{workspace}}. Ќе го задржиш администраторскиот пристап, но ќе ги изгубиш можностите резервирани за сопственикот, како бришење на работниот простор или повторно префрлање.",
+				"transferring": "Се префрла…",
+				"confirm": "Префрли сопственост"
 			}
 		},
 		"projectGeneral": {
@@ -1484,6 +1503,15 @@
 				},
 				"mermaid": {
 					"renderFailed": "Mermaid дијаграмот не можеше да се прикаже"
+				},
+				"table": {
+					"addColumnBefore": "Вметни колона лево",
+					"addColumnAfter": "Вметни колона десно",
+					"deleteColumn": "Избриши колона",
+					"addRowBefore": "Вметни ред над",
+					"addRowAfter": "Вметни ред под",
+					"deleteRow": "Избриши ред",
+					"deleteTable": "Избриши табела"
 				}
 			}
 		}
@@ -1654,7 +1682,8 @@
 			"deleteError": "Неуспешно бришење на задача",
 			"deleteDialogTitle": "Избриши задача?",
 			"deleteDialogDescription": "Ова трајно ќе ја отстрани задачата и сите нејзини податоци. Не можеш да ја вратиш оваа акција.",
-			"deleteAction": "Избриши задача"
+			"deleteAction": "Избриши задача",
+			"completeAria": "Означи ја подзадачата како завршена"
 		},
 		"properties": {
 			"title": "Својства",
@@ -1883,6 +1912,17 @@
 			"searchActions": "Пребарај акции...",
 			"noActionsFound": "Не се пронајдени акции.",
 			"changeStatus": "Промени статус"
+		},
+		"editor": {
+			"table": {
+				"addColumnBefore": "Вметни колона лево",
+				"addColumnAfter": "Вметни колона десно",
+				"deleteColumn": "Избриши колона",
+				"addRowBefore": "Вметни ред над",
+				"addRowAfter": "Вметни ред под",
+				"deleteRow": "Избриши ред",
+				"deleteTable": "Избриши табела"
+			}
 		}
 	},
 	"invitations": {

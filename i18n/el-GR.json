@@ -158,7 +158,8 @@
 				"account_not_linked": "This identity could not be linked to the existing account. Sign in by email to verify the account, then try SSO again. If email sign-in is unavailable, contact your administrator.",
 				"oauth_code_verification_failed": "OAuth verification failed. Please try again.",
 				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Registration is currently disabled. You need a valid invitation to create an account."
-			}
+			},
+			"instanceStatusError": "Δεν ήταν δυνατή η επικοινωνία με τον διακομιστή. Δοκιμάστε ξανά σε λίγο."
 		},
 		"providers": {
 			"google": "Google",
@@ -193,7 +194,10 @@
 			"signingIn": "Γίνεται σύνδεση...",
 			"continueAsGuest": "Συνέχεια ως επισκέπτης",
 			"toggleMessage": "Έχετε ήδη λογαριασμό;",
-			"toggleLink": "Σύνδεση"
+			"toggleLink": "Σύνδεση",
+			"instanceStatusError": "Δεν ήταν δυνατή η επικοινωνία με τον διακομιστή. Δοκιμάστε ξανά σε λίγο.",
+			"instanceAdminTitle": "Ρυθμίστε την εγκατάσταση Kaneo σας",
+			"instanceAdminSubtitle": "Αυτός ο λογαριασμός γίνεται ο διαχειριστής της εγκατάστασης με πλήρη πρόσβαση."
 		},
 		"verifyOtp": {
 			"pageTitle": "Επαλήθευση κωδικού",
@@ -573,6 +577,21 @@
 			"validation": {
 				"nameRequired": "Το όνομα χώρου εργασίας είναι υποχρεωτικό",
 				"nameShort": "Το όνομα χώρου εργασίας πρέπει να έχει τουλάχιστον 2 χαρακτήρες"
+			},
+			"transferOwnership": {
+				"toastSuccess": "Η ιδιοκτησία μεταβιβάστηκε",
+				"toastError": "Αποτυχία μεταβίβασης ιδιοκτησίας",
+				"title": "Μεταβίβαση ιδιοκτησίας",
+				"subtitle": "Παραδώστε αυτόν τον χώρο εργασίας σε άλλο μέλος. Θα υποβιβαστείτε σε διαχειριστή και θα χάσετε τις δυνατότητες που έχει μόνο ο ιδιοκτήτης.",
+				"pickerLabel": "Νέος ιδιοκτήτης",
+				"noEligibleMembers": "Προσκαλέστε τουλάχιστον ένα ακόμα μέλος πριν μπορέσετε να μεταβιβάσετε την ιδιοκτησία.",
+				"pickerHint": "Θα γίνει ο μοναδικός ιδιοκτήτης αυτού του χώρου εργασίας.",
+				"pickerPlaceholder": "Επιλέξτε μέλος",
+				"button": "Μεταβίβαση",
+				"dialogTitle": "Μεταβίβαση ιδιοκτησίας;",
+				"dialogDescription": "Ο/Η {{name}} θα γίνει ο μοναδικός ιδιοκτήτης του {{workspace}}. Θα διατηρήσετε πρόσβαση διαχειριστή αλλά θα χάσετε τις δυνατότητες ιδιοκτήτη, όπως τη διαγραφή του χώρου εργασίας ή τη νέα μεταβίβασή του.",
+				"transferring": "Γίνεται μεταβίβαση…",
+				"confirm": "Μεταβίβαση ιδιοκτησίας"
 			}
 		},
 		"projectGeneral": {
@@ -1484,6 +1503,15 @@
 				},
 				"mermaid": {
 					"renderFailed": "Δεν ήταν δυνατή η απόδοση του διαγράμματος Mermaid"
+				},
+				"table": {
+					"addColumnBefore": "Εισαγωγή στήλης αριστερά",
+					"addColumnAfter": "Εισαγωγή στήλης δεξιά",
+					"deleteColumn": "Διαγραφή στήλης",
+					"addRowBefore": "Εισαγωγή γραμμής επάνω",
+					"addRowAfter": "Εισαγωγή γραμμής κάτω",
+					"deleteRow": "Διαγραφή γραμμής",
+					"deleteTable": "Διαγραφή πίνακα"
 				}
 			}
 		}
@@ -1654,7 +1682,8 @@
 			"deleteError": "Αποτυχία διαγραφής εργασίας",
 			"deleteDialogTitle": "Διαγραφή εργασίας;",
 			"deleteDialogDescription": "Αυτό θα αφαιρέσει οριστικά την εργασία και όλα τα δεδομένα της. Δεν μπορείτε να αναιρέσετε αυτήν την ενέργεια.",
-			"deleteAction": "Διαγραφή εργασίας"
+			"deleteAction": "Διαγραφή εργασίας",
+			"completeAria": "Επισήμανση υποεργασίας ως ολοκληρωμένης"
 		},
 		"properties": {
 			"title": "Ιδιότητες",
@@ -1883,6 +1912,17 @@
 			"searchActions": "Αναζήτηση ενεργειών...",
 			"noActionsFound": "Δεν βρέθηκαν ενέργειες.",
 			"changeStatus": "Αλλαγή κατάστασης"
+		},
+		"editor": {
+			"table": {
+				"addColumnBefore": "Εισαγωγή στήλης αριστερά",
+				"addColumnAfter": "Εισαγωγή στήλης δεξιά",
+				"deleteColumn": "Διαγραφή στήλης",
+				"addRowBefore": "Εισαγωγή γραμμής επάνω",
+				"addRowAfter": "Εισαγωγή γραμμής κάτω",
+				"deleteRow": "Διαγραφή γραμμής",
+				"deleteTable": "Διαγραφή πίνακα"
+			}
 		}
 	},
 	"invitations": {

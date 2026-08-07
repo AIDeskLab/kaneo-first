@@ -158,7 +158,8 @@
 				"account_not_linked": "This identity could not be linked to the existing account. Sign in by email to verify the account, then try SSO again. If email sign-in is unavailable, contact your administrator.",
 				"oauth_code_verification_failed": "OAuth verification failed. Please try again.",
 				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Registration is currently disabled. You need a valid invitation to create an account."
-			}
+			},
+			"instanceStatusError": "Не вдалося зв'язатися із сервером. Повторіть спробу за мить."
 		},
 		"providers": {
 			"google": "Google",
@@ -193,7 +194,10 @@
 			"signingIn": "Вхід...",
 			"continueAsGuest": "Продовжити як гість",
 			"toggleMessage": "Вже маєте обліковий запис?",
-			"toggleLink": "Увійти"
+			"toggleLink": "Увійти",
+			"instanceStatusError": "Не вдалося зв'язатися із сервером. Повторіть спробу за мить.",
+			"instanceAdminTitle": "Налаштуйте ваш інстанс Kaneo",
+			"instanceAdminSubtitle": "Цей обліковий запис стане адміністратором інстансу з повним доступом."
 		},
 		"verifyOtp": {
 			"pageTitle": "Підтвердження коду",
@@ -573,6 +577,21 @@
 			"validation": {
 				"nameRequired": "Назва робочого простору є обов'язковою",
 				"nameShort": "Назва робочого простору має містити щонайменше 2 символи"
+			},
+			"transferOwnership": {
+				"toastSuccess": "Право власності передано",
+				"toastError": "Не вдалося передати право власності",
+				"title": "Передати право власності",
+				"subtitle": "Передайте цей робочий простір іншому учаснику. Вас буде понижено до адміністратора, і ви втратите можливості, доступні лише власнику.",
+				"pickerLabel": "Новий власник",
+				"noEligibleMembers": "Запросіть принаймні ще одного учасника, перш ніж передавати право власності.",
+				"pickerHint": "Цей учасник стане єдиним власником цього робочого простору.",
+				"pickerPlaceholder": "Оберіть учасника",
+				"button": "Передати",
+				"dialogTitle": "Передати право власності?",
+				"dialogDescription": "{{name}} стане єдиним власником робочого простору {{workspace}}. Ви збережете доступ адміністратора, але втратите можливості власника, як-от видалення робочого простору чи повторну передачу.",
+				"transferring": "Передача…",
+				"confirm": "Передати право власності"
 			}
 		},
 		"projectGeneral": {
@@ -1209,7 +1228,9 @@
 				"nameExists": "A role with this name already exists",
 				"nameRequired": "Role name is required",
 				"permissionRequired": "At least one permission must be selected"
-			}
+			},
+			"permissionCount_few": "{{count}} дозволи",
+			"permissionCount_many": "{{count}} дозволів"
 		}
 	},
 	"navigation": {
@@ -1383,7 +1404,13 @@
 			"hours_one": "{{count}} hour",
 			"hours_other": "{{count}} hours",
 			"minutes_one": "{{count}} minute",
-			"minutes_other": "{{count}} minutes"
+			"minutes_other": "{{count}} minutes",
+			"minutes_few": "{{count}} хвилини",
+			"minutes_many": "{{count}} хвилин",
+			"hours_few": "{{count}} години",
+			"hours_many": "{{count}} годин",
+			"days_few": "{{count}} дні",
+			"days_many": "{{count}} днів"
 		}
 	},
 	"activity": {
@@ -1484,6 +1511,15 @@
 				},
 				"mermaid": {
 					"renderFailed": "Не вдалося відобразити діаграму Mermaid"
+				},
+				"table": {
+					"addColumnBefore": "Вставити колонку ліворуч",
+					"addColumnAfter": "Вставити колонку праворуч",
+					"deleteColumn": "Видалити колонку",
+					"addRowBefore": "Вставити рядок вище",
+					"addRowAfter": "Вставити рядок нижче",
+					"deleteRow": "Видалити рядок",
+					"deleteTable": "Видалити таблицю"
 				}
 			}
 		},
@@ -1656,7 +1692,8 @@
 			"deleteError": "Не вдалося видалити завдання",
 			"deleteDialogTitle": "Видалити завдання?",
 			"deleteDialogDescription": "Це назавжди видалить завдання та всі його дані. Цю дію неможливо скасувати.",
-			"deleteAction": "Видалити завдання"
+			"deleteAction": "Видалити завдання",
+			"completeAria": "Позначити підзавдання виконаним"
 		},
 		"properties": {
 			"title": "Властивості",
@@ -1887,6 +1924,17 @@
 			"searchActions": "Пошук дій...",
 			"noActionsFound": "Дій не знайдено.",
 			"changeStatus": "Змінити статус"
+		},
+		"editor": {
+			"table": {
+				"addColumnBefore": "Вставити колонку ліворуч",
+				"addColumnAfter": "Вставити колонку праворуч",
+				"deleteColumn": "Видалити колонку",
+				"addRowBefore": "Вставити рядок вище",
+				"addRowAfter": "Вставити рядок нижче",
+				"deleteRow": "Видалити рядок",
+				"deleteTable": "Видалити таблицю"
+			}
 		}
 	},
 	"invitations": {

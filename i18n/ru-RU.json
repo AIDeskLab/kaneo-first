@@ -160,7 +160,8 @@
 				"account_not_linked": "This identity could not be linked to the existing account. Sign in by email to verify the account, then try SSO again. If email sign-in is unavailable, contact your administrator.",
 				"oauth_code_verification_failed": "OAuth verification failed. Please try again.",
 				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Registration is currently disabled. You need a valid invitation to create an account."
-			}
+			},
+			"instanceStatusError": "Не удалось связаться с сервером. Повторите попытку чуть позже."
 		},
 		"providers": {
 			"google": "Google",
@@ -195,7 +196,10 @@
 			"signingIn": "Вход...",
 			"continueAsGuest": "Продолжить как гость",
 			"toggleMessage": "Уже есть аккаунт?",
-			"toggleLink": "Войти"
+			"toggleLink": "Войти",
+			"instanceStatusError": "Не удалось связаться с сервером. Повторите попытку чуть позже.",
+			"instanceAdminTitle": "Настройте свой экземпляр Kaneo",
+			"instanceAdminSubtitle": "Этот аккаунт станет администратором экземпляра с полным доступом."
 		},
 		"verifyOtp": {
 			"pageTitle": "Проверка кода",
@@ -575,6 +579,21 @@
 			"validation": {
 				"nameRequired": "Название рабочей области обязательно",
 				"nameShort": "Название рабочей области должно содержать не менее 2 символов"
+			},
+			"transferOwnership": {
+				"toastSuccess": "Права владельца переданы",
+				"toastError": "Не удалось передать права владельца",
+				"title": "Передача прав владельца",
+				"subtitle": "Передайте эту рабочую область другому участнику. Вы станете администратором и потеряете возможности, доступные только владельцу.",
+				"pickerLabel": "Новый владелец",
+				"noEligibleMembers": "Пригласите хотя бы одного участника, прежде чем передавать права владельца.",
+				"pickerHint": "Этот участник станет единственным владельцем рабочей области.",
+				"pickerPlaceholder": "Выберите участника",
+				"button": "Передать",
+				"dialogTitle": "Передать права владельца?",
+				"dialogDescription": "{{name}} станет единственным владельцем рабочей области {{workspace}}. Вы сохраните права администратора, но потеряете возможности владельца, такие как удаление рабочей области или её повторная передача.",
+				"transferring": "Передача…",
+				"confirm": "Передать права владельца"
 			}
 		},
 		"projectGeneral": {
@@ -1222,7 +1241,9 @@
 				"nameExists": "A role with this name already exists",
 				"nameRequired": "Role name is required",
 				"permissionRequired": "At least one permission must be selected"
-			}
+			},
+			"permissionCount_few": "{{count}} права",
+			"permissionCount_many": "{{count}} прав"
 		}
 	},
 	"navigation": {
@@ -1396,7 +1417,13 @@
 			"hours_one": "{{count}} hour",
 			"hours_other": "{{count}} hours",
 			"minutes_one": "{{count}} minute",
-			"minutes_other": "{{count}} minutes"
+			"minutes_other": "{{count}} minutes",
+			"minutes_few": "{{count}} минуты",
+			"minutes_many": "{{count}} минут",
+			"hours_few": "{{count}} часа",
+			"hours_many": "{{count}} часов",
+			"days_few": "{{count}} дня",
+			"days_many": "{{count}} дней"
 		}
 	},
 	"activity": {
@@ -1497,6 +1524,15 @@
 				},
 				"mermaid": {
 					"renderFailed": "Не удалось отобразить диаграмму Mermaid"
+				},
+				"table": {
+					"addColumnBefore": "Вставить столбец слева",
+					"addColumnAfter": "Вставить столбец справа",
+					"deleteColumn": "Удалить столбец",
+					"addRowBefore": "Вставить строку выше",
+					"addRowAfter": "Вставить строку ниже",
+					"deleteRow": "Удалить строку",
+					"deleteTable": "Удалить таблицу"
 				}
 			}
 		},
@@ -1669,7 +1705,8 @@
 			"deleteError": "Не удалось удалить задачу",
 			"deleteDialogTitle": "Удалить задачу?",
 			"deleteDialogDescription": "Задача и все её данные будут безвозвратно удалены. Это действие нельзя отменить.",
-			"deleteAction": "Удалить задачу"
+			"deleteAction": "Удалить задачу",
+			"completeAria": "Отметить подзадачу выполненной"
 		},
 		"properties": {
 			"title": "Свойства",
@@ -1959,6 +1996,17 @@
 			"moveToBoardSuccess": "{{count}} tasks moved to board",
 			"selectedCount": "{{count}} selected",
 			"updateSuccess": "{{count}} tasks updated"
+		},
+		"editor": {
+			"table": {
+				"addColumnBefore": "Вставить столбец слева",
+				"addColumnAfter": "Вставить столбец справа",
+				"deleteColumn": "Удалить столбец",
+				"addRowBefore": "Вставить строку выше",
+				"addRowAfter": "Вставить строку ниже",
+				"deleteRow": "Удалить строку",
+				"deleteTable": "Удалить таблицу"
+			}
 		}
 	},
 	"invitations": {
