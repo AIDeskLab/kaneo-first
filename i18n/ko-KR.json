@@ -1972,7 +1972,9 @@
 				"inProgress": "진행 중"
 			},
 			"noDueDate": "마감일 없음",
-			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one."
+			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one.",
+			"reorderHandle": "프로젝트 순서 변경",
+			"reorderError": "프로젝트 순서를 변경하지 못했습니다"
 		},
 		"search": {
 			"pageTitle": "검색",

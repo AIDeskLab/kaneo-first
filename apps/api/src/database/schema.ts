@@ -272,9 +272,14 @@ export const projectTable = pgTable(
       () => projectGroupTable.id,
       { onDelete: "set null" },
     ),
+    position: integer("position").notNull().default(0),
   },
   (table) => [
     unique("project_workspace_id_id_unique").on(table.workspaceId, table.id),
+    index("project_workspaceId_position_idx").on(
+      table.workspaceId,
+      table.position,
+    ),
   ],
 );
 

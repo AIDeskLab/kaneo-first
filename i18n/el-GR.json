@@ -1972,7 +1972,9 @@
 				"inProgress": "Σε εξέλιξη"
 			},
 			"noDueDate": "Χωρίς ημερομηνία λήξης",
-			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one."
+			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one.",
+			"reorderHandle": "Αναδιάταξη έργου",
+			"reorderError": "Η αναδιάταξη των έργων απέτυχε"
 		},
 		"search": {
 			"pageTitle": "Αναζήτηση",

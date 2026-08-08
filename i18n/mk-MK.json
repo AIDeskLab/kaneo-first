@@ -1972,7 +1972,9 @@
 				"inProgress": "Во тек"
 			},
 			"noDueDate": "Без краен рок",
-			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one."
+			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one.",
+			"reorderHandle": "Прередување на проектот",
+			"reorderError": "Прередувањето на проектите не успеа"
 		},
 		"search": {
 			"pageTitle": "Пребарување",

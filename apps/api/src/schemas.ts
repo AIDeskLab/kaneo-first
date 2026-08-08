@@ -19,6 +19,8 @@ export const projectSchema = v.object({
   createdAt: v.date(),
   isPublic: v.nullable(v.boolean()),
   archivedAt: v.nullable(v.date()),
+  projectGroupId: v.nullable(v.string()),
+  position: v.number(),
 });
 
 export const taskSchema = v.object({

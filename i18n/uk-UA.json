@@ -1984,7 +1984,9 @@
 				"inProgress": "В роботі"
 			},
 			"noDueDate": "Без дати завершення",
-			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one."
+			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one.",
+			"reorderHandle": "Змінити порядок проєкту",
+			"reorderError": "Не вдалося змінити порядок проєктів"
 		},
 		"search": {
 			"pageTitle": "Пошук",

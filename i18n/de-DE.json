@@ -1972,7 +1972,9 @@
 				"inProgress": "In Bearbeitung"
 			},
 			"noDueDate": "Kein Fälligkeitsdatum",
-			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one."
+			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one.",
+			"reorderHandle": "Projekt neu anordnen",
+			"reorderError": "Projekte konnten nicht neu angeordnet werden"
 		},
 		"search": {
 			"pageTitle": "Suche",

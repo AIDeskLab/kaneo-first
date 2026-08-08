@@ -1988,7 +1988,9 @@
 				"complete": "Complete",
 				"inProgress": "In progress"
 			},
-			"noDueDate": "No due date"
+			"noDueDate": "No due date",
+			"reorderHandle": "Reorder project",
+			"reorderError": "Failed to reorder projects"
 		},
 		"search": {
 			"pageTitle": "Search",

@@ -2056,7 +2056,9 @@
 				"inProgress": "В работе"
 			},
 			"noDueDate": "Без срока",
-			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one."
+			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one.",
+			"reorderHandle": "Изменить порядок проекта",
+			"reorderError": "Не удалось изменить порядок проектов"
 		},
 		"search": {
 			"pageTitle": "Поиск",
