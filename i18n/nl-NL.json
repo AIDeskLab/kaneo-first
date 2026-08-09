@@ -896,7 +896,9 @@
 				"verifyError": "Failed to verify Gitea access",
 				"verifyFirst": "Verify access failed — check URL, token, and repository",
 				"verifyOk": "Gitea token can access this repository",
-				"verifyWarning": "Check token permissions or repository access"
+				"verifyWarning": "Check token permissions or repository access",
+				"notGiteaInstance": "The URL does not point to a Gitea instance",
+				"redirected": "Gitea URL redirected (usually to HTTPS). Use the final URL directly."
 			},
 			"tokenHint": "Token with repo and issues access",
 			"tokenLabel": "Personal access token",
