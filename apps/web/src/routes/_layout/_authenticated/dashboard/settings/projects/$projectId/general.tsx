@@ -350,7 +350,7 @@ function RouteComponent() {
           </div>
 
           <div className="space-y-4 border border-border rounded-md p-4 bg-sidebar">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div className="space-y-0.5">
                 <p className="text-sm font-medium">
                   {t("settings:projectGeneral.iconLabel")}
@@ -452,7 +452,7 @@ function RouteComponent() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                         <div className="space-y-0.5">
                           <FormLabel className="text-sm font-medium">
                             {t("settings:projectGeneral.projectNameLabel")}
@@ -463,7 +463,7 @@ function RouteComponent() {
                         </div>
                         <FormControl>
                           <Input
-                            className="w-64"
+                            className="w-full sm:w-64"
                             placeholder={t(
                               "settings:projectGeneral.projectNamePlaceholder",
                             )}
@@ -484,7 +484,7 @@ function RouteComponent() {
                   name="slug"
                   render={({ field }) => (
                     <FormItem>
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                         <div className="space-y-0.5">
                           <FormLabel className="text-sm font-medium">
                             {t("settings:projectGeneral.keyLabel")}
@@ -497,7 +497,7 @@ function RouteComponent() {
                         </div>
                         <FormControl>
                           <Input
-                            className="w-64"
+                            className="w-full sm:w-64"
                             placeholder={t(
                               "settings:projectGeneral.keyPlaceholder",
                             )}
@@ -518,7 +518,7 @@ function RouteComponent() {
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                         <div className="space-y-0.5">
                           <FormLabel className="text-sm font-medium">
                             {t("settings:projectGeneral.descriptionLabel")}
@@ -529,7 +529,7 @@ function RouteComponent() {
                         </div>
                         <FormControl>
                           <Input
-                            className="w-64"
+                            className="w-full sm:w-64"
                             placeholder={t(
                               "settings:projectGeneral.descriptionPlaceholder",
                             )}
@@ -585,7 +585,7 @@ function RouteComponent() {
               </form>
             </Form>
             <Separator />
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div className="space-y-0.5">
                 <p className="text-sm font-medium">
                   {t("settings:projectGeneral.importExportTasks")}
@@ -611,7 +611,7 @@ function RouteComponent() {
             </div>
 
             <div className="space-y-4 border border-border rounded-md p-4 bg-sidebar">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="space-y-0.5">
                   <p className="text-sm font-medium">
                     {t("settings:projectGeneral.deleteProject")}
