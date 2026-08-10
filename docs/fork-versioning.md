@@ -9,23 +9,26 @@ version, while `upstreamVersion` and `counter` store its components.
 that metadata. Run `pnpm version:check` to verify the stored files.
 
 After every pull request merged into `main`, the `Update fork version` workflow
-finds the latest stable `usekaneo/kaneo` tag. It increments the counter when the
-upstream base is unchanged. When the upstream base is newer, it adopts that base
-and resets the counter to zero. Older upstream versions are always rejected.
+increments only the fork counter. It does not query upstream tags and never
+changes `upstreamVersion` automatically.
 
-Selective upstream changes and version tracking are independent. Cherry-pick or
-otherwise apply only the upstream commits that have been reviewed and accepted;
-do not edit version fields as part of that operation. Afterward, run the
-`Update fork version` workflow manually to record a newly published upstream
-base even when no upstream commit was accepted and no pull request was created.
+For a selective upstream synchronization, first fetch the upstream commits and
+choose which reviewed commits to apply (choosing none is allowed). Then run the
+`Update fork version` workflow manually and provide the exact stable upstream
+version/tag from which that synchronization was performed. The workflow records
+that explicit base and resets the counter to zero; it never substitutes the
+latest release available at execution time. Older upstream versions are
+rejected, while synchronizing the same version again makes no change.
 
-For local checks, supply an explicit stable upstream tag:
+For local checks, increment needs no upstream argument. Sync requires the exact
+stable upstream version/tag used as the synchronization source:
 
 ```sh
-pnpm version:increment --latest-upstream 2.16.3
-pnpm version:sync --latest-upstream 2.17.0
+pnpm version:increment
+pnpm version:sync 2.17.0
 pnpm version:test
 ```
 
-`version:increment` is for a merged fork PR. `version:sync` only changes the
-version when the supplied upstream base is newer.
+The `version:sync` package script supplies `--upstream-version`; its positional
+value is required. `version:increment` is for a merged fork PR, while sync
+changes the base only when the explicitly supplied upstream version is newer.

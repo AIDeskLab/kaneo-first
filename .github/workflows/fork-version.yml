@@ -5,6 +5,11 @@ on:
     branches: [main]
     types: [closed]
   workflow_dispatch:
+    inputs:
+      upstream_version:
+        description: Exact stable upstream version/tag used for the selective sync
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -34,26 +39,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Update canonical version
+      - name: Increment fork version or record an explicit upstream sync
         env:
           VERSION_COMMAND: ${{ github.event_name == 'pull_request' && 'increment' || 'sync' }}
           PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          UPSTREAM_VERSION: ${{ github.event.inputs.upstream_version || '' }}
         run: |
           set -euo pipefail
 
-          LATEST_UPSTREAM_VERSION=$(
-            git ls-remote --tags --refs https://github.com/usekaneo/kaneo.git \
-              | sed 's#refs/tags/v\{0,1\}##' \
-              | awk '{print $2}' \
-              | grep -E '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' \
-              | sort -V \
-              | tail -n 1
-          )
-          test -n "$LATEST_UPSTREAM_VERSION"
-          readonly LATEST_UPSTREAM_VERSION
-
           if test "$VERSION_COMMAND" = "increment"; then
             test -n "$PR_NUMBER"
+          else
+            test -n "$UPSTREAM_VERSION"
           fi
 
           for attempt in 1 2 3 4 5; do
@@ -68,7 +65,11 @@ jobs:
               fi
             fi
 
-            node scripts/versioning.mjs "$VERSION_COMMAND" --latest-upstream "$LATEST_UPSTREAM_VERSION"
+            if test "$VERSION_COMMAND" = "increment"; then
+              node scripts/versioning.mjs increment
+            else
+              node scripts/versioning.mjs sync --upstream-version "$UPSTREAM_VERSION"
+            fi
             node scripts/versioning.mjs check
 
             if git diff --quiet -- package.json charts/kaneo/Chart.yaml; then
