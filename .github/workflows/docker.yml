@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to tag the images (e.g., 1.0.0)'
+        description: 'Canonical version to tag the images (e.g., 2.16.3-aidesk.0)'
         required: true
         type: string
       latest:
@@ -50,6 +50,17 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GH_PACKAGE_TOKEN }}
+
+      - name: Validate Docker-safe canonical version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          node scripts/versioning.mjs check
+          CANONICAL_VERSION=$(node -p "require('./package.json').version")
+          if [ "$VERSION" != "$CANONICAL_VERSION" ]; then
+            echo "::error::Image version must match package.json ($CANONICAL_VERSION)."
+            exit 1
+          fi
 
       - name: Extract metadata
         id: meta
