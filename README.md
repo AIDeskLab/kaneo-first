@@ -126,6 +126,9 @@ If you're running Kubernetes, we provide a comprehensive Helm chart. Check out t
 
 Want to hack on Kaneo? See our [Environment Setup Guide](ENVIRONMENT_SETUP.md) for detailed instructions on configuring environment variables and troubleshooting common issues like CORS problems.
 
+This fork's canonical version and selective-upstream process are documented in
+[Fork versioning](docs/fork-versioning.md).
+
 Quick start:
 ```bash
 # Clone and install dependencies

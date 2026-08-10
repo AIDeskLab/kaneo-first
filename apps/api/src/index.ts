@@ -79,6 +79,7 @@ import {
 } from "./utils/openapi-spec";
 import { seedDefaultWorkspaceRoles } from "./utils/seed-default-workspace-roles";
 import { validateWorkspaceAccess } from "./utils/validate-workspace-access";
+import version from "./version";
 import workflowRule from "./workflow-rule";
 import workspace from "./workspace";
 import {
@@ -200,6 +201,8 @@ export function createApp() {
   api.get("/health", (c) => {
     return c.json({ status: "ok" });
   });
+
+  const versionApi = api.route("/version", version);
 
   api.get(
     "/instance/status",
@@ -750,6 +753,7 @@ export function createApp() {
     workflowRuleApi,
     workspaceApi,
     oauthApi,
+    versionApi,
   };
 }
 
@@ -867,6 +871,7 @@ const {
   workflowRuleApi,
   workspaceApi,
   oauthApi,
+  versionApi,
 } = createdApp;
 
 const isMainModule =
@@ -903,6 +908,7 @@ export type AppType =
   | typeof workspaceApi
   | typeof publicProjectApi
   | typeof invitationPublicApi
-  | typeof oauthApi;
+  | typeof oauthApi
+  | typeof versionApi;
 
 export default app;

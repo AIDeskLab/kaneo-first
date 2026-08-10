@@ -51,6 +51,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify fork versioning
+        run: pnpm version:test && pnpm version:check
+
       - name: Run unit tests
         run: pnpm test
 

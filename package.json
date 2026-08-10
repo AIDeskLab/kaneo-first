@@ -13,6 +13,10 @@
     "lint": "turbo lint",
     "test": "turbo test",
     "test:integration": "turbo test:integration",
+    "version:check": "node ./scripts/versioning.mjs check",
+    "version:increment": "node ./scripts/versioning.mjs increment",
+    "version:sync": "node ./scripts/versioning.mjs sync",
+    "version:test": "node --test ./scripts/versioning.test.mjs",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -62,7 +66,9 @@
     }
   },
   "packageManager": "pnpm@10.32.1",
-  "version": "2.9.8",
+  "version": "2.16.3-aidesk.0",
+  "upstreamVersion": "2.16.3",
+  "counter": 0,
   "dependencies": {
     "dotenv-mono": "^1.5.1"
   }
