@@ -15,7 +15,7 @@
     "test:integration": "turbo test:integration",
     "version:check": "node ./scripts/versioning.mjs check",
     "version:increment": "node ./scripts/versioning.mjs increment",
-    "version:sync": "node ./scripts/versioning.mjs sync",
+    "version:sync": "node ./scripts/versioning.mjs sync --upstream-version",
     "version:test": "node --test ./scripts/versioning.test.mjs",
     "prepare": "husky"
   },

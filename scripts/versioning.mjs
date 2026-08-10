@@ -74,12 +74,12 @@ export function validateVersionMetadata(metadata) {
 }
 
 function compareStableVersions(left, right) {
-  const leftParts = parseUpstreamVersion(left).split(".").map(Number);
-  const rightParts = parseUpstreamVersion(right).split(".").map(Number);
+  const leftParts = parseUpstreamVersion(left).split(".").map(BigInt);
+  const rightParts = parseUpstreamVersion(right).split(".").map(BigInt);
 
   for (let index = 0; index < leftParts.length; index += 1) {
-    const difference = leftParts[index] - rightParts[index];
-    if (difference !== 0) return Math.sign(difference);
+    if (leftParts[index] > rightParts[index]) return 1;
+    if (leftParts[index] < rightParts[index]) return -1;
   }
 
   return 0;
@@ -103,41 +103,36 @@ function parseCurrentState(metadata) {
   return { kind: "canonical", ...validateVersionMetadata(metadata) };
 }
 
-export function computeNextVersion(metadata, latestUpstreamTag, increment) {
-  const latestUpstreamVersion = parseUpstreamVersion(latestUpstreamTag);
+export function incrementForkVersion(metadata) {
+  const currentState = parseCurrentState(metadata);
+  const counter = currentState.kind === "legacy" ? 1 : currentState.counter + 1;
+  if (!Number.isSafeInteger(counter)) {
+    throw new Error("Fork counter exceeds the maximum safe integer");
+  }
+  return {
+    version: buildCanonicalVersion(currentState.upstreamVersion, counter),
+    upstreamVersion: currentState.upstreamVersion,
+    counter,
+    changed: true,
+    reason: "increment",
+  };
+}
+
+export function synchronizeUpstreamVersion(metadata, upstreamTag) {
+  const upstreamVersion = parseUpstreamVersion(upstreamTag);
   const currentState = parseCurrentState(metadata);
   const comparison = compareStableVersions(
-    latestUpstreamVersion,
+    upstreamVersion,
     currentState.upstreamVersion,
   );
 
   if (comparison < 0) {
     throw new Error(
-      `Refusing upstream downgrade from ${currentState.upstreamVersion} to ${latestUpstreamVersion}`,
+      `Refusing upstream downgrade from ${currentState.upstreamVersion} to ${upstreamVersion}`,
     );
   }
 
-  if (currentState.kind === "legacy") {
-    return {
-      version: buildCanonicalVersion(latestUpstreamVersion, 0),
-      upstreamVersion: latestUpstreamVersion,
-      counter: 0,
-      changed: true,
-      reason: "initialize",
-    };
-  }
-
-  if (comparison > 0) {
-    return {
-      version: buildCanonicalVersion(latestUpstreamVersion, 0),
-      upstreamVersion: latestUpstreamVersion,
-      counter: 0,
-      changed: true,
-      reason: "upstream-reset",
-    };
-  }
-
-  if (!increment) {
+  if (currentState.kind === "canonical" && comparison === 0) {
     return {
       version: currentState.version,
       upstreamVersion: currentState.upstreamVersion,
@@ -147,27 +142,23 @@ export function computeNextVersion(metadata, latestUpstreamTag, increment) {
     };
   }
 
-  const counter = currentState.counter + 1;
-  if (!Number.isSafeInteger(counter)) {
-    throw new Error("Fork counter exceeds the maximum safe integer");
-  }
   return {
-    version: buildCanonicalVersion(latestUpstreamVersion, counter),
-    upstreamVersion: latestUpstreamVersion,
-    counter,
+    version: buildCanonicalVersion(upstreamVersion, 0),
+    upstreamVersion,
+    counter: 0,
     changed: true,
-    reason: "increment",
+    reason: currentState.kind === "legacy" ? "initialize" : "upstream-sync",
   };
 }
 
-function parseArguments(argv) {
+export function parseArguments(argv) {
   const [command, ...argumentsList] = argv;
-  let latestUpstreamTag;
+  let upstreamVersion;
 
   for (let index = 0; index < argumentsList.length; index += 1) {
     const argument = argumentsList[index];
-    if (argument === "--latest-upstream") {
-      latestUpstreamTag = argumentsList[index + 1];
+    if (argument === "--upstream-version") {
+      upstreamVersion = argumentsList[index + 1];
       index += 1;
     } else {
       throw new Error(`Unknown argument: ${argument}`);
@@ -176,15 +167,18 @@ function parseArguments(argv) {
 
   if (!command || !["check", "increment", "sync"].includes(command)) {
     throw new Error(
-      "Usage: node scripts/versioning.mjs <check|increment|sync> [--latest-upstream <tag>]",
+      "Usage: node scripts/versioning.mjs <check|increment|sync> [--upstream-version <tag>]",
     );
   }
 
-  if (["increment", "sync"].includes(command) && !latestUpstreamTag) {
-    throw new Error(`${command} requires --latest-upstream <tag>`);
+  if (command === "sync" && !upstreamVersion) {
+    throw new Error("sync requires --upstream-version <tag>");
+  }
+  if (command !== "sync" && upstreamVersion !== undefined) {
+    throw new Error(`${command} does not accept --upstream-version`);
   }
 
-  return { command, latestUpstreamTag };
+  return { command, upstreamVersion };
 }
 
 function validateChart(chartYaml, expectedVersion) {
@@ -219,7 +213,7 @@ function updateChart(chartYaml, version) {
 }
 
 async function runCli() {
-  const { command, latestUpstreamTag } = parseArguments(process.argv.slice(2));
+  const { command, upstreamVersion } = parseArguments(process.argv.slice(2));
   const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const packagePath = resolve(repositoryRoot, "package.json");
   const chartPath = resolve(repositoryRoot, "charts/kaneo/Chart.yaml");
@@ -233,11 +227,10 @@ async function runCli() {
     return;
   }
 
-  const next = computeNextVersion(
-    packageJson,
-    latestUpstreamTag,
-    command === "increment",
-  );
+  const next =
+    command === "increment"
+      ? incrementForkVersion(packageJson)
+      : synchronizeUpstreamVersion(packageJson, upstreamVersion);
   packageJson.version = next.version;
   packageJson.upstreamVersion = next.upstreamVersion;
   packageJson.counter = next.counter;

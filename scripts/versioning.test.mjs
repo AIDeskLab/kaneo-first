@@ -3,9 +3,11 @@ import test from "node:test";
 
 import {
   buildCanonicalVersion,
-  computeNextVersion,
+  incrementForkVersion,
+  parseArguments,
   parseCanonicalVersion,
   parseUpstreamVersion,
+  synchronizeUpstreamVersion,
   validateVersionMetadata,
 } from "./versioning.mjs";
 
@@ -15,8 +17,8 @@ const current = {
   counter: 4,
 };
 
-test("increments the fork counter when the upstream base is unchanged", () => {
-  assert.deepEqual(computeNextVersion(current, "v2.16.3", true), {
+test("increments only the fork counter without an upstream argument", () => {
+  assert.deepEqual(incrementForkVersion(current), {
     version: "2.16.3-aidesk.5",
     upstreamVersion: "2.16.3",
     counter: 5,
@@ -25,18 +27,18 @@ test("increments the fork counter when the upstream base is unchanged", () => {
   });
 });
 
-test("resets the counter when a newer upstream base is available", () => {
-  assert.deepEqual(computeNextVersion(current, "2.17.0", true), {
+test("explicitly synchronizes to a newer upstream base and resets the counter", () => {
+  assert.deepEqual(synchronizeUpstreamVersion(current, "2.17.0"), {
     version: "2.17.0-aidesk.0",
     upstreamVersion: "2.17.0",
     counter: 0,
     changed: true,
-    reason: "upstream-reset",
+    reason: "upstream-sync",
   });
 });
 
-test("manual synchronization does not increment an unchanged base", () => {
-  assert.deepEqual(computeNextVersion(current, "2.16.3", false), {
+test("synchronizing the same upstream base is idempotent", () => {
+  assert.deepEqual(synchronizeUpstreamVersion(current, "v2.16.3"), {
     ...current,
     changed: false,
     reason: "unchanged",
@@ -45,19 +47,95 @@ test("manual synchronization does not increment an unchanged base", () => {
 
 test("rejects an upstream downgrade", () => {
   assert.throws(
-    () => computeNextVersion(current, "2.15.9", true),
+    () => synchronizeUpstreamVersion(current, "2.15.9"),
     /Refusing upstream downgrade/,
   );
 });
 
-test("initializes legacy metadata at counter zero", () => {
-  assert.deepEqual(computeNextVersion({ version: "2.9.8" }, "v2.16.3", true), {
-    version: "2.16.3-aidesk.0",
-    upstreamVersion: "2.16.3",
+test("resets the counter when a huge upstream component is higher", () => {
+  const huge = {
+    version: "9007199254740992.0.0-aidesk.4",
+    upstreamVersion: "9007199254740992.0.0",
+    counter: 4,
+  };
+
+  assert.deepEqual(synchronizeUpstreamVersion(huge, "9007199254740993.0.0"), {
+    version: "9007199254740993.0.0-aidesk.0",
+    upstreamVersion: "9007199254740993.0.0",
     counter: 0,
     changed: true,
-    reason: "initialize",
+    reason: "upstream-sync",
   });
+});
+
+test("rejects a downgrade when a huge upstream component is lower", () => {
+  const huge = {
+    version: "9007199254740993.0.0-aidesk.4",
+    upstreamVersion: "9007199254740993.0.0",
+    counter: 4,
+  };
+
+  assert.throws(
+    () => synchronizeUpstreamVersion(huge, "9007199254740992.0.0"),
+    /Refusing upstream downgrade/,
+  );
+});
+
+test("keeps canonical metadata unchanged for equal huge components", () => {
+  const huge = {
+    version: "9007199254740993.0.0-aidesk.4",
+    upstreamVersion: "9007199254740993.0.0",
+    counter: 4,
+  };
+
+  assert.deepEqual(synchronizeUpstreamVersion(huge, "9007199254740993.0.0"), {
+    ...huge,
+    changed: false,
+    reason: "unchanged",
+  });
+});
+
+test("initializes legacy metadata from its current base when incrementing", () => {
+  assert.deepEqual(incrementForkVersion({ version: "2.9.8" }), {
+    version: "2.9.8-aidesk.1",
+    upstreamVersion: "2.9.8",
+    counter: 1,
+    changed: true,
+    reason: "increment",
+  });
+});
+
+test("initializes legacy metadata at zero only through explicit sync", () => {
+  assert.deepEqual(
+    synchronizeUpstreamVersion({ version: "2.9.8" }, "v2.16.3"),
+    {
+      version: "2.16.3-aidesk.0",
+      upstreamVersion: "2.16.3",
+      counter: 0,
+      changed: true,
+      reason: "initialize",
+    },
+  );
+});
+
+test("requires a valid explicit upstream version only for sync", () => {
+  assert.deepEqual(parseArguments(["increment"]), {
+    command: "increment",
+    upstreamVersion: undefined,
+  });
+  assert.throws(() => parseArguments(["sync"]), /requires --upstream-version/);
+  assert.throws(
+    () => parseArguments(["sync", "--upstream-version"]),
+    /requires --upstream-version/,
+  );
+  assert.throws(
+    () => synchronizeUpstreamVersion(current, "latest"),
+    /Invalid upstream version/,
+  );
+  assert.throws(
+    () => parseArguments(["increment", "--upstream-version", "2.17.0"]),
+    /does not accept --upstream-version/,
+  );
 });
 
 test("builds and parses the Docker-safe canonical prerelease", () => {
@@ -110,8 +188,5 @@ test("rejects a fork counter increment beyond the safe integer range", () => {
     counter: Number.MAX_SAFE_INTEGER,
   };
 
-  assert.throws(
-    () => computeNextVersion(maximum, "2.16.3", true),
-    /maximum safe integer/,
-  );
+  assert.throws(() => incrementForkVersion(maximum), /maximum safe integer/);
 });
