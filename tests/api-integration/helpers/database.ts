@@ -92,7 +92,6 @@ export async function resetTestDatabase() {
         "column",
         "comment",
         "external_link",
-        "github_integration",
         "integration",
         "invitation",
         "label",
