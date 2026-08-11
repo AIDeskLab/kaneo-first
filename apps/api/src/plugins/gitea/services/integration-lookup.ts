@@ -31,8 +31,10 @@ export async function findAllIntegrationsByGiteaRepo(
       const config = JSON.parse(integration.config) as GiteaConfig;
       const matches =
         normalizeGiteaBaseUrl(config.baseUrl) === normalized &&
-        config.repositoryOwner === owner &&
-        config.repositoryName === repo;
+        config.repositoryOwner?.trim().toLowerCase() ===
+          owner.trim().toLowerCase() &&
+        config.repositoryName?.trim().toLowerCase() ===
+          repo.trim().toLowerCase();
       if (integrationId && !matches) {
         console.warn("[Gitea Webhook] Signed integration repository mismatch", {
           integrationId,

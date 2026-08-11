@@ -19,6 +19,10 @@ import {
 } from "../storage/s3";
 import { normalizeApiServerUrl } from "../utils/openapi-spec";
 import { requireWorkspacePermission } from "../utils/require-workspace-permission";
+import {
+  validateAndParseDate,
+  validateDateRange,
+} from "../utils/validate-dates";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
 import bulkUpdateTasks from "./controllers/bulk-update-tasks";
 import createTask from "./controllers/create-task";
@@ -29,6 +33,12 @@ import getTask from "./controllers/get-task";
 import getTasks from "./controllers/get-tasks";
 import importTasks from "./controllers/import-tasks";
 import moveTask from "./controllers/move-task";
+import {
+  requireBulkTaskPermission,
+  requireCreateTaskAssigneePermission,
+  requireImportTaskAssigneePermission,
+  requireTaskAssigneePermission,
+} from "./controllers/require-task-permission";
 import updateTask from "./controllers/update-task";
 import updateTaskAssignee from "./controllers/update-task-assignee";
 import updateTaskDescription from "./controllers/update-task-description";
@@ -41,6 +51,7 @@ import { VALID_PRIORITIES } from "./validate-task-fields";
 const task = new Hono<{
   Variables: {
     userId: string;
+    authorizedTaskAssignee?: { userId: string | null };
   };
 }>()
   .get(
@@ -153,6 +164,8 @@ const task = new Hono<{
         value: v.optional(v.nullable(v.string())),
       }),
     ),
+    workspaceAccess.fromTasks(),
+    requireBulkTaskPermission,
     async (c) => {
       const { taskIds, operation, value } = c.req.valid("json");
       const userId = c.get("userId");
@@ -210,6 +223,7 @@ const task = new Hono<{
     ),
     workspaceAccess.fromProject("projectId"),
     requireWorkspacePermission({ task: ["create"] }),
+    requireCreateTaskAssigneePermission,
     async (c) => {
       const { projectId } = c.req.param();
       const {
@@ -222,14 +236,25 @@ const task = new Hono<{
         userId,
       } = c.req.valid("json");
 
+      const parsedStartDate =
+        startDate !== undefined
+          ? validateAndParseDate(startDate, "startDate")
+          : undefined;
+      const parsedDueDate =
+        dueDate !== undefined
+          ? validateAndParseDate(dueDate, "dueDate")
+          : undefined;
+
+      validateDateRange(parsedStartDate, parsedDueDate);
+
       const task = await createTask({
         projectId,
         currentUserId: c.get("userId"),
         userId: userId,
         title,
         description,
-        startDate: startDate ? new Date(startDate) : undefined,
-        dueDate: dueDate ? new Date(dueDate) : undefined,
+        startDate: parsedStartDate,
+        dueDate: parsedDueDate,
         priority,
         status,
       });
@@ -342,6 +367,7 @@ const task = new Hono<{
     ),
     workspaceAccess.fromTask(),
     requireWorkspacePermission({ task: ["update"] }),
+    requireTaskAssigneePermission,
     async (c) => {
       const { id } = c.req.valid("param");
       const {
@@ -358,18 +384,30 @@ const task = new Hono<{
 
       const currentUserId = c.get("userId");
 
+      const parsedStartDate =
+        startDate !== undefined
+          ? validateAndParseDate(startDate, "startDate")
+          : undefined;
+      const parsedDueDate =
+        dueDate !== undefined
+          ? validateAndParseDate(dueDate, "dueDate")
+          : undefined;
+
+      validateDateRange(parsedStartDate, parsedDueDate);
+
       const task = await updateTask(
         id,
         title,
         status,
-        startDate ? new Date(startDate) : undefined,
-        dueDate ? new Date(dueDate) : undefined,
+        parsedStartDate,
+        parsedDueDate,
         projectId,
         description,
         priority,
         position,
         userId,
         currentUserId,
+        c.get("authorizedTaskAssignee"),
       );
 
       return c.json(task);
@@ -434,6 +472,7 @@ const task = new Hono<{
     ),
     workspaceAccess.fromProject("projectId"),
     requireWorkspacePermission({ task: ["create"] }),
+    requireImportTaskAssigneePermission,
     async (c) => {
       const { projectId } = c.req.valid("param");
       const { tasks } = c.req.valid("json");
@@ -584,7 +623,7 @@ const task = new Hono<{
 
       const task = await updateTaskDueDate({
         id,
-        dueDate: dueDate ? new Date(dueDate) : null,
+        dueDate: dueDate ? validateAndParseDate(dueDate, "dueDate") : null,
         currentUserId,
       });
 
@@ -824,6 +863,12 @@ const task = new Hono<{
             .returning({
               id: assetTable.id,
             });
+
+      if (!asset) {
+        throw new HTTPException(500, {
+          message: "Failed to save asset",
+        });
+      }
 
       const apiBaseUrl = normalizeApiServerUrl(
         process.env.KANEO_API_URL || new URL(c.req.url).origin,

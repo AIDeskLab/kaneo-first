@@ -39,6 +39,9 @@ export default async function updateUserStatus(
     })
     .where(eq(schema.userTable.id, userId))
     .returning();
+  if (!updated) {
+    throw new HTTPException(404, { message: "User not found" });
+  }
   return {
     ...updated,
     banExpires: updated.banExpires?.toISOString() ?? null,

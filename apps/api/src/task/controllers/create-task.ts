@@ -1,10 +1,14 @@
 import { and, eq, max } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
-import { columnTable, taskTable, userTable } from "../../database/schema";
+import { columnTable, projectTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { assertValidTaskStatus } from "../validate-task-fields";
 import { claimTaskNumber } from "./claim-task-numbers";
+import {
+  lockWorkspaceAssignees,
+  requireWorkspaceAssignees,
+} from "./workspace-assignee-lock";
 
 async function createTask({
   projectId,
@@ -30,12 +34,15 @@ async function createTask({
   const resolvedStatus = status || "to-do";
   const resolvedPriority = priority || "no-priority";
 
+  const normalizedUserId = userId?.trim() || undefined;
+
   await assertValidTaskStatus(resolvedStatus, projectId);
 
-  const [assignee] = await db
-    .select({ name: userTable.name })
-    .from(userTable)
-    .where(eq(userTable.id, userId ?? ""));
+  const project = await db.query.projectTable.findFirst({
+    columns: { workspaceId: true },
+    where: eq(projectTable.id, projectId),
+  });
+  if (!project) throw new HTTPException(404, { message: "Project not found" });
 
   const column = await db.query.columnTable.findFirst({
     where: and(
@@ -58,14 +65,23 @@ async function createTask({
 
   const nextPosition = (maxPositionResult?.maxPosition ?? 0) + 1;
 
+  let assigneeName: string | undefined;
   const createdTask = await db.transaction(async (tx) => {
+    if (normalizedUserId) {
+      await lockWorkspaceAssignees(tx, project.workspaceId, [normalizedUserId]);
+      assigneeName = (
+        await requireWorkspaceAssignees(tx, project.workspaceId, [
+          normalizedUserId,
+        ])
+      ).get(normalizedUserId);
+    }
     const taskNumber = await claimTaskNumber(projectId, tx);
 
     const [task] = await tx
       .insert(taskTable)
       .values({
         projectId,
-        userId: userId || null,
+        userId: normalizedUserId ?? null,
         title: title || "",
         status: resolvedStatus,
         columnId: column?.id ?? null,
@@ -98,7 +114,7 @@ async function createTask({
 
   return {
     ...createdTask,
-    assigneeName: assignee?.name,
+    assigneeName,
   };
 }
 

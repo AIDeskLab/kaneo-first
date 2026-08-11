@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { assertPublicWebhookDestination } from "./config";
+import { fetchPublicDestination } from "../../utils/assert-public-destination";
 
 type GenericWebhookPayload = Record<string, unknown>;
 
@@ -10,8 +10,6 @@ export async function postToGenericWebhook(
   payload: GenericWebhookPayload,
   secret?: string,
 ): Promise<void> {
-  await assertPublicWebhookDestination(webhookUrl);
-
   const body = JSON.stringify(payload);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -30,12 +28,21 @@ export async function postToGenericWebhook(
   );
 
   try {
-    const response = await fetch(webhookUrl, {
-      method: "POST",
-      headers,
-      body,
-      signal: controller.signal,
-    });
+    const response = await fetchPublicDestination(
+      webhookUrl,
+      "Generic webhook",
+      {
+        method: "POST",
+        headers,
+        body,
+        signal: controller.signal,
+      },
+      {
+        allowPrivate:
+          process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS === "true" ||
+          process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS === "1",
+      },
+    );
 
     if (!response.ok) {
       const errorText = await response.text();

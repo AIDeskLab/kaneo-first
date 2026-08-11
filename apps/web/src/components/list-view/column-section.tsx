@@ -18,7 +18,7 @@ type ColumnSectionProps = {
   column: ProjectWithTasks["columns"][number];
   projectSlug: string;
   hierarchyMode: HierarchyMode;
-  tasks?: TaskTreeNode[];
+  tasks?: Task[] | TaskTreeNode[];
   /** Full column size, including nested rows hidden by collapse. */
   totalTaskCount?: number;
   expandedSections: Record<string, boolean>;

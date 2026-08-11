@@ -45,7 +45,9 @@
 			"french": "French",
 			"spanish": "Spanish",
 			"dutch": "Dutch",
-			"korean": "Korean"
+			"korean": "Korean",
+			"chinese": "Chinese",
+			"italian": "Italian"
 		},
 		"people": {
 			"someone": "Someone",
@@ -88,6 +90,7 @@
 			},
 			"createTask": {
 				"breadcrumbTask": "TASK",
+				"selectProject": "Select project",
 				"title": "New Task",
 				"description": "Create a new task by providing a title, description, and other details.",
 				"taskTitlePlaceholder": "Task title",
@@ -157,7 +160,8 @@
 				"account_not_linked": "This identity could not be linked to the existing account. Sign in by email to verify the account, then try SSO again. If email sign-in is unavailable, contact your administrator.",
 				"oauth_code_verification_failed": "OAuth verification failed. Please try again.",
 				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Registration is currently disabled. You need a valid invitation to create an account."
-			}
+			},
+			"instanceStatusError": "Couldn't reach the server. Please retry in a moment."
 		},
 		"providers": {
 			"google": "Google",
@@ -192,7 +196,10 @@
 			"signingIn": "Signing in...",
 			"continueAsGuest": "Continue as guest",
 			"toggleMessage": "Already have an account?",
-			"toggleLink": "Sign in"
+			"toggleLink": "Sign in",
+			"instanceStatusError": "Couldn't reach the server. Please retry in a moment.",
+			"instanceAdminTitle": "Set up your Kaneo instance",
+			"instanceAdminSubtitle": "This account becomes the instance administrator with full access."
 		},
 		"verifyOtp": {
 			"pageTitle": "Verify Code",
@@ -267,7 +274,8 @@
 			"toast": {
 				"acceptFailed": "Failed to accept invitation",
 				"acceptSuccess": "Invitation accepted! Welcome to the team."
-			}
+			},
+			"createAccountOrSignIn": "Create an account to accept this invitation, or sign in if you already have one."
 		},
 		"onboarding": {
 			"pageTitle": "Welcome to Kaneo",
@@ -571,6 +579,21 @@
 			"validation": {
 				"nameRequired": "Workspace name is required",
 				"nameShort": "Workspace name must be at least 2 characters"
+			},
+			"transferOwnership": {
+				"toastSuccess": "Ownership transferred",
+				"toastError": "Failed to transfer ownership",
+				"title": "Transfer ownership",
+				"subtitle": "Hand this workspace over to another member. You'll be demoted to admin and lose owner-only abilities.",
+				"pickerLabel": "New owner",
+				"noEligibleMembers": "Invite at least one other member before you can transfer ownership.",
+				"pickerHint": "They become the sole owner of this workspace.",
+				"pickerPlaceholder": "Select a member",
+				"button": "Transfer",
+				"dialogTitle": "Transfer ownership?",
+				"dialogDescription": "{{name}} will become the sole owner of {{workspace}}. You'll keep admin access but lose owner-only abilities like deleting the workspace or transferring it again.",
+				"transferring": "Transferring…",
+				"confirm": "Transfer ownership"
 			}
 		},
 		"workspaceRoles": {
@@ -767,11 +790,11 @@
 			"toastDeleteError": "Failed to delete project",
 			"validation": {
 				"nameRequired": "Project name is required",
-				"nameShort": "Project name must be at least 2 characters",
 				"keyRequired": "Key is required",
-				"keyShort": "Key must be at least 2 characters",
 				"keyMax": "Key must be at most 8 characters",
-				"iconRequired": "Icon is required"
+				"iconRequired": "Icon is required",
+				"nameShort": "Project name must be at least 2 characters",
+				"keyShort": "Key must be at least 2 characters"
 			},
 			"importExportTasks": "Import/Export",
 			"importExportTasksDescription": "Import and export tasks.",
@@ -920,6 +943,8 @@
 				"verifyOk": "Gitea token can access this repository",
 				"verifyWarning": "Check token permissions or repository access",
 				"repoNotFound": "Repository not found or not accessible",
+				"redirected": "Gitea URL redirected (usually to HTTPS). Use the final URL directly.",
+				"notGiteaInstance": "The URL does not point to a Gitea instance",
 				"verifyError": "Failed to verify Gitea access",
 				"tokenRequired": "Personal access token is required",
 				"tokenRequiredVerify": "Enter a token to verify",
@@ -1474,6 +1499,7 @@
 					"java": "Java",
 					"javascript": "JavaScript",
 					"markdown": "Markdown",
+					"mermaid": "Mermaid",
 					"plaintext": "Plaintext",
 					"python": "Python",
 					"rust": "Rust",
@@ -1481,6 +1507,18 @@
 					"swift": "Swift",
 					"typescript": "TypeScript",
 					"yaml": "YAML"
+				},
+				"table": {
+					"addColumnBefore": "Insert column left",
+					"addColumnAfter": "Insert column right",
+					"deleteColumn": "Delete column",
+					"addRowBefore": "Insert row above",
+					"addRowAfter": "Insert row below",
+					"deleteRow": "Delete row",
+					"deleteTable": "Delete table"
+				},
+				"mermaid": {
+					"renderFailed": "Mermaid diagram couldn't be rendered"
 				}
 			}
 		}
@@ -1582,6 +1620,7 @@
 					"kotlin": "Kotlin",
 					"makefile": "Makefile",
 					"markdown": "Markdown",
+					"mermaid": "Mermaid",
 					"ocaml": "OCaml",
 					"php": "PHP",
 					"perl": "Perl",
@@ -1613,6 +1652,9 @@
 						"onlyYoutube": "Only YouTube links can be embedded."
 					},
 					"onlyYoutubeInline": "Only YouTube URLs can be embedded. Use link mode instead."
+				},
+				"mermaid": {
+					"renderFailed": "Mermaid diagram couldn't be rendered"
 				}
 			}
 		},
@@ -1647,7 +1689,8 @@
 			"deleteError": "Failed to delete task",
 			"deleteDialogTitle": "Delete Task?",
 			"deleteDialogDescription": "This will permanently remove the task and all its data. You can't undo this action.",
-			"deleteAction": "Delete Task"
+			"deleteAction": "Delete Task",
+			"completeAria": "Mark subtask complete"
 		},
 		"properties": {
 			"title": "Properties",
@@ -1805,17 +1848,6 @@
 			"archiveAllTooltip": "Archive all completed tasks",
 			"noTasks": "No tasks"
 		},
-		"hierarchy": {
-			"mode": {
-				"flat": "Flat",
-				"tree": "Tree",
-				"nested": "Nested"
-			},
-			"expand": "Expand subtasks",
-			"collapse": "Collapse subtasks",
-			"subtaskOf": "Subtask of {{title}}",
-			"subtaskProgress": "{{completed}} of {{total}} subtasks completed"
-		},
 		"kanban": {
 			"addTask": "Add task"
 		},
@@ -1887,6 +1919,28 @@
 			"searchActions": "Search actions...",
 			"noActionsFound": "No actions found.",
 			"changeStatus": "Change Status"
+		},
+		"editor": {
+			"table": {
+				"addColumnBefore": "Insert column left",
+				"addColumnAfter": "Insert column right",
+				"deleteColumn": "Delete column",
+				"addRowBefore": "Insert row above",
+				"addRowAfter": "Insert row below",
+				"deleteRow": "Delete row",
+				"deleteTable": "Delete table"
+			}
+		},
+		"hierarchy": {
+			"mode": {
+				"flat": "Flat",
+				"tree": "Tree",
+				"nested": "Nested"
+			},
+			"expand": "Expand subtasks",
+			"collapse": "Collapse subtasks",
+			"subtaskOf": "Subtask of {{title}}",
+			"subtaskProgress": "{{completed}} of {{total}} subtasks completed"
 		}
 	},
 	"invitations": {
@@ -1936,7 +1990,9 @@
 				"complete": "Complete",
 				"inProgress": "In progress"
 			},
-			"noDueDate": "No due date"
+			"noDueDate": "No due date",
+			"reorderHandle": "Reorder project",
+			"reorderError": "Failed to reorder projects"
 		},
 		"search": {
 			"pageTitle": "Search",
@@ -1986,7 +2042,11 @@
 		},
 		"invitations": {
 			"pendingBadge": "pending",
-			"expires": "Expires {{date}}"
+			"expires": "Expires {{date}}",
+			"linkLabel": "Invitation link",
+			"copyLink": "Copy link",
+			"linkCopied": "Invitation link copied",
+			"copyFailed": "Couldn't copy automatically. Select the link and press Ctrl+C."
 		},
 		"inviteModal": {
 			"title": "Invite Team Member",
@@ -1994,7 +2054,10 @@
 			"emailPlaceholder": "colleague@company.com",
 			"sendInvitation": "Send Invitation",
 			"success": "Invitation sent successfully",
-			"error": "Failed to invite team member"
+			"error": "Failed to invite team member",
+			"createdTitle": "Invitation created",
+			"shareLinkDescription": "Share this link with {{email}} so they can join the workspace.",
+			"done": "Done"
 		},
 		"membersTable": {
 			"emptyTitle": "No team members yet",
@@ -2007,6 +2070,7 @@
 			},
 			"memberRolePending": "{{role}} (Pending)",
 			"ariaCancelInvitation": "Cancel invitation",
+			"ariaInvitationActions": "Invitation actions",
 			"ariaRemoveMember": "Remove member",
 			"removeDialogTitle": "Remove Team Member?",
 			"removeDialogDescription": "Are you sure you want to remove {{name}} from the workspace? This action cannot be undone.",

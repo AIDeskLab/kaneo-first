@@ -15,7 +15,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import useGetProjectGroups from "@/hooks/queries/project-group/use-get-project-groups";
-import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
 
 export const Route = createFileRoute(
   "/_layout/_authenticated/dashboard/workspace/$workspaceId/project-groups",
@@ -26,7 +25,6 @@ export const Route = createFileRoute(
 function RouteComponent() {
   const { t } = useTranslation();
   const { workspaceId } = Route.useParams();
-  const { data: workspace } = useActiveWorkspace();
   const { data: groups } = useGetProjectGroups(workspaceId);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 

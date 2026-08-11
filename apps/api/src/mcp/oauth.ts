@@ -2,6 +2,13 @@ import { createHash, randomUUID } from "node:crypto";
 import { createId } from "@paralleldrive/cuid2";
 import db from "../database";
 import { sessionTable } from "../database/schema";
+import {
+  consumeFixedWindowRateLimits,
+  consumeState,
+  getState,
+  putAuthorizationRequestWithCaps,
+  putStateWithCap,
+} from "./oauth-store";
 
 type RegisteredClient = {
   clientId: string;
@@ -15,7 +22,6 @@ type AuthCode = {
   userId: string;
   codeChallenge: string;
   redirectUri: string;
-  expiresAt: number;
 };
 
 export type AuthorizationRequest = {
@@ -23,34 +29,73 @@ export type AuthorizationRequest = {
   codeChallenge: string;
   redirectUri: string;
   state?: string;
-  expiresAt: number;
 };
 
-const clients = new Map<string, RegisteredClient>();
-const codes = new Map<string, AuthCode>();
-const authorizationRequests = new Map<string, AuthorizationRequest>();
+// Clients re-register on invalid_client, so the TTL only bounds table growth.
+const clientTtlMs = 30 * 24 * 60 * 60 * 1000;
+const codeTtlMs = 5 * 60 * 1000;
+const requestTtlMs = 10 * 60 * 1000;
+// Same bound the in-memory store enforced; authorize is reachable without a session.
 const maxAuthorizationRequests = 10_000;
+const maxAuthorizationRequestsPerClient = 100;
+const maxRegisteredClients = 10_000;
+// Codes are short-lived, but the cap also bounds live, abandoned grants.
+const maxAuthorizationCodes = 10_000;
+const clientRegistrationWindowMs = 60_000;
 
-function pruneAuthorizationRequests(now = Date.now()): void {
-  for (const [requestId, request] of authorizationRequests) {
-    if (request.expiresAt < now) authorizationRequests.delete(requestId);
-  }
+const clientRegistrationGlobalLimit = 600;
+const authorizationSourceLimit = 120;
+const authorizationClientLimit = 300;
+const authorizationGlobalLimit = 3_000;
 
-  while (authorizationRequests.size >= maxAuthorizationRequests) {
-    const oldestRequestId = authorizationRequests.keys().next().value;
-    if (!oldestRequestId) break;
-    authorizationRequests.delete(oldestRequestId);
-  }
+export async function consumeClientRegistrationRateLimits(source: string) {
+  return consumeFixedWindowRateLimits([
+    {
+      key: `client-registration:source:${source}`,
+      maxRequests: 20,
+      windowMs: clientRegistrationWindowMs,
+    },
+    {
+      key: "client-registration:global",
+      maxRequests: clientRegistrationGlobalLimit,
+      windowMs: clientRegistrationWindowMs,
+    },
+  ]);
 }
 
-export function getClient(clientId: string): RegisteredClient | undefined {
-  return clients.get(clientId);
+export async function consumeAuthorizationRateLimits(
+  source: string,
+  clientId: string,
+) {
+  return consumeFixedWindowRateLimits([
+    {
+      key: `authorization:source:${source}`,
+      maxRequests: authorizationSourceLimit,
+      windowMs: 60_000,
+    },
+    {
+      key: `authorization:client:${clientId}`,
+      maxRequests: authorizationClientLimit,
+      windowMs: 60_000,
+    },
+    {
+      key: "authorization:global",
+      maxRequests: authorizationGlobalLimit,
+      windowMs: 60_000,
+    },
+  ]);
 }
 
-export function registerClient(params: {
+export async function getClient(
+  clientId: string,
+): Promise<RegisteredClient | null> {
+  return getState<RegisteredClient>("client", clientId);
+}
+
+export async function registerClient(params: {
   redirectUris: string[];
   clientName?: string;
-}): RegisteredClient {
+}): Promise<RegisteredClient> {
   const clientId = randomUUID();
   const client: RegisteredClient = {
     clientId,
@@ -58,58 +103,52 @@ export function registerClient(params: {
     clientName: params.clientName,
     issuedAt: Math.floor(Date.now() / 1000),
   };
-  clients.set(clientId, client);
+  await putStateWithCap(
+    "client",
+    clientId,
+    client,
+    new Date(Date.now() + clientTtlMs),
+    maxRegisteredClients,
+  );
   return client;
 }
 
-export function createAuthCode(params: {
-  clientId: string;
-  userId: string;
-  codeChallenge: string;
-  redirectUri: string;
-}): string {
+export async function createAuthCode(params: AuthCode): Promise<string> {
   const code = randomUUID();
-  codes.set(code, {
-    ...params,
-    expiresAt: Date.now() + 5 * 60 * 1000,
-  });
+  await putStateWithCap(
+    "code",
+    code,
+    params,
+    new Date(Date.now() + codeTtlMs),
+    maxAuthorizationCodes,
+  );
   return code;
 }
 
-export function createAuthorizationRequest(params: {
-  clientId: string;
-  codeChallenge: string;
-  redirectUri: string;
-  state?: string;
-}): string {
-  pruneAuthorizationRequests();
+export async function createAuthorizationRequest(
+  params: AuthorizationRequest,
+): Promise<string> {
   const requestId = randomUUID();
-  authorizationRequests.set(requestId, {
-    ...params,
-    expiresAt: Date.now() + 10 * 60 * 1000,
-  });
+  await putAuthorizationRequestWithCaps(
+    requestId,
+    params,
+    new Date(Date.now() + requestTtlMs),
+    maxAuthorizationRequests,
+    maxAuthorizationRequestsPerClient,
+  );
   return requestId;
 }
 
-export function getAuthorizationRequest(
+export async function getAuthorizationRequest(
   requestId: string,
-): AuthorizationRequest | undefined {
-  const request = authorizationRequests.get(requestId);
-  if (!request) return undefined;
-  if (request.expiresAt < Date.now()) {
-    authorizationRequests.delete(requestId);
-    return undefined;
-  }
-  return request;
+): Promise<AuthorizationRequest | null> {
+  return getState<AuthorizationRequest>("request", requestId);
 }
 
-export function consumeAuthorizationRequest(
+export async function consumeAuthorizationRequest(
   requestId: string,
-): AuthorizationRequest | undefined {
-  const request = getAuthorizationRequest(requestId);
-  if (!request) return undefined;
-  authorizationRequests.delete(requestId);
-  return request;
+): Promise<AuthorizationRequest | null> {
+  return consumeState<AuthorizationRequest>("request", requestId);
 }
 
 function base64url(buf: Buffer): string {
@@ -127,13 +166,11 @@ export async function exchangeCode(
   codeVerifier: string,
   redirectUri: string,
 ): Promise<{ accessToken: string; expiresIn: number } | null> {
-  const stored = codes.get(code);
+  const stored = await consumeState<AuthCode>("code", code);
   if (!stored) return null;
-  codes.delete(code);
 
   if (stored.clientId !== clientId) return null;
   if (stored.redirectUri !== redirectUri) return null;
-  if (stored.expiresAt < Date.now()) return null;
   if (!verifyPkce(codeVerifier, stored.codeChallenge)) return null;
 
   const sessionToken = randomUUID();

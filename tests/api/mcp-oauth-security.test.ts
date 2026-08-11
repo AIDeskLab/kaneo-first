@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
+  const consumeFixedWindowRateLimits = vi.fn(async () => ({
+    allowed: true,
+    retryAfterSeconds: 60,
+  }));
   const insertedSessions: Array<Record<string, unknown>> = [];
   const getSession = vi.fn(async ({ headers }: { headers: Headers }) => {
     const cookie = new Headers(headers).get("cookie") ?? "";
@@ -19,7 +23,12 @@ const mocks = vi.hoisted(() => {
       return row;
     }),
   }));
-  return { getSession, insert, insertedSessions };
+  return {
+    consumeFixedWindowRateLimits,
+    getSession,
+    insert,
+    insertedSessions,
+  };
 });
 
 vi.mock("../../apps/api/src/auth", () => ({
@@ -34,11 +43,85 @@ vi.mock("../../apps/api/src/mcp/tools", () => ({
   registerMcpTools: vi.fn(),
 }));
 
+vi.mock("../../apps/api/src/mcp/oauth-store", () => {
+  const rows = new Map<string, { payload: unknown; expiresAt: Date }>();
+  const keyOf = (kind: string, key: string) => `${kind}:${key}`;
+  return {
+    consumeFixedWindowRateLimits: mocks.consumeFixedWindowRateLimits,
+    StateCapacityError: class StateCapacityError extends Error {},
+    putState: async (
+      kind: string,
+      key: string,
+      payload: unknown,
+      expiresAt: Date,
+    ) => {
+      rows.set(keyOf(kind, key), { payload, expiresAt });
+    },
+    putStateWithCap: async (
+      kind: string,
+      key: string,
+      payload: unknown,
+      expiresAt: Date,
+      maxRows: number,
+    ) => {
+      const now = Date.now();
+      for (const [storedKey, row] of rows) {
+        if (row.expiresAt.getTime() < now) rows.delete(storedKey);
+      }
+      const kindPrefix = `${kind}:`;
+      const kindRowCount = [...rows.keys()].filter((storedKey) =>
+        storedKey.startsWith(kindPrefix),
+      ).length;
+      if (kindRowCount >= maxRows) {
+        throw new Error("OAuth state capacity reached");
+      }
+      rows.set(keyOf(kind, key), { payload, expiresAt });
+    },
+    putAuthorizationRequestWithCaps: async (
+      key: string,
+      payload: unknown,
+      expiresAt: Date,
+    ) => {
+      rows.set(keyOf("request", key), { payload, expiresAt });
+    },
+    getState: async (kind: string, key: string) => {
+      const row = rows.get(keyOf(kind, key));
+      if (!row) return null;
+      if (row.expiresAt.getTime() < Date.now()) return null;
+      return row.payload;
+    },
+    consumeState: async (kind: string, key: string) => {
+      const row = rows.get(keyOf(kind, key));
+      rows.delete(keyOf(kind, key));
+      if (!row) return null;
+      if (row.expiresAt.getTime() < Date.now()) return null;
+      return row.payload;
+    },
+    enforceStateCap: async () => {},
+    deleteExpiredStates: async () => {
+      const now = Date.now();
+      for (const [key, row] of rows) {
+        if (row.expiresAt.getTime() < now) rows.delete(key);
+      }
+    },
+  };
+});
+
 import mcpRoutes from "../../apps/api/src/mcp";
 import {
+  consumeAuthorizationRateLimits,
+  consumeClientRegistrationRateLimits,
   createAuthorizationRequest,
   getAuthorizationRequest,
 } from "../../apps/api/src/mcp/oauth";
+
+beforeEach(() => {
+  mocks.consumeFixedWindowRateLimits.mockClear();
+  mocks.consumeFixedWindowRateLimits.mockResolvedValue({
+    allowed: true,
+    retryAfterSeconds: 60,
+  });
+});
 
 const clientUrl = process.env.KANEO_CLIENT_URL || "http://localhost:5173";
 const clientOrigin = new URL(clientUrl).origin;
@@ -115,6 +198,120 @@ async function decideAuthorization(params: {
 }
 
 describe("MCP OAuth security", () => {
+  it("partitions registration by connection source with a global emergency limit", async () => {
+    await consumeClientRegistrationRateLimits("203.0.113.10");
+    expect(mocks.consumeFixedWindowRateLimits).toHaveBeenCalledWith([
+      {
+        key: "client-registration:source:203.0.113.10",
+        maxRequests: 20,
+        windowMs: 60_000,
+      },
+      {
+        key: "client-registration:global",
+        maxRequests: 600,
+        windowMs: 60_000,
+      },
+    ]);
+  });
+
+  it("rate limits authorization by source, registered client, and global ceiling", async () => {
+    await consumeAuthorizationRateLimits("203.0.113.11", "client-a");
+    expect(mocks.consumeFixedWindowRateLimits).toHaveBeenCalledWith([
+      {
+        key: "authorization:source:203.0.113.11",
+        maxRequests: 120,
+        windowMs: 60_000,
+      },
+      {
+        key: "authorization:client:client-a",
+        maxRequests: 300,
+        windowMs: 60_000,
+      },
+      {
+        key: "authorization:global",
+        maxRequests: 3_000,
+        windowMs: 60_000,
+      },
+    ]);
+  });
+
+  it("does not trust X-Forwarded-For as the registration source", async () => {
+    const response = await mcpRoutes.request("/mcp/register", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": "198.51.100.99",
+      },
+      body: JSON.stringify({
+        redirect_uris: ["https://client.example/callback"],
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(mocks.consumeFixedWindowRateLimits).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "client-registration:source:unknown",
+        }),
+      ]),
+    );
+    expect(mocks.consumeFixedWindowRateLimits).not.toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: expect.stringContaining("198.51.100.99"),
+        }),
+      ]),
+    );
+  });
+
+  it("rate limits public client registration", async () => {
+    mocks.consumeFixedWindowRateLimits.mockResolvedValueOnce({
+      allowed: false,
+      retryAfterSeconds: 42,
+    });
+
+    const response = await mcpRoutes.request("/mcp/register", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_name: "Rate limited client",
+        redirect_uris: ["https://client.example/callback"],
+      }),
+    });
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("42");
+    await expect(response.json()).resolves.toEqual({
+      error: "too_many_requests",
+    });
+  });
+
+  it("bounds public client registration metadata and request size", async () => {
+    const tooManyRedirects = await mcpRoutes.request("/mcp/register", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        redirect_uris: Array.from(
+          { length: 11 },
+          (_, index) => `https://client.example/callback/${index}`,
+        ),
+      }),
+    });
+    expect(tooManyRedirects.status).toBe(400);
+
+    const oversized = await mcpRoutes.request("/mcp/register", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_name: "x".repeat(33 * 1024),
+        redirect_uris: ["https://client.example/callback"],
+      }),
+    });
+    expect(oversized.status).toBe(413);
+    await expect(oversized.json()).resolves.toEqual({
+      error: "request_too_large",
+    });
+  });
+
   it("rejects empty and unsafe redirect URI registrations", async () => {
     const empty = await mcpRoutes.request("/mcp/register", {
       method: "POST",
@@ -296,25 +493,56 @@ describe("MCP OAuth security", () => {
     expect((await redeem(verifier)).status).toBe(400);
   });
 
-  it("sweeps expired authorization requests when creating a new one", () => {
+  it.each(["application/x-www-form-urlencoded", "application/json"])(
+    "rejects oversized %s token bodies before parsing",
+    async (contentType) => {
+      const response = await mcpRoutes.request("/mcp/token", {
+        method: "POST",
+        headers: { "content-type": contentType },
+        body: "{".repeat(8 * 1024 + 1),
+      });
+
+      expect(response.status).toBe(413);
+      await expect(response.json()).resolves.toEqual({
+        error: "request_too_large",
+      });
+    },
+  );
+
+  it("accepts normally sized JSON token requests", async () => {
+    const response = await mcpRoutes.request("/mcp/token", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ grant_type: "not-supported" }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "unsupported_grant_type",
+    });
+  });
+
+  it("sweeps expired authorization requests when creating a new one", async () => {
     const now = Date.now();
     vi.useFakeTimers();
     try {
       vi.setSystemTime(now);
-      const expiredRequestId = createAuthorizationRequest({
+      const expiredRequestId = await createAuthorizationRequest({
         clientId: "client-expired",
         redirectUri: "https://client.example/expired",
         codeChallenge: "challenge",
       });
 
       vi.setSystemTime(now + 10 * 60 * 1000 + 1);
-      createAuthorizationRequest({
+      await createAuthorizationRequest({
         clientId: "client-current",
         redirectUri: "https://client.example/current",
         codeChallenge: "challenge",
       });
 
-      expect(getAuthorizationRequest(expiredRequestId)).toBeUndefined();
+      await expect(
+        getAuthorizationRequest(expiredRequestId),
+      ).resolves.toBeNull();
     } finally {
       vi.useRealTimers();
     }

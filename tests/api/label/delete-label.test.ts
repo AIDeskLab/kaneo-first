@@ -14,6 +14,13 @@ const mockDelete = vi.fn();
 const mockPublishEvent = vi.fn();
 const mockRemoveLabelFromGitHub = vi.fn();
 const mockRemoveLabelFromGitea = vi.fn();
+const mockTransaction = vi.fn(async (callback: (tx: unknown) => unknown) =>
+  callback({
+    execute: vi.fn().mockResolvedValue(undefined),
+    select: (...args: unknown[]) => mockSelect(...args),
+    delete: (...args: unknown[]) => mockDelete(...args),
+  }),
+);
 
 vi.mock("../../../apps/api/src/database", () => ({
   default: {
@@ -24,6 +31,7 @@ vi.mock("../../../apps/api/src/database", () => ({
     },
     select: (...args: unknown[]) => mockSelect(...args),
     delete: (...args: unknown[]) => mockDelete(...args),
+    transaction: (...args: unknown[]) => mockTransaction(...args),
   },
 }));
 
@@ -94,6 +102,16 @@ function makeSelectMock(rows: unknown[]) {
   return chain;
 }
 
+function makeTaskSelectMock(rows: unknown[]) {
+  const chain: Record<string, Mock> = {
+    from: vi.fn(() => chain),
+    innerJoin: vi.fn(() => chain),
+    where: vi.fn(() => chain),
+    limit: vi.fn(() => Promise.resolve(rows)),
+  };
+  return chain;
+}
+
 /**
  * Build a mock chain for `db.delete().where().returning()` and
  * `db.delete().where()` (no returning).
@@ -118,6 +136,51 @@ function makeDeleteMock(deletedRow: unknown) {
 describe("deleteLabel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRemoveLabelFromGitHub.mockResolvedValue(undefined);
+    mockRemoveLabelFromGitea.mockResolvedValue(undefined);
+    mockTransaction.mockImplementation(
+      async (callback: (tx: unknown) => unknown) =>
+        callback({
+          execute: vi.fn().mockResolvedValue(undefined),
+          select: (...args: unknown[]) => mockSelect(...args),
+          delete: (...args: unknown[]) => mockDelete(...args),
+        }),
+    );
+  });
+
+  describe("task-level label deletion", () => {
+    it("awaits GitHub and Gitea before deleting local state", async () => {
+      mockFindFirst.mockResolvedValue(TASK_LABEL_1);
+      mockSelect.mockReturnValue(
+        makeTaskSelectMock([
+          { id: "task-1", projectId: "proj-1", workspaceId: "ws-1" },
+        ]),
+      );
+      mockDelete.mockReturnValue(makeDeleteMock(TASK_LABEL_1));
+
+      await expect(deleteLabel("label-task-1", "user-1")).resolves.toEqual(
+        TASK_LABEL_1,
+      );
+      expect(mockRemoveLabelFromGitHub).toHaveBeenCalledWith("task-1", "bug");
+      expect(mockRemoveLabelFromGitea).toHaveBeenCalledWith("task-1", "bug");
+      expect(mockDelete).toHaveBeenCalledTimes(1);
+    });
+
+    it("propagates Gitea failure and preserves the local label", async () => {
+      mockFindFirst.mockResolvedValue(TASK_LABEL_1);
+      mockSelect.mockReturnValue(
+        makeTaskSelectMock([
+          { id: "task-1", projectId: "proj-1", workspaceId: "ws-1" },
+        ]),
+      );
+      mockRemoveLabelFromGitea.mockRejectedValue(new Error("gitea down"));
+
+      await expect(deleteLabel("label-task-1", "user-1")).rejects.toThrow(
+        "gitea down",
+      );
+      expect(mockDelete).not.toHaveBeenCalled();
+      expect(mockPublishEvent).not.toHaveBeenCalled();
+    });
   });
 
   afterEach(() => {
@@ -213,6 +276,47 @@ describe("deleteLabel", () => {
       expect(mockPublishEvent).not.toHaveBeenCalled();
       expect(mockRemoveLabelFromGitHub).not.toHaveBeenCalled();
       expect(mockRemoveLabelFromGitea).not.toHaveBeenCalled();
+    });
+
+    it("does not delete any local labels when a provider removal fails", async () => {
+      mockFindFirst.mockResolvedValue(WORKSPACE_LABEL);
+      mockSelect.mockReturnValue(
+        makeSelectMock([
+          {
+            label: TASK_LABEL_1,
+            taskId: "task-1",
+            projectId: "proj-1",
+            workspaceId: "ws-1",
+          },
+        ]),
+      );
+      mockRemoveLabelFromGitea.mockRejectedValue(new Error("gitea down"));
+
+      await expect(deleteLabel("label-ws-1", "user-1")).rejects.toThrow(
+        "gitea down",
+      );
+      expect(mockDelete).not.toHaveBeenCalled();
+      expect(mockPublishEvent).not.toHaveBeenCalled();
+    });
+
+    it("emits no events when the atomic local transaction fails", async () => {
+      mockFindFirst.mockResolvedValue(WORKSPACE_LABEL);
+      mockSelect.mockReturnValue(
+        makeSelectMock([
+          {
+            label: TASK_LABEL_1,
+            taskId: "task-1",
+            projectId: "proj-1",
+            workspaceId: "ws-1",
+          },
+        ]),
+      );
+      mockTransaction.mockRejectedValue(new Error("transaction failed"));
+
+      await expect(deleteLabel("label-ws-1", "user-1")).rejects.toThrow(
+        "transaction failed",
+      );
+      expect(mockPublishEvent).not.toHaveBeenCalled();
     });
   });
 });

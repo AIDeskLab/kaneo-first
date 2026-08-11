@@ -12,7 +12,11 @@ export default defineConfig({
   },
   base: "/",
   plugins: [
-    tanstackRouter({ autoCodeSplitting: true }),
+    tanstackRouter({
+      autoCodeSplitting: true,
+      // Keep co-located route tests out of the generated route tree.
+      routeFileIgnorePattern: "\\.test\\.tsx?$",
+    }),
     tailwindcss(),
     react({
       babel: {
@@ -30,6 +34,7 @@ export default defineConfig({
         "apple-touch-icon.png",
       ],
       workbox: {
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [

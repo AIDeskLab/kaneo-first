@@ -6,6 +6,7 @@ import { describeRoute, resolver, validator } from "hono-openapi";
 import * as v from "valibot";
 import db from "../database";
 import { integrationTable, projectTable } from "../database/schema";
+import { requireInstanceAdmin } from "../instance/middleware/require-instance-admin";
 import {
   type GitHubConfig,
   validateGitHubConfig,
@@ -38,8 +39,16 @@ const githubRepositorySchema = v.object({
 });
 
 const verificationResultSchema = v.object({
-  installed: v.boolean(),
-  message: v.optional(v.string()),
+  isInstalled: v.boolean(),
+  installationId: v.nullable(v.number()),
+  repositoryExists: v.nullable(v.boolean()),
+  repositoryPrivate: v.nullable(v.boolean()),
+  permissions: v.nullable(v.record(v.string(), v.string())),
+  hasRequiredPermissions: v.boolean(),
+  missingPermissions: v.array(v.string()),
+  message: v.string(),
+  settingsUrl: v.optional(v.string()),
+  installationUrl: v.optional(v.string()),
 });
 
 const importResultSchema = v.object({
@@ -81,7 +90,7 @@ const githubIntegration = new Hono<{
     },
   )
   .get(
-    "/repositories",
+    "/repositories/:projectId",
     describeRoute({
       operationId: "listGitHubRepositories",
       tags: ["GitHub"],
@@ -97,13 +106,17 @@ const githubIntegration = new Hono<{
         },
       },
     }),
+    validator("param", v.object({ projectId: v.string() })),
+    workspaceAccess.fromProject("projectId"),
+    requireWorkspacePermission({ workspace: ["manage_settings"] }),
+    requireInstanceAdmin,
     async (c) => {
       const repositories = await listUserRepositories();
       return c.json(repositories);
     },
   )
   .post(
-    "/verify",
+    "/verify/:projectId",
     describeRoute({
       operationId: "verifyGitHubInstallation",
       tags: ["GitHub"],
@@ -117,6 +130,7 @@ const githubIntegration = new Hono<{
         },
       },
     }),
+    validator("param", v.object({ projectId: v.string() })),
     validator(
       "json",
       v.object({
@@ -124,6 +138,9 @@ const githubIntegration = new Hono<{
         repositoryName: v.pipe(v.string(), v.minLength(1)),
       }),
     ),
+    workspaceAccess.fromProject("projectId"),
+    requireWorkspacePermission({ workspace: ["manage_settings"] }),
+    requireInstanceAdmin,
     async (c) => {
       const { repositoryOwner, repositoryName } = c.req.valid("json");
 
@@ -183,6 +200,7 @@ const githubIntegration = new Hono<{
     ),
     workspaceAccess.fromProject("projectId"),
     requireWorkspacePermission({ workspace: ["manage_settings"] }),
+    requireInstanceAdmin,
     async (c) => {
       const { projectId } = c.req.valid("param");
       const { repositoryOwner, repositoryName } = c.req.valid("json");

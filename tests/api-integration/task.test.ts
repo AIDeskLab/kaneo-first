@@ -42,7 +42,7 @@ describe("API integration: task creation", () => {
   });
 
   it("creates a task with the matching column, assignee, and next number", async () => {
-    const member = await createWorkspaceMember();
+    const member = await createWorkspaceMember({ role: "admin" });
     const { project, columns } = await createProjectFixture({
       workspaceId: member.workspace.id,
       name: "Delivery",
@@ -233,6 +233,65 @@ describe("API integration: task creation", () => {
     );
   });
 
+  it("rejects a dedicated due-date update before the existing start date", async () => {
+    const member = await createWorkspaceMember();
+    const { project } = await createProjectFixture({
+      workspaceId: member.workspace.id,
+    });
+
+    mockAuthenticatedSession(member.user);
+    const { app } = createApp();
+    const createResponse = await app.request(`/api/task/${project.id}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Validate dedicated due date",
+        description: "Exercise the dedicated due-date endpoint",
+        priority: "medium",
+        status: "to-do",
+        startDate: "2026-04-05T09:00:00.000Z",
+        dueDate: "2026-04-10T17:00:00.000Z",
+      }),
+    });
+    expect(createResponse.status).toBe(200);
+    const created = (await createResponse.json()) as { id: string };
+
+    const updateResponse = await app.request(
+      `/api/task/due-date/${created.id}`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ dueDate: "2026-04-01T17:00:00.000Z" }),
+      },
+    );
+
+    expect(updateResponse.status).toBe(400);
+    await expect(updateResponse.text()).resolves.toContain(
+      "Start date cannot be after due date",
+    );
+
+    const bulkResponse = await app.request("/api/task/bulk", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        taskIds: [created.id],
+        operation: "updateDueDate",
+        value: "2026-04-01T17:00:00.000Z",
+      }),
+    });
+    expect(bulkResponse.status).toBe(400);
+    await expect(bulkResponse.text()).resolves.toContain(
+      "Start date cannot be after due date",
+    );
+
+    const persistedTask = await db.query.taskTable.findFirst({
+      where: eq(schema.taskTable.id, created.id),
+    });
+    expect(persistedTask?.dueDate?.toISOString()).toBe(
+      "2026-04-10T17:00:00.000Z",
+    );
+  });
+
   it("creates tasks without a column when the status has no matching project column", async () => {
     const member = await createWorkspaceMember();
     const { project } = await createProjectFixture({
@@ -280,4 +339,137 @@ describe("API integration: task creation", () => {
       position: 1,
     });
   });
+
+  it("rejects task creation when the assignee userId does not exist", async () => {
+    const member = await createWorkspaceMember({ role: "admin" });
+    const { project } = await createProjectFixture({
+      workspaceId: member.workspace.id,
+    });
+    const missingAssigneeId = `user-${randomUUID()}`;
+
+    mockAuthenticatedSession(member.user);
+    const { app } = createApp();
+
+    const response = await app.request(`/api/task/${project.id}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        title: "Ghost assignee task",
+        description: "Should fail because the assignee does not exist",
+        priority: "low",
+        status: "to-do",
+        userId: missingAssigneeId,
+      }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.text()).resolves.toContain("Assignee not found");
+
+    const persistedTask = await db.query.taskTable.findFirst({
+      where: and(
+        eq(schema.taskTable.projectId, project.id),
+        eq(schema.taskTable.title, "Ghost assignee task"),
+      ),
+    });
+
+    expect(persistedTask).toBeUndefined();
+  });
+
+  it("creates a task when the assignee userId is surrounded by whitespace", async () => {
+    const member = await createWorkspaceMember({ role: "admin" });
+    const { project, columns } = await createProjectFixture({
+      workspaceId: member.workspace.id,
+    });
+    const paddedAssigneeId = `  ${member.user.id}  `;
+
+    mockAuthenticatedSession(member.user);
+    const { app } = createApp();
+
+    const response = await app.request(`/api/task/${project.id}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        title: "Padded assignee task",
+        description: "Whitespace around userId should be trimmed",
+        priority: "medium",
+        status: "to-do",
+        userId: paddedAssigneeId,
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      id: string;
+      userId: string;
+      assigneeName?: string;
+    };
+
+    expect(payload.userId).toBe(member.user.id);
+    expect(payload.assigneeName).toBe(member.user.name);
+
+    const persistedTask = await db.query.taskTable.findFirst({
+      where: eq(schema.taskTable.id, payload.id),
+    });
+
+    expect(persistedTask).toMatchObject({
+      id: payload.id,
+      projectId: project.id,
+      columnId: columns.todo.id,
+      userId: member.user.id,
+      title: "Padded assignee task",
+    });
+  });
+
+  it.each([
+    ["empty", ""],
+    ["whitespace only", "   "],
+  ])(
+    "creates an unassigned task when the assignee userId is %s",
+    async (label, userId) => {
+      const member = await createWorkspaceMember();
+      const { project } = await createProjectFixture({
+        workspaceId: member.workspace.id,
+      });
+
+      mockAuthenticatedSession(member.user);
+      const { app } = createApp();
+
+      const title = `Blank assignee task (${label})`;
+      const response = await app.request(`/api/task/${project.id}`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          title,
+          description: "Blank userId means unassigned",
+          priority: "low",
+          status: "to-do",
+          userId,
+        }),
+      });
+
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        userId: string | null;
+        assigneeName?: string;
+      };
+
+      expect(payload.userId).toBeNull();
+      expect(payload.assigneeName).toBeUndefined();
+
+      const persistedTask = await db.query.taskTable.findFirst({
+        where: and(
+          eq(schema.taskTable.projectId, project.id),
+          eq(schema.taskTable.title, title),
+        ),
+      });
+
+      expect(persistedTask?.userId).toBeNull();
+    },
+  );
 });

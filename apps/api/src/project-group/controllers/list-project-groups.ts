@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import db from "../../database";
 import { projectGroupTable } from "../../database/schema";
 

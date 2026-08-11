@@ -5,6 +5,7 @@ import {
   labelTable,
   projectTable,
   taskTable,
+  workspaceUserTable,
 } from "../../database/schema";
 
 const STATUSES = [
@@ -44,7 +45,20 @@ async function getMyTasks(userId: string, status?: string) {
     })
     .from(taskTable)
     .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
-    .innerJoin(columnTable, eq(taskTable.status, columnTable.slug))
+    .innerJoin(
+      workspaceUserTable,
+      and(
+        eq(workspaceUserTable.workspaceId, projectTable.workspaceId),
+        eq(workspaceUserTable.userId, userId),
+      ),
+    )
+    .innerJoin(
+      columnTable,
+      and(
+        eq(taskTable.status, columnTable.slug),
+        eq(taskTable.projectId, columnTable.projectId),
+      ),
+    )
     .where(and(...conditions))
     .orderBy(asc(taskTable.position));
 
@@ -68,6 +82,7 @@ async function getMyTasks(userId: string, status?: string) {
     { id: string; name: string; color: string }[]
   >();
   for (const l of labels) {
+    if (!l.taskId) continue;
     if (!labelMap.has(l.taskId)) labelMap.set(l.taskId, []);
     labelMap.get(l.taskId)?.push({ id: l.id, name: l.name, color: l.color });
   }

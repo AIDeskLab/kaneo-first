@@ -9,6 +9,10 @@ import {
   taskTable,
 } from "../../database/schema";
 import { publishEvent } from "../../events";
+import {
+  lockWorkspaceLabels,
+  normalizeLabelIdentity,
+} from "../../label/controllers/workspace-label-lock";
 import type { GiteaConfig } from "../../plugins/gitea/config";
 import { extractTaskNumberGitea } from "../../plugins/gitea/utils/branch-matcher";
 import {
@@ -37,8 +41,69 @@ type ImportResult = {
 
 type LabelLike = { name?: string };
 
+type GiteaLabelInput = string | { name?: string; color?: string } | GiteaLabel;
+
+export type GiteaLabelLoader = () => Promise<GiteaLabelInput[]>;
+
+class GiteaLabelLockExpansion extends Error {
+  constructor(readonly expandedNames: string[]) {
+    super("Gitea label lock expansion required");
+    this.name = "GiteaLabelLockExpansion";
+  }
+}
+
 function toPriorityLabels(labels: GiteaLabel[]): LabelLike[] {
   return labels.map((label) => ({ name: label.name }));
+}
+
+function extractNonSystemGiteaLabels(
+  issueLabels: GiteaLabelInput[] | null | undefined,
+): Array<{ name: string; color: string }> {
+  return (issueLabels ?? [])
+    .map((label) => {
+      if (typeof label === "string") {
+        return { name: label, color: "#6B7280" };
+      }
+      return {
+        name: label.name,
+        color: label.color
+          ? `#${String(label.color).replace(/^#/, "")}`
+          : "#6B7280",
+      };
+    })
+    .filter(
+      (label) =>
+        label.name &&
+        !label.name.startsWith("priority:") &&
+        !label.name.startsWith("status:"),
+    ) as Array<{ name: string; color: string }>;
+}
+
+function unionLabelNames(...nameSets: string[][]): string[] {
+  return [...new Set(nameSets.flat())];
+}
+
+function namesMissingFromLockSet(
+  names: string[],
+  lockNames: string[],
+): string[] {
+  const locked = new Set(lockNames.map(normalizeLabelIdentity));
+  return names.filter((name) => !locked.has(normalizeLabelIdentity(name)));
+}
+
+export function createGiteaLabelLoader(
+  client: ReturnType<typeof createGiteaClient>,
+  config: GiteaConfig,
+  issueNumber: number,
+): GiteaLabelLoader {
+  return async () => {
+    const issue = await client.getIssue(
+      config.repositoryOwner,
+      config.repositoryName,
+      issueNumber,
+    );
+    return issue.labels ?? [];
+  };
 }
 
 export async function importGiteaIssues(
@@ -222,7 +287,12 @@ async function importSingleIssue(
       .set(updateData)
       .where(eq(taskTable.id, existingLink.taskId));
 
-    await importLabelsForTask(labels, existingLink.taskId, workspaceId);
+    await importLabelsForTask(
+      labels,
+      existingLink.taskId,
+      workspaceId,
+      createGiteaLabelLoader(client, config, issue.number),
+    );
 
     await importCommentsForTask(
       issue.number,
@@ -285,7 +355,12 @@ async function importSingleIssue(
     },
   });
 
-  await importLabelsForTask(labels, createdTask.id, workspaceId);
+  await importLabelsForTask(
+    labels,
+    createdTask.id,
+    workspaceId,
+    createGiteaLabelLoader(client, config, issue.number),
+  );
 
   await importCommentsForTask(issue.number, createdTask.id, config, client);
 
@@ -303,84 +378,120 @@ async function importSingleIssue(
   return "imported";
 }
 
-async function importLabelsForTask(
-  issueLabels: GiteaIssue["labels"],
+export async function importLabelsForTask(
+  issueLabels: GiteaLabelInput[] | null | undefined,
   taskId: string,
   workspaceId: string,
+  loader: GiteaLabelLoader,
 ): Promise<void> {
-  const nonSystemLabels = (issueLabels ?? [])
-    .map((label) => {
-      if (typeof label === "string") {
-        return { name: label, color: "#6B7280" };
-      }
-      return {
-        name: label.name,
-        color: label.color
-          ? `#${String(label.color).replace(/^#/, "")}`
-          : "#6B7280",
-      };
-    })
-    .filter(
-      (label) =>
-        label.name &&
-        !label.name.startsWith("priority:") &&
-        !label.name.startsWith("status:"),
-    ) as Array<{ name: string; color: string }>;
+  const snapshotNames = extractNonSystemGiteaLabels(issueLabels).map(
+    (label) => label.name,
+  );
+  let lockNamesSeed = snapshotNames;
 
-  const expectedNames = nonSystemLabels.map((label) => label.name);
+  while (true) {
+    try {
+      await db.transaction(async (tx) => {
+        const existingGiteaRows = await tx
+          .select({ name: labelTable.name })
+          .from(labelTable)
+          .where(
+            and(eq(labelTable.taskId, taskId), eq(labelTable.source, "gitea")),
+          );
+        const existingGiteaNames = existingGiteaRows.map((row) => row.name);
+        const lockNames = unionLabelNames(
+          lockNamesSeed,
+          snapshotNames,
+          existingGiteaNames,
+        );
 
-  if (expectedNames.length > 0) {
-    await db
-      .delete(labelTable)
-      .where(
-        and(
-          eq(labelTable.taskId, taskId),
-          notInArray(labelTable.name, expectedNames),
-        ),
-      );
-  } else {
-    await db.delete(labelTable).where(eq(labelTable.taskId, taskId));
-  }
+        await lockWorkspaceLabels(tx, workspaceId, lockNames);
 
-  const existingLabelsOnTask = await db.query.labelTable.findMany({
-    where:
-      expectedNames.length > 0
-        ? and(
-            eq(labelTable.taskId, taskId),
-            inArray(labelTable.name, expectedNames),
-          )
-        : eq(labelTable.taskId, taskId),
-  });
+        const currentLabels = extractNonSystemGiteaLabels(await loader());
+        const currentNames = currentLabels.map((label) => label.name);
+        const unheldNames = namesMissingFromLockSet(currentNames, lockNames);
+        if (unheldNames.length > 0) {
+          throw new GiteaLabelLockExpansion(
+            unionLabelNames(lockNames, currentNames),
+          );
+        }
 
-  for (const labelData of nonSystemLabels) {
-    const existingLabelOnTask = existingLabelsOnTask.find(
-      (label) => label.name === labelData.name,
-    );
+        if (currentNames.length > 0) {
+          await tx
+            .delete(labelTable)
+            .where(
+              and(
+                eq(labelTable.taskId, taskId),
+                eq(labelTable.source, "gitea"),
+                notInArray(labelTable.name, currentNames),
+              ),
+            );
+        } else {
+          await tx
+            .delete(labelTable)
+            .where(
+              and(
+                eq(labelTable.taskId, taskId),
+                eq(labelTable.source, "gitea"),
+              ),
+            );
+        }
 
-    if (existingLabelOnTask) {
-      continue;
-    }
+        const existingLabelsOnTask = await tx
+          .select()
+          .from(labelTable)
+          .where(
+            currentNames.length > 0
+              ? and(
+                  eq(labelTable.taskId, taskId),
+                  inArray(labelTable.name, currentNames),
+                )
+              : eq(labelTable.taskId, taskId),
+          );
 
-    const existingWorkspaceLabel = await db.query.labelTable.findFirst({
-      where: and(
-        eq(labelTable.workspaceId, workspaceId),
-        eq(labelTable.name, labelData.name),
-      ),
-    });
+        for (const labelData of currentLabels) {
+          const existingLabelOnTask = existingLabelsOnTask.find(
+            (label) => label.name === labelData.name,
+          );
 
-    const colorToUse = existingWorkspaceLabel?.color || labelData.color;
+          // A matching pre-existing assignment keeps its original ownership.
+          if (existingLabelOnTask) continue;
 
-    await db
-      .insert(labelTable)
-      .values({
-        name: labelData.name,
-        color: colorToUse,
-        taskId,
-        workspaceId,
-      })
-      .onConflictDoNothing({
-        target: [labelTable.taskId, labelTable.name],
+          const [existingWorkspaceLabel] = await tx
+            .select()
+            .from(labelTable)
+            .where(
+              and(
+                eq(labelTable.workspaceId, workspaceId),
+                eq(labelTable.name, labelData.name),
+              ),
+            )
+            .limit(1);
+
+          const colorToUse = existingWorkspaceLabel?.color || labelData.color;
+
+          await tx
+            .insert(labelTable)
+            .values({
+              name: labelData.name,
+              color: colorToUse,
+              source: "gitea",
+              taskId,
+              workspaceId,
+            })
+            .onConflictDoNothing({
+              target: [labelTable.taskId, labelTable.name],
+            });
+        }
       });
+      return;
+    } catch (error) {
+      if (error instanceof GiteaLabelLockExpansion) {
+        lockNamesSeed = error.expandedNames;
+        continue;
+      }
+      throw error;
+    }
   }
 }
 

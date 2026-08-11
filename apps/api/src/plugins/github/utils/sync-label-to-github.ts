@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import db from "../../../database";
 import { externalLinkTable } from "../../../database/schema";
 import { getInstallationOctokit } from "./github-app";
+import { removeLabel } from "./labels";
 
 const namedColorToHex: Record<string, string> = {
   red: "EF4444",
@@ -43,49 +44,72 @@ function toHexColor(color: string): string {
   return "6B7280";
 }
 
-async function getGitHubContext(taskId: string) {
-  const externalLink = await db.query.externalLinkTable.findFirst({
+function getExternalLinksWithIntegration(taskId: string) {
+  return db.query.externalLinkTable.findMany({
     where: eq(externalLinkTable.taskId, taskId),
     with: {
       integration: true,
     },
   });
+}
 
-  if (!externalLink || externalLink.resourceType !== "issue") {
-    return null;
+async function getGitHubContexts(taskId: string) {
+  const externalLinks = await getExternalLinksWithIntegration(taskId);
+  return getGitHubContextsFromLinks(externalLinks);
+}
+
+async function getGitHubContextsFromLinks(
+  externalLinks: Awaited<ReturnType<typeof getExternalLinksWithIntegration>>,
+) {
+  const applicableLinks = externalLinks.filter(
+    (link) =>
+      link.resourceType === "issue" && link.integration?.type === "github",
+  );
+
+  const contexts = [];
+  for (const externalLink of applicableLinks) {
+    const integration = externalLink.integration;
+    if (!integration) throw new Error("GitHub integration is missing");
+
+    let config: unknown;
+    try {
+      config = JSON.parse(integration.config);
+    } catch {
+      throw new Error("GitHub integration config is malformed");
+    }
+    if (!config || typeof config !== "object") {
+      throw new Error("GitHub integration config is malformed");
+    }
+    const { repositoryOwner, repositoryName, installationId } = config as {
+      repositoryOwner?: unknown;
+      repositoryName?: unknown;
+      installationId?: unknown;
+    };
+    if (
+      typeof repositoryOwner !== "string" ||
+      !repositoryOwner.trim() ||
+      typeof repositoryName !== "string" ||
+      !repositoryName.trim() ||
+      typeof installationId !== "number" ||
+      !Number.isSafeInteger(installationId) ||
+      installationId <= 0
+    ) {
+      throw new Error("GitHub integration config is incomplete");
+    }
+    const issueNumber = Number(externalLink.externalId);
+    if (!Number.isSafeInteger(issueNumber) || issueNumber <= 0) {
+      throw new Error("GitHub issue external ID is invalid");
+    }
+    const octokit = await getInstallationOctokit(installationId);
+    if (!octokit) throw new Error("GitHub client could not be created");
+    contexts.push({
+      octokit,
+      owner: repositoryOwner,
+      repo: repositoryName,
+      issueNumber,
+    });
   }
-
-  const integration = externalLink.integration;
-  if (!integration || integration.type !== "github") {
-    return null;
-  }
-
-  let config: {
-    repositoryOwner: string;
-    repositoryName: string;
-    installationId?: number;
-  };
-  try {
-    config = JSON.parse(integration.config);
-  } catch {
-    return null;
-  }
-
-  if (!config.installationId) {
-    return null;
-  }
-
-  const octokit = await getInstallationOctokit(config.installationId);
-  if (!octokit) {
-    return null;
-  }
-
-  return {
-    octokit,
-    owner: config.repositoryOwner,
-    repo: config.repositoryName,
-    issueNumber: Number.parseInt(externalLink.externalId, 10),
-  };
+  return contexts;
 }
 
 export async function syncLabelToGitHub(
@@ -93,64 +117,44 @@ export async function syncLabelToGitHub(
   labelName: string,
   labelColor: string,
 ) {
-  const ctx = await getGitHubContext(taskId);
-  if (!ctx) return;
-
-  const { octokit, owner, repo, issueNumber } = ctx;
+  const contexts = await getGitHubContexts(taskId);
   const color = toHexColor(labelColor);
-
-  try {
-    await octokit.rest.issues.getLabel({
-      owner,
-      repo,
-      name: labelName,
-    });
-  } catch {
+  for (const { octokit, owner, repo, issueNumber } of contexts) {
     try {
-      await octokit.rest.issues.createLabel({
-        owner,
-        repo,
-        name: labelName,
-        color,
-      });
-    } catch (createError) {
-      console.error(
-        `Failed to create label "${labelName}" in GitHub:`,
-        createError,
-      );
-      return;
+      await octokit.rest.issues.getLabel({ owner, repo, name: labelName });
+    } catch {
+      try {
+        await octokit.rest.issues.createLabel({
+          owner,
+          repo,
+          name: labelName,
+          color,
+        });
+      } catch (createError: unknown) {
+        if (
+          !(
+            typeof createError === "object" &&
+            createError !== null &&
+            "status" in createError &&
+            createError.status === 422
+          )
+        ) {
+          throw createError;
+        }
+      }
     }
-  }
-
-  try {
     await octokit.rest.issues.addLabels({
       owner,
       repo,
       issue_number: issueNumber,
       labels: [labelName],
     });
-  } catch (error) {
-    console.error(`Failed to add label "${labelName}" to GitHub issue:`, error);
   }
 }
 
 export async function removeLabelFromGitHub(taskId: string, labelName: string) {
-  const ctx = await getGitHubContext(taskId);
-  if (!ctx) return;
-
-  const { octokit, owner, repo, issueNumber } = ctx;
-
-  try {
-    await octokit.rest.issues.removeLabel({
-      owner,
-      repo,
-      issue_number: issueNumber,
-      name: labelName,
-    });
-  } catch (error) {
-    console.error(
-      `Failed to remove label "${labelName}" from GitHub issue:`,
-      error,
-    );
+  const contexts = await getGitHubContexts(taskId);
+  for (const { octokit, owner, repo, issueNumber } of contexts) {
+    await removeLabel(octokit, owner, repo, issueNumber, labelName);
   }
 }

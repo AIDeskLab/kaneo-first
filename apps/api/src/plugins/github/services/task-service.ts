@@ -6,6 +6,10 @@ import {
   integrationTable,
   taskTable,
 } from "../../../database/schema";
+import {
+  githubRepositoryKeyFromConfig,
+  normalizeGitHubRepositoryKey,
+} from "../../../github-integration/github-repository-key";
 
 export type TaskRow = InferSelectModel<typeof taskTable>;
 
@@ -123,22 +127,38 @@ export async function findIntegrationByRepo(owner: string, repo: string) {
 }
 
 export async function findAllIntegrationsByRepo(owner: string, repo: string) {
+  const repositoryKey = normalizeGitHubRepositoryKey(owner, repo);
+  if (!repositoryKey) {
+    return [];
+  }
+
   const integrations = await db.query.integrationTable.findMany({
     where: and(
       eq(integrationTable.type, "github"),
       eq(integrationTable.isActive, true),
+      eq(integrationTable.githubRepositoryKey, repositoryKey),
     ),
     with: {
       project: true,
     },
   });
 
-  return integrations.filter((integration) => {
+  if (integrations.length === 0) {
+    return [];
+  }
+
+  const verified = integrations.filter((integration) => {
     try {
       const config = JSON.parse(integration.config);
-      return config.repositoryOwner === owner && config.repositoryName === repo;
+      return githubRepositoryKeyFromConfig(config) === repositoryKey;
     } catch {
       return false;
     }
   });
+
+  if (verified.length !== 1) {
+    return [];
+  }
+
+  return verified;
 }

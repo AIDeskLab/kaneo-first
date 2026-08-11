@@ -14,6 +14,24 @@ const localeFilter = args.find((arg) => arg !== "--fix");
 
 const { locales, reference } = await loadLocales();
 const referenceKeys = flattenLocale(reference.data);
+const pluralSuffixes = ["zero", "one", "two", "few", "many", "other"];
+
+function isLocalePluralVariant(key) {
+  const suffix = pluralSuffixes.find((candidate) =>
+    key.endsWith(`_${candidate}`),
+  );
+
+  if (!suffix) return false;
+
+  const baseKey = key.slice(0, -(suffix.length + 1));
+  return (
+    referenceKeys.has(baseKey) ||
+    pluralSuffixes.some((candidate) =>
+      referenceKeys.has(`${baseKey}_${candidate}`),
+    )
+  );
+}
+
 const targetLocales = locales.filter(({ locale }) => locale !== defaultLocale);
 const filteredLocales = localeFilter
   ? targetLocales.filter(({ locale }) => locale === localeFilter)
@@ -32,7 +50,9 @@ for (const locale of filteredLocales) {
     [...referenceKeys].filter((key) => !localeKeys.has(key)),
   );
   const extra = new Set(
-    [...localeKeys].filter((key) => !referenceKeys.has(key)),
+    [...localeKeys].filter(
+      (key) => !referenceKeys.has(key) && !isLocalePluralVariant(key),
+    ),
   );
 
   if (missing.size === 0 && extra.size === 0) {

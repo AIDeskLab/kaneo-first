@@ -1,10 +1,14 @@
 import { and, eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
-import { columnTable, taskTable } from "../../database/schema";
+import { columnTable, projectTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { deleteOrphanedAssets } from "../../storage/cleanup-assets";
 import { assertValidTaskStatus } from "../validate-task-fields";
+import {
+  lockWorkspaceAssignees,
+  requireWorkspaceAssignees,
+} from "./workspace-assignee-lock";
 
 async function updateTask(
   id: string,
@@ -18,6 +22,7 @@ async function updateTask(
   position: number,
   userId?: string,
   currentUserId?: string,
+  authorizedAssignee?: { userId: string | null },
 ) {
   const [existingTask] = await db
     .select({
@@ -42,6 +47,13 @@ async function updateTask(
     });
   }
 
+  const normalizedUserId = userId?.trim() || undefined;
+  const project = await db.query.projectTable.findFirst({
+    columns: { workspaceId: true },
+    where: eq(projectTable.id, projectId),
+  });
+  if (!project) throw new HTTPException(404, { message: "Project not found" });
+
   await assertValidTaskStatus(status, projectId);
 
   const column = await db.query.columnTable.findFirst({
@@ -51,22 +63,49 @@ async function updateTask(
     ),
   });
 
-  const [updatedTask] = await db
-    .update(taskTable)
-    .set({
-      title,
-      status,
-      columnId: column?.id ?? null,
-      startDate: startDate || null,
-      dueDate: dueDate || null,
-      projectId,
-      description,
-      priority,
-      position,
-      userId: userId || null,
-    })
-    .where(eq(taskTable.id, id))
-    .returning();
+  const updatedTask = await db.transaction(async (tx) => {
+    const requestedAssigneeId = normalizedUserId ?? null;
+    if (requestedAssigneeId) {
+      await lockWorkspaceAssignees(tx, project.workspaceId, [
+        requestedAssigneeId,
+      ]);
+      await requireWorkspaceAssignees(tx, project.workspaceId, [
+        requestedAssigneeId,
+      ]);
+    }
+
+    const [lockedTask] = await tx
+      .select({ userId: taskTable.userId })
+      .from(taskTable)
+      .where(eq(taskTable.id, id))
+      .for("update")
+      .limit(1);
+    if (!lockedTask)
+      throw new HTTPException(404, { message: "Task not found" });
+    if (authorizedAssignee && lockedTask.userId !== authorizedAssignee.userId) {
+      throw new HTTPException(409, {
+        message: "Task assignee changed while the task was being updated",
+      });
+    }
+
+    const [task] = await tx
+      .update(taskTable)
+      .set({
+        title,
+        status,
+        columnId: column?.id ?? null,
+        startDate: startDate || null,
+        dueDate: dueDate || null,
+        projectId,
+        description,
+        priority,
+        position,
+        userId: requestedAssigneeId,
+      })
+      .where(eq(taskTable.id, id))
+      .returning();
+    return task;
+  });
 
   if (!updatedTask) {
     throw new HTTPException(500, {

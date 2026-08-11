@@ -1,5 +1,11 @@
 import { DEFAULT_ROLE_NAMES } from "@kaneo/permissions";
-import { EllipsisIcon, MailIcon, ShieldIcon, TrashIcon } from "lucide-react";
+import {
+  CopyIcon,
+  EllipsisIcon,
+  MailIcon,
+  ShieldIcon,
+  TrashIcon,
+} from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import useCancelInvitation from "@/hooks/mutations/workspace-user/use-cancel-invitation";
@@ -7,6 +13,7 @@ import useDeleteWorkspaceUser from "@/hooks/mutations/workspace-user/use-delete-
 import useUpdateWorkspaceUserRole from "@/hooks/mutations/workspace-user/use-update-workspace-user-role";
 import useGetConfig from "@/hooks/queries/config/use-get-config";
 import useWorkspaceRoles from "@/hooks/queries/workspace/use-workspace-roles";
+import { useCopyInvitationLink } from "@/hooks/use-copy-invitation-link";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { cn } from "@/lib/cn";
 import { formatDateMedium } from "@/lib/format";
@@ -99,6 +106,7 @@ function MembersTable({ workspaceId, invitations, users }: Props) {
   const { mutateAsync: cancelInvitation, isPending: isCancelling } =
     useCancelInvitation();
   const { mutateAsync: updateMemberRole } = useUpdateWorkspaceUserRole();
+  const { copy: copyInvitationLink } = useCopyInvitationLink();
   const { data: allWorkspaceRoles = [] } = useWorkspaceRoles(workspaceId);
   const { data: config } = useGetConfig();
   const { canManageTeam, canRemoveMembers, canInviteUsers } =
@@ -398,15 +406,36 @@ function MembersTable({ workspaceId, invitations, users }: Props) {
               </TableCell>
               <TableCell className="pe-6 py-3 text-right">
                 {canInvite ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setInvitationToCancel(invitation)}
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    aria-label={t("team:membersTable.ariaCancelInvitation")}
-                  >
-                    <TrashIcon className="size-4" />
-                  </Button>
+                  <Menu>
+                    <MenuTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground"
+                          aria-label={t(
+                            "team:membersTable.ariaInvitationActions",
+                          )}
+                        />
+                      }
+                    >
+                      <EllipsisIcon className="size-4" />
+                    </MenuTrigger>
+                    <MenuPopup align="end">
+                      <MenuItem
+                        onClick={() => copyInvitationLink(invitation.id)}
+                      >
+                        <CopyIcon className="size-4" />
+                        {t("team:invitations.copyLink")}
+                      </MenuItem>
+                      <MenuItem
+                        onClick={() => setInvitationToCancel(invitation)}
+                      >
+                        <TrashIcon className="size-4" />
+                        {t("team:membersTable.cancelInvitation")}
+                      </MenuItem>
+                    </MenuPopup>
+                  </Menu>
                 ) : null}
               </TableCell>
             </TableRow>
@@ -446,19 +475,25 @@ function MembersTable({ workspaceId, invitations, users }: Props) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogClose disabled={isDeleting}>
-              <Button variant="outline" size="sm" disabled={isDeleting}>
-                {t("common:actions.cancel")}
-              </Button>
+            <AlertDialogClose
+              render={
+                <Button variant="outline" size="sm" disabled={isDeleting} />
+              }
+            >
+              {t("common:actions.cancel")}
             </AlertDialogClose>
             <AlertDialogClose
-              onClick={handleDeleteMember}
-              disabled={isDeleting}
+              render={
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={isDeleting}
+                  onClick={handleDeleteMember}
+                />
+              }
             >
-              <Button variant="destructive" size="sm" disabled={isDeleting}>
-                <TrashIcon className="mr-2 size-4" />
-                {t("team:membersTable.removeMember")}
-              </Button>
+              <TrashIcon className="mr-2 size-4" />
+              {t("team:membersTable.removeMember")}
             </AlertDialogClose>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -480,19 +515,25 @@ function MembersTable({ workspaceId, invitations, users }: Props) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogClose disabled={isCancelling}>
-              <Button variant="outline" size="sm" disabled={isCancelling}>
-                {t("common:actions.cancel")}
-              </Button>
+            <AlertDialogClose
+              render={
+                <Button variant="outline" size="sm" disabled={isCancelling} />
+              }
+            >
+              {t("common:actions.cancel")}
             </AlertDialogClose>
             <AlertDialogClose
-              onClick={handleCancelInvitation}
-              disabled={isCancelling}
+              render={
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={isCancelling}
+                  onClick={handleCancelInvitation}
+                />
+              }
             >
-              <Button variant="destructive" size="sm" disabled={isCancelling}>
-                <TrashIcon className="mr-2 size-4" />
-                {t("team:membersTable.cancelInvitation")}
-              </Button>
+              <TrashIcon className="mr-2 size-4" />
+              {t("team:membersTable.cancelInvitation")}
             </AlertDialogClose>
           </AlertDialogFooter>
         </AlertDialogContent>

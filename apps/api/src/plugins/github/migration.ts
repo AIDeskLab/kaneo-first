@@ -5,13 +5,24 @@ import {
   integrationTable,
   taskTable,
 } from "../../database/schema";
+import { repairGitHubRepositoryBindings } from "../../github-integration/github-binding-repair";
 import { defaultGitHubConfig } from "./config";
 
-async function tableExists(tableName: string): Promise<boolean> {
+type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+type MigrationClient = Pick<
+  DatabaseTransaction,
+  "query" | "insert" | "update" | "execute"
+>;
+
+async function tableExists(
+  client: Pick<DatabaseTransaction, "execute">,
+  tableName: string,
+): Promise<boolean> {
   try {
-    const result = await db.execute(sql`
+    const result = await client.execute(sql`
 			SELECT EXISTS (
-				SELECT FROM information_schema.tables 
+				SELECT FROM information_schema.tables
 				WHERE table_schema = 'public'
 				AND table_name = ${tableName}
 			);
@@ -23,7 +34,7 @@ async function tableExists(tableName: string): Promise<boolean> {
 }
 
 export async function migrateGitHubIntegration() {
-  const oldTableExists = await tableExists("github_integration");
+  const oldTableExists = await tableExists(db, "github_integration");
 
   if (!oldTableExists) {
     console.log("No old github_integration table found, skipping migration");
@@ -33,50 +44,79 @@ export async function migrateGitHubIntegration() {
   console.log("🔄 Starting GitHub integration migration...");
 
   try {
-    const oldIntegrations = await db.query.githubIntegrationTable.findMany();
+    await db.transaction(async (tx) => {
+      const oldIntegrations = await tx.query.githubIntegrationTable.findMany();
 
-    if (oldIntegrations.length === 0) {
-      console.log("No old integrations to migrate");
-      await dropOldTable();
-      return;
-    }
-
-    let migratedCount = 0;
-
-    for (const old of oldIntegrations) {
-      const existingIntegration = await db.query.integrationTable.findFirst({
-        where: and(
-          eq(integrationTable.projectId, old.projectId),
-          eq(integrationTable.type, "github"),
-        ),
-      });
-
-      if (existingIntegration) {
-        continue;
+      if (oldIntegrations.length === 0) {
+        console.log("No old integrations to migrate");
+        await dropOldTable(tx);
+        return;
       }
 
-      await db.insert(integrationTable).values({
-        projectId: old.projectId,
-        type: "github",
-        config: JSON.stringify({
+      let migratedCount = 0;
+      const desiredActiveByIntegrationId = new Map<string, boolean>();
+
+      for (const old of oldIntegrations) {
+        const config = JSON.stringify({
           repositoryOwner: old.repositoryOwner,
           repositoryName: old.repositoryName,
           installationId: old.installationId,
           ...defaultGitHubConfig,
-        }),
-        isActive: old.isActive ?? true,
-        createdAt: old.createdAt,
-        updatedAt: old.updatedAt,
+        });
+
+        const existingIntegration = await tx.query.integrationTable.findFirst({
+          where: and(
+            eq(integrationTable.projectId, old.projectId),
+            eq(integrationTable.type, "github"),
+          ),
+        });
+
+        if (existingIntegration) {
+          desiredActiveByIntegrationId.set(
+            existingIntegration.id,
+            old.isActive ?? true,
+          );
+          await tx
+            .update(integrationTable)
+            .set({
+              config,
+              isActive: false,
+              githubRepositoryKey: null,
+              updatedAt: old.updatedAt ?? new Date(),
+            })
+            .where(eq(integrationTable.id, existingIntegration.id));
+        } else {
+          const [created] = await tx
+            .insert(integrationTable)
+            .values({
+              projectId: old.projectId,
+              type: "github",
+              config,
+              isActive: false,
+              githubRepositoryKey: null,
+              createdAt: old.createdAt,
+              updatedAt: old.updatedAt,
+            })
+            .returning();
+          if (!created) {
+            throw new Error(
+              `Failed to migrate GitHub integration for project ${old.projectId}`,
+            );
+          }
+          desiredActiveByIntegrationId.set(created.id, old.isActive ?? true);
+          migratedCount++;
+        }
+      }
+
+      await repairGitHubRepositoryBindings(tx, {
+        desiredActiveByIntegrationId,
       });
 
-      migratedCount++;
-    }
+      console.log(`✓ Migrated ${migratedCount} integrations`);
 
-    console.log(`✓ Migrated ${migratedCount} integrations`);
-
-    await migrateTaskLinks();
-
-    await dropOldTable();
+      await migrateTaskLinks(tx);
+      await dropOldTable(tx);
+    });
 
     console.log("✅ GitHub integration migration complete!");
   } catch (error) {
@@ -85,10 +125,10 @@ export async function migrateGitHubIntegration() {
   }
 }
 
-async function migrateTaskLinks() {
+async function migrateTaskLinks(tx: MigrationClient) {
   console.log("🔄 Migrating task links from descriptions...");
 
-  const tasks = await db.query.taskTable.findMany();
+  const tasks = await tx.query.taskTable.findMany();
 
   let linksCreated = 0;
   let descriptionsUpdated = 0;
@@ -110,7 +150,7 @@ async function migrateTaskLinks() {
 
     if (!url || !owner || !repo || !issueNumber) continue;
 
-    const integration = await db.query.integrationTable.findFirst({
+    const integration = await tx.query.integrationTable.findFirst({
       where: and(
         eq(integrationTable.projectId, task.projectId),
         eq(integrationTable.type, "github"),
@@ -124,7 +164,7 @@ async function migrateTaskLinks() {
       continue;
     }
 
-    const existingLink = await db.query.externalLinkTable.findFirst({
+    const existingLink = await tx.query.externalLinkTable.findFirst({
       where: and(
         eq(externalLinkTable.taskId, task.id),
         eq(externalLinkTable.integrationId, integration.id),
@@ -133,7 +173,7 @@ async function migrateTaskLinks() {
     });
 
     if (!existingLink) {
-      await db.insert(externalLinkTable).values({
+      await tx.insert(externalLinkTable).values({
         taskId: task.id,
         integrationId: integration.id,
         resourceType: "issue",
@@ -154,7 +194,7 @@ async function migrateTaskLinks() {
       .trim();
 
     if (cleanedDescription !== task.description) {
-      await db
+      await tx
         .update(taskTable)
         .set({ description: cleanedDescription || null })
         .where(eq(taskTable.id, task.id));
@@ -166,8 +206,8 @@ async function migrateTaskLinks() {
   console.log(`✓ Cleaned ${descriptionsUpdated} task descriptions`);
 }
 
-async function dropOldTable() {
+async function dropOldTable(tx: Pick<DatabaseTransaction, "execute">) {
   console.log("🗑️ Dropping old github_integration table...");
-  await db.execute(sql`DROP TABLE IF EXISTS github_integration CASCADE`);
+  await tx.execute(sql`DROP TABLE IF EXISTS github_integration CASCADE`);
   console.log("✓ Dropped github_integration table");
 }

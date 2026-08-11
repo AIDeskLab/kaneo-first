@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
-import { projectTable } from "../../database/schema";
+import { projectGroupTable, projectTable } from "../../database/schema";
 
 async function updateProject(
   id: string,
@@ -29,6 +29,25 @@ async function updateProject(
     });
   }
 
+  if (projectGroupId) {
+    const [projectGroup] = await db
+      .select({ id: projectGroupTable.id })
+      .from(projectGroupTable)
+      .where(
+        and(
+          eq(projectGroupTable.id, projectGroupId),
+          eq(projectGroupTable.workspaceId, workspaceId),
+        ),
+      )
+      .limit(1);
+
+    if (!projectGroup) {
+      throw new HTTPException(404, {
+        message: "Project group not found in this workspace",
+      });
+    }
+  }
+
   const [updatedWorkspace] = await db
     .update(projectTable)
     .set({
@@ -39,7 +58,9 @@ async function updateProject(
       isPublic,
       projectGroupId: projectGroupId ?? null,
     })
-    .where(eq(projectTable.id, id))
+    .where(
+      and(eq(projectTable.id, id), eq(projectTable.workspaceId, workspaceId)),
+    )
     .returning();
 
   return updatedWorkspace;

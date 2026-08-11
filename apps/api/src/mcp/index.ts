@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { getConnInfo } from "@hono/node-server/conninfo";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import { auth } from "../auth";
 import { verifyApiKey } from "../utils/verify-api-key";
@@ -22,6 +24,7 @@ import {
   clientRegistrationSchema,
   oauthErrorSchema,
 } from "./schemas";
+import { mcpSessionAdmission } from "./session-admission";
 import { registerMcpTools } from "./tools";
 
 const apiUrl = (process.env.KANEO_API_URL || "http://localhost:1337").replace(
@@ -29,7 +32,25 @@ const apiUrl = (process.env.KANEO_API_URL || "http://localhost:1337").replace(
   "",
 );
 
-const sessions = new Map<string, WebStandardStreamableHTTPServerTransport>();
+const maxClientRegistrationBodySize = 32 * 1024;
+const defaultMaxTokenBodySize = 8 * 1024;
+const configuredMaxTokenBodySize = Number.parseInt(
+  process.env.KANEO_MCP_TOKEN_BODY_LIMIT_BYTES ?? "",
+  10,
+);
+const maxTokenBodySize =
+  Number.isSafeInteger(configuredMaxTokenBodySize) &&
+  configuredMaxTokenBodySize > 0
+    ? configuredMaxTokenBodySize
+    : defaultMaxTokenBodySize;
+
+function connectionSource(c: Parameters<typeof getConnInfo>[0]): string {
+  try {
+    return getConnInfo(c).remote.address || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 function createMcpServerForUser(token: string): McpServer {
   const server = new McpServer({
@@ -91,10 +112,33 @@ mcp.post(
           "application/json": { schema: resolver(oauthErrorSchema) },
         },
       },
+      413: {
+        description: "Client registration request is too large",
+        content: {
+          "application/json": { schema: resolver(oauthErrorSchema) },
+        },
+      },
+      429: {
+        description: "Client registration rate limit exceeded",
+        content: {
+          "application/json": { schema: resolver(oauthErrorSchema) },
+        },
+      },
+      503: {
+        description: "Client registration capacity reached",
+        content: {
+          "application/json": { schema: resolver(oauthErrorSchema) },
+        },
+      },
     },
   }),
+  bodyLimit({
+    maxSize: maxClientRegistrationBodySize,
+    onError: (c) => c.json({ error: "request_too_large" }, 413),
+  }),
   validator("json", clientRegistrationSchema),
-  (c) => c.json(registerMcpClient(c.req.valid("json"))),
+  async (c) =>
+    c.json(await registerMcpClient(c.req.valid("json"), connectionSource(c))),
 );
 
 mcp.get(
@@ -112,10 +156,25 @@ mcp.get(
           "application/json": { schema: resolver(oauthErrorSchema) },
         },
       },
+      429: {
+        description: "Authorization request rate limit exceeded",
+        content: {
+          "application/json": { schema: resolver(oauthErrorSchema) },
+        },
+      },
+      503: {
+        description: "Authorization request capacity reached",
+        content: {
+          "application/json": { schema: resolver(oauthErrorSchema) },
+        },
+      },
     },
   }),
   validator("query", authorizationQuerySchema),
-  (c) => c.redirect(beginMcpAuthorization(c.req.valid("query"))),
+  async (c) =>
+    c.redirect(
+      await beginMcpAuthorization(c.req.valid("query"), connectionSource(c)),
+    ),
 );
 
 mcp.get(
@@ -149,9 +208,9 @@ mcp.get(
     },
   }),
   validator("param", authorizationRequestParamSchema),
-  (c) => {
+  async (c) => {
     const { requestId } = c.req.valid("param");
-    return c.json(getMcpAuthorizationRequest(requestId));
+    return c.json(await getMcpAuthorizationRequest(requestId));
   },
 );
 
@@ -210,42 +269,49 @@ mcp.post(
   },
 );
 
-mcp.post("/mcp/token", async (c) => {
-  const contentType = c.req.header("content-type") || "";
-  let params: Record<string, string>;
+mcp.post(
+  "/mcp/token",
+  bodyLimit({
+    maxSize: maxTokenBodySize,
+    onError: (c) => c.json({ error: "request_too_large" }, 413),
+  }),
+  async (c) => {
+    const contentType = c.req.header("content-type") || "";
+    let params: Record<string, string>;
 
-  if (contentType.includes("application/x-www-form-urlencoded")) {
-    const body = await c.req.text();
-    params = Object.fromEntries(new URLSearchParams(body));
-  } else {
-    params = await c.req.json();
-  }
+    if (contentType.includes("application/x-www-form-urlencoded")) {
+      const body = await c.req.text();
+      params = Object.fromEntries(new URLSearchParams(body));
+    } else {
+      params = await c.req.json();
+    }
 
-  const { grant_type, code, client_id, code_verifier, redirect_uri } = params;
+    const { grant_type, code, client_id, code_verifier, redirect_uri } = params;
 
-  if (grant_type !== "authorization_code") {
-    return c.json({ error: "unsupported_grant_type" }, 400);
-  }
-  if (!code || !client_id || !code_verifier || !redirect_uri) {
-    return c.json({ error: "invalid_request" }, 400);
-  }
+    if (grant_type !== "authorization_code") {
+      return c.json({ error: "unsupported_grant_type" }, 400);
+    }
+    if (!code || !client_id || !code_verifier || !redirect_uri) {
+      return c.json({ error: "invalid_request" }, 400);
+    }
 
-  const result = await exchangeCode(
-    code,
-    client_id,
-    code_verifier,
-    redirect_uri,
-  );
-  if (!result) {
-    return c.json({ error: "invalid_grant" }, 400);
-  }
+    const result = await exchangeCode(
+      code,
+      client_id,
+      code_verifier,
+      redirect_uri,
+    );
+    if (!result) {
+      return c.json({ error: "invalid_grant" }, 400);
+    }
 
-  return c.json({
-    access_token: result.accessToken,
-    token_type: "bearer",
-    expires_in: result.expiresIn,
-  });
-});
+    return c.json({
+      access_token: result.accessToken,
+      token_type: "bearer",
+      expires_in: result.expiresIn,
+    });
+  },
+);
 
 mcp.get("/.well-known/oauth-protected-resource/api/mcp", (c) =>
   c.json({
@@ -284,9 +350,12 @@ mcp.all("/mcp", async (c) => {
   const sessionId = c.req.header("mcp-session-id");
 
   if (sessionId) {
-    const existing = sessions.get(sessionId);
+    const existing = mcpSessionAdmission.getSession(
+      sessionId,
+      authResult.userId,
+    );
     if (existing) {
-      return existing.handleRequest(c.req.raw);
+      return existing.transport.handleRequest(c.req.raw);
     }
     return c.json({ error: "Session not found" }, 404);
   }
@@ -295,28 +364,78 @@ mcp.all("/mcp", async (c) => {
     return c.json({ error: "Method not allowed" }, 405);
   }
 
+  const reservation = mcpSessionAdmission.tryReserveSession(authResult.userId);
+  if (!reservation.allowed) {
+    return c.json(
+      {
+        error: "server_busy",
+        error_description: "MCP session capacity reached",
+      },
+      503,
+    );
+  }
+
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
   });
 
   transport.onclose = () => {
     if (transport.sessionId) {
-      sessions.delete(transport.sessionId);
+      mcpSessionAdmission.removeSession(transport.sessionId, transport);
     }
   };
 
   const server = createMcpServerForUser(authResult.token);
-  await server.connect(transport);
-  const response = await transport.handleRequest(c.req.raw);
+  try {
+    await server.connect(transport);
+    const response = await transport.handleRequest(c.req.raw);
 
-  if (transport.sessionId) {
-    sessions.set(transport.sessionId, transport);
+    if (!transport.sessionId) {
+      mcpSessionAdmission.releaseReservation(reservation.reservationId);
+      await transport.close().catch(() => {});
+      return c.json(
+        {
+          error: "server_busy",
+          error_description: "MCP session capacity reached",
+        },
+        503,
+      );
+    }
+
+    const committed = mcpSessionAdmission.commitReservation(
+      reservation.reservationId,
+      transport.sessionId,
+      transport,
+      authResult.userId,
+    );
+    if (!committed.ok) {
+      mcpSessionAdmission.removeSession(transport.sessionId, transport);
+      await transport.close().catch(() => {});
+      return c.json(
+        {
+          error: "server_busy",
+          error_description: "MCP session capacity reached",
+        },
+        503,
+      );
+    }
+
+    return response;
+  } catch (error) {
+    mcpSessionAdmission.releaseReservation(reservation.reservationId);
+    if (transport.sessionId) {
+      mcpSessionAdmission.removeSession(transport.sessionId, transport);
+    }
+    await transport.close().catch(() => {});
+    throw error;
   }
-
-  return response;
 });
 
 export default mcp;
+
+export async function shutdownMcpSessions() {
+  await mcpSessionAdmission.closeAllSessions();
+}
 
 export function mcpWellKnownRoutes(baseUrl: string) {
   const wellKnown = new Hono();

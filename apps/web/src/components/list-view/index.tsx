@@ -136,7 +136,8 @@ function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
     if (previousFocusedId && !visibleTaskIds.includes(previousFocusedId)) {
       navigate({
         to: ".",
-        search: (prev) => (prev.taskId === previousFocusedId ? {} : prev),
+        search: (prev: { taskId?: string }) =>
+          prev.taskId === previousFocusedId ? {} : prev,
       });
     }
   }, [navigate, setAvailableTasks, visibleTaskIds]);

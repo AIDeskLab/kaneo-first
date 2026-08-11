@@ -9,7 +9,11 @@ import updateUserStatus from "./controllers/update-user-status";
 import updateUserWorkspaceRole from "./controllers/update-user-workspace-role";
 import { requireInstanceAdmin } from "./middleware/require-instance-admin";
 
-const instance = new Hono()
+const instance = new Hono<{
+  Variables: {
+    userId: string;
+  };
+}>()
   .use("*", requireInstanceAdmin)
   .get(
     "/users",
