@@ -9,6 +9,10 @@ import {
   getValidTaskStatuses,
 } from "../validate-task-fields";
 import { claimTaskNumber } from "./claim-task-numbers";
+import {
+  lockWorkspaceAssignees,
+  requireWorkspaceAssignees,
+} from "./workspace-assignee-lock";
 
 export type ImportTask = {
   title: string;
@@ -37,34 +41,50 @@ async function importTasks(
 
   const validStatuses = await getValidTaskStatuses(projectId);
 
-  const results = [];
+  const assigneeIds = [
+    ...new Set(
+      tasksToImport
+        .map((task) => task.userId?.trim())
+        .filter((userId): userId is string => Boolean(userId)),
+    ),
+  ];
+  const results: Array<{
+    success: boolean;
+    task: typeof taskTable.$inferSelect | ImportTask;
+    warnings?: string[];
+    error?: string;
+  }> = [];
+  await db.transaction(async (tx) => {
+    await lockWorkspaceAssignees(tx, project.workspaceId, assigneeIds);
+    await requireWorkspaceAssignees(tx, project.workspaceId, assigneeIds);
 
-  for (const taskData of tasksToImport) {
-    try {
-      const { status, warning: statusWarning } = coerceStatus(
-        taskData.status,
-        validStatuses,
-      );
-      const { priority, warning: priorityWarning } = coercePriority(
-        taskData.priority || "low",
-      );
-      const warnings = [statusWarning, priorityWarning].filter(Boolean);
+    for (const taskData of tasksToImport) {
+      try {
+        const { status, warning: statusWarning } = coerceStatus(
+          taskData.status,
+          validStatuses,
+        );
+        const { priority, warning: priorityWarning } = coercePriority(
+          taskData.priority || "low",
+        );
+        const warnings = [statusWarning, priorityWarning].filter(
+          (warning): warning is string => Boolean(warning),
+        );
 
-      const column = await db.query.columnTable.findFirst({
-        where: and(
-          eq(columnTable.projectId, projectId),
-          eq(columnTable.slug, status),
-        ),
-      });
+        const column = await db.query.columnTable.findFirst({
+          where: and(
+            eq(columnTable.projectId, projectId),
+            eq(columnTable.slug, status),
+          ),
+        });
 
-      const createdTask = await db.transaction(async (tx) => {
         const taskNumber = await claimTaskNumber(projectId, tx);
 
         const [task] = await tx
           .insert(taskTable)
           .values({
             projectId,
-            userId: taskData.userId || null,
+            userId: taskData.userId?.trim() || null,
             title: taskData.title,
             status,
             columnId: column?.id ?? null,
@@ -76,42 +96,42 @@ async function importTasks(
           })
           .returning();
 
-        return task;
-      });
+        const createdTask = task;
 
-      if (createdTask) {
-        await publishEvent("task.created", {
-          ...createdTask,
-          taskId: createdTask.id,
-          userId: createdTask.userId ?? "",
-          currentUserId: currentUserId ?? "",
-          type: "create",
-          content: "imported the task",
-        });
+        if (createdTask) {
+          await publishEvent("task.created", {
+            ...createdTask,
+            taskId: createdTask.id,
+            userId: createdTask.userId ?? "",
+            currentUserId: currentUserId ?? "",
+            type: "create",
+            content: "imported the task",
+          });
 
-        results.push({
-          success: true,
-          task: createdTask,
-          ...(warnings.length > 0 && { warnings }),
-        });
-      } else {
+          results.push({
+            success: true,
+            task: createdTask,
+            ...(warnings.length > 0 && { warnings }),
+          });
+        } else {
+          results.push({
+            success: false,
+            error: "Failed to create task",
+            task: taskData,
+          });
+        }
+      } catch (error) {
+        if (error instanceof HTTPException) {
+          throw error;
+        }
         results.push({
           success: false,
-          error: "Failed to create task",
+          error: error instanceof Error ? error.message : "Unknown error",
           task: taskData,
         });
       }
-    } catch (error) {
-      if (error instanceof HTTPException) {
-        throw error;
-      }
-      results.push({
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-        task: taskData,
-      });
     }
-  }
+  });
 
   return {
     importedAt: new Date().toISOString(),

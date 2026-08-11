@@ -16,6 +16,7 @@ import {
   removeLabelFromGitHub,
   syncLabelToGitHub,
 } from "../../plugins/github/utils/sync-label-to-github";
+import { lockWorkspaceLabels } from "./workspace-label-lock";
 
 type LabelRow = typeof labelTableType.$inferSelect;
 
@@ -53,18 +54,15 @@ async function assignLabelToTask(id: string, taskId: string, userId: string) {
     });
   }
 
-  if (label.taskId === taskId) {
-    return label;
-  }
+  if (label.taskId === taskId) return label;
 
   type InsertionResult = {
     taskLabel: LabelRow;
     inserted: boolean;
-    previousTaskId: string | null;
-    previousName: string;
   };
-  const { taskLabel, inserted, previousTaskId, previousName } =
-    await db.transaction<InsertionResult>(async (tx) => {
+  const { taskLabel, inserted } = await db.transaction<InsertionResult>(
+    async (tx) => {
+      await lockWorkspaceLabels(tx, task.workspaceId, [label.name]);
       const currentLabel = await tx.query.labelTable.findFirst({
         where: (label, { eq }) => eq(label.id, id),
       });
@@ -88,12 +86,16 @@ async function assignLabelToTask(id: string, taskId: string, userId: string) {
         return {
           taskLabel: currentLabel,
           inserted: false,
-          previousTaskId: null,
-          previousName: currentLabel.name,
         };
       }
 
       const previousTaskId = currentLabel.taskId;
+      if (previousTaskId) {
+        await removeLabelFromGitHub(previousTaskId, currentLabel.name);
+        await removeLabelFromGitea(previousTaskId, currentLabel.name);
+      }
+      await syncLabelToGitHub(taskId, currentLabel.name, currentLabel.color);
+      await syncLabelToGitea(taskId, currentLabel.name, currentLabel.color);
       if (previousTaskId) {
         await tx.delete(labelTable).where(eq(labelTable.id, id));
       }
@@ -115,8 +117,6 @@ async function assignLabelToTask(id: string, taskId: string, userId: string) {
         return {
           taskLabel: insertedRow,
           inserted: true,
-          previousTaskId,
-          previousName: currentLabel.name,
         };
       }
 
@@ -136,30 +136,13 @@ async function assignLabelToTask(id: string, taskId: string, userId: string) {
       return {
         taskLabel: existing,
         inserted: false,
-        previousTaskId,
-        previousName: currentLabel.name,
       };
-    });
-
-  if (previousTaskId) {
-    removeLabelFromGitHub(previousTaskId, previousName).catch((error) => {
-      console.error("Failed to remove label from GitHub:", error);
-    });
-    removeLabelFromGitea(previousTaskId, previousName).catch((error) => {
-      console.error("Failed to remove label from Gitea:", error);
-    });
-  }
+    },
+  );
 
   if (!inserted) {
     return taskLabel;
   }
-
-  syncLabelToGitHub(taskId, taskLabel.name, taskLabel.color).catch((error) => {
-    console.error("Failed to sync label to GitHub:", error);
-  });
-  syncLabelToGitea(taskId, taskLabel.name, taskLabel.color).catch((error) => {
-    console.error("Failed to sync label to Gitea:", error);
-  });
 
   await publishEvent("task.label_assigned", {
     label: taskLabel,

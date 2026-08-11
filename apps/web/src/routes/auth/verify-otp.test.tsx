@@ -6,26 +6,8 @@ import {
   waitFor,
 } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import {
-  afterAll,
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Route } from "./verify-otp";
-
-// The OTP input measures itself on mount, which jsdom cannot do.
-vi.stubGlobal(
-  "ResizeObserver",
-  class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  },
-);
 
 const emailOtp = vi.fn();
 const push = vi.fn();
@@ -41,6 +23,35 @@ vi.mock("@tanstack/react-router", () => ({
   Link: ({ children }: { children: ReactNode }) => <a href="/">{children}</a>,
   useRouter: () => ({ history: { push } }),
   useSearch: () => search,
+}));
+
+vi.mock("@/components/ui/input-otp", () => ({
+  InputOTP: ({
+    children,
+    name,
+    onBlur,
+    onChange,
+    value,
+  }: {
+    children: ReactNode;
+    name?: string;
+    onBlur?: () => void;
+    onChange: (value: string) => void;
+    value: string;
+  }) => (
+    <>
+      <input
+        aria-label="OTP"
+        name={name}
+        onBlur={onBlur}
+        onChange={(event) => onChange(event.target.value)}
+        value={value}
+      />
+      {children}
+    </>
+  ),
+  InputOTPGroup: ({ children }: { children: ReactNode }) => <>{children}</>,
+  InputOTPSlot: () => null,
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -81,12 +92,6 @@ afterEach(() => {
   emailOtp.mockReset();
   push.mockReset();
   search = { email: "invitee@kaneo.test" };
-});
-
-// The ResizeObserver stub is installed at module scope, so restore it rather
-// than leaking it into other test files sharing this worker.
-afterAll(() => {
-  vi.unstubAllGlobals();
 });
 
 describe("VerifyOtp", () => {

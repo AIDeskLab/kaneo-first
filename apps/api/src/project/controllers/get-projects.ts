@@ -50,10 +50,7 @@ async function getProjectSummaries(
     .from(taskTable)
     .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
     .where(
-      and(
-        projectScope,
-        notInArray(taskTable.status, EXCLUDED_TASK_STATUSES),
-      ),
+      and(projectScope, notInArray(taskTable.status, EXCLUDED_TASK_STATUSES)),
     )
     .groupBy(taskTable.projectId, taskTable.status);
 

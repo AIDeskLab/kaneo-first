@@ -38,7 +38,7 @@ import instance from "./instance";
 import getInstanceStatus from "./instance/controllers/get-instance-status";
 import invitation from "./invitation";
 import label from "./label";
-import mcpRoutes, { mcpWellKnownRoutes } from "./mcp";
+import mcpRoutes, { mcpWellKnownRoutes, shutdownMcpSessions } from "./mcp";
 import { migrateColumns } from "./migrations/column-migration";
 import notification from "./notification";
 import notificationPreferences from "./notification-preferences";
@@ -745,6 +745,7 @@ export function createApp() {
     notificationApi,
     notificationPreferencesApi,
     projectApi,
+    projectGroupApi,
     publicProjectApi,
     searchApi,
     slackIntegrationApi,
@@ -829,6 +830,7 @@ export async function startServer(
 
     console.log("🛑 Shutting down gracefully...");
     shutdownScheduler();
+    await shutdownMcpSessions();
     await shutdownWebSocketAdapter();
     server.close();
     process.exit(0);
@@ -863,6 +865,7 @@ const {
   notificationApi,
   notificationPreferencesApi,
   projectApi,
+  projectGroupApi,
   publicProjectApi,
   searchApi,
   slackIntegrationApi,
@@ -889,6 +892,7 @@ if (isMainModule) {
 export type AppType =
   | typeof configApi
   | typeof projectApi
+  | typeof projectGroupApi
   | typeof taskApi
   | typeof columnApi
   | typeof activityApi

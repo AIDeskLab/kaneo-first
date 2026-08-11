@@ -35,6 +35,8 @@ import importTasks from "./controllers/import-tasks";
 import moveTask from "./controllers/move-task";
 import {
   requireBulkTaskPermission,
+  requireCreateTaskAssigneePermission,
+  requireImportTaskAssigneePermission,
   requireTaskAssigneePermission,
 } from "./controllers/require-task-permission";
 import updateTask from "./controllers/update-task";
@@ -49,6 +51,7 @@ import { VALID_PRIORITIES } from "./validate-task-fields";
 const task = new Hono<{
   Variables: {
     userId: string;
+    authorizedTaskAssignee?: { userId: string | null };
   };
 }>()
   .get(
@@ -220,6 +223,7 @@ const task = new Hono<{
     ),
     workspaceAccess.fromProject("projectId"),
     requireWorkspacePermission({ task: ["create"] }),
+    requireCreateTaskAssigneePermission,
     async (c) => {
       const { projectId } = c.req.param();
       const {
@@ -403,6 +407,7 @@ const task = new Hono<{
         position,
         userId,
         currentUserId,
+        c.get("authorizedTaskAssignee"),
       );
 
       return c.json(task);
@@ -467,6 +472,7 @@ const task = new Hono<{
     ),
     workspaceAccess.fromProject("projectId"),
     requireWorkspacePermission({ task: ["create"] }),
+    requireImportTaskAssigneePermission,
     async (c) => {
       const { projectId } = c.req.valid("param");
       const { tasks } = c.req.valid("json");

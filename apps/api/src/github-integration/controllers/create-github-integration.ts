@@ -1,9 +1,14 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { integrationTable, projectTable } from "../../database/schema";
 import { defaultGitHubConfig } from "../../plugins/github/config";
 import { getGithubApp } from "../../plugins/github/utils/github-app";
+import {
+  githubRepositoryKeyFromConfig,
+  isPostgresUniqueViolation,
+  normalizeGitHubRepositoryKey,
+} from "../github-repository-key";
 
 async function createGithubIntegration({
   projectId,
@@ -15,6 +20,18 @@ async function createGithubIntegration({
   repositoryName: string;
 }) {
   const githubApp = getGithubApp();
+  const canonicalOwner = repositoryOwner.trim();
+  const canonicalName = repositoryName.trim();
+  const repositoryKey = normalizeGitHubRepositoryKey(
+    canonicalOwner,
+    canonicalName,
+  );
+
+  if (!repositoryKey) {
+    throw new HTTPException(400, {
+      message: "Repository owner and name are required",
+    });
+  }
 
   if (!githubApp) {
     throw new HTTPException(500, {
@@ -22,114 +39,123 @@ async function createGithubIntegration({
     });
   }
 
-  const project = await db.query.projectTable.findFirst({
+  const existingProject = await db.query.projectTable.findFirst({
+    columns: { id: true },
     where: eq(projectTable.id, projectId),
   });
-
-  if (!project) {
+  if (!existingProject) {
     throw new HTTPException(404, { message: "Project not found" });
-  }
-
-  const allGitHubIntegrations = await db.query.integrationTable.findMany({
-    where: eq(integrationTable.type, "github"),
-  });
-
-  for (const integration of allGitHubIntegrations) {
-    if (integration.projectId === projectId) {
-      continue;
-    }
-
-    try {
-      const config = JSON.parse(integration.config);
-      if (
-        config.repositoryOwner === repositoryOwner &&
-        config.repositoryName === repositoryName
-      ) {
-        throw new HTTPException(409, {
-          message: `Repository ${repositoryOwner}/${repositoryName} is already linked to another project`,
-        });
-      }
-    } catch (error) {
-      if (error instanceof HTTPException) {
-        throw error;
-      }
-    }
   }
 
   let installationId: number | null = null;
   try {
     const { data: installation } =
       await githubApp.octokit.rest.apps.getRepoInstallation({
-        owner: repositoryOwner,
-        repo: repositoryName,
+        owner: canonicalOwner,
+        repo: canonicalName,
       });
     installationId = installation.id;
   } catch (error) {
     console.warn("Could not get installation ID for repository:", error);
   }
 
-  const existingIntegration = await db.query.integrationTable.findFirst({
-    where: and(
-      eq(integrationTable.projectId, projectId),
-      eq(integrationTable.type, "github"),
-    ),
-  });
-
   const config = {
-    repositoryOwner,
-    repositoryName,
+    repositoryOwner: canonicalOwner,
+    repositoryName: canonicalName,
     installationId,
     ...defaultGitHubConfig,
   };
 
-  if (existingIntegration) {
-    const [updatedIntegration] = await db
-      .update(integrationTable)
-      .set({
-        config: JSON.stringify(config),
-        isActive: true,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
+  let integration: Awaited<
+    ReturnType<typeof db.query.integrationTable.findFirst>
+  >;
+  try {
+    integration = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(1532, hashtext(${`github:${repositoryKey}`}))`,
+      );
+      const project = await tx.query.projectTable.findFirst({
+        where: eq(projectTable.id, projectId),
+      });
+      if (!project) {
+        throw new HTTPException(404, { message: "Project not found" });
+      }
+
+      const conflictingBinding = await tx.query.integrationTable.findFirst({
+        where: and(
+          eq(integrationTable.type, "github"),
+          eq(integrationTable.isActive, true),
+          eq(integrationTable.githubRepositoryKey, repositoryKey),
+          ne(integrationTable.projectId, projectId),
+        ),
+      });
+      if (conflictingBinding) {
+        throw new HTTPException(409, {
+          message: `Repository ${canonicalOwner}/${canonicalName} is already linked to another project`,
+        });
+      }
+
+      const existingIntegration = await tx.query.integrationTable.findFirst({
+        where: and(
           eq(integrationTable.projectId, projectId),
           eq(integrationTable.type, "github"),
         ),
-      )
-      .returning();
+      });
+      if (!existingIntegration) {
+        const [created] = await tx
+          .insert(integrationTable)
+          .values({
+            projectId,
+            type: "github",
+            config: JSON.stringify(config),
+            githubRepositoryKey: repositoryKey,
+            isActive: true,
+          })
+          .returning();
+        return created;
+      }
 
-    return {
-      id: updatedIntegration?.id,
-      projectId: updatedIntegration?.projectId,
-      repositoryOwner,
-      repositoryName,
-      installationId,
-      isActive: updatedIntegration?.isActive,
-      createdAt: updatedIntegration?.createdAt,
-      updatedAt: updatedIntegration?.updatedAt,
-    };
+      const [updated] = await tx
+        .update(integrationTable)
+        .set({
+          config: JSON.stringify(config),
+          githubRepositoryKey: repositoryKey,
+          isActive: true,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(integrationTable.projectId, projectId),
+            eq(integrationTable.type, "github"),
+          ),
+        )
+        .returning();
+
+      return updated;
+    });
+  } catch (error) {
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    if (isPostgresUniqueViolation(error)) {
+      throw new HTTPException(409, {
+        message: `Repository ${canonicalOwner}/${canonicalName} is already linked to another project`,
+      });
+    }
+    throw error;
   }
 
-  const [newIntegration] = await db
-    .insert(integrationTable)
-    .values({
-      projectId,
-      type: "github",
-      config: JSON.stringify(config),
-      isActive: true,
-    })
-    .returning();
-
   return {
-    id: newIntegration?.id,
-    projectId: newIntegration?.projectId,
-    repositoryOwner,
-    repositoryName,
+    id: integration?.id,
+    projectId: integration?.projectId,
+    repositoryOwner: canonicalOwner,
+    repositoryName: canonicalName,
     installationId,
-    isActive: newIntegration?.isActive,
-    createdAt: newIntegration?.createdAt,
-    updatedAt: newIntegration?.updatedAt,
+    isActive: integration?.isActive,
+    createdAt: integration?.createdAt,
+    updatedAt: integration?.updatedAt,
   };
 }
 
 export default createGithubIntegration;
+export { githubRepositoryKeyFromConfig };

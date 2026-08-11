@@ -110,6 +110,7 @@ const projectGroup = new Hono<{
     }),
     validator("param", v.object({ id: v.string() })),
     validator("json", v.object({ name: v.string() })),
+    workspaceAccess.fromProjectGroup("id"),
     async (c) => {
       const { id } = c.req.valid("param");
       const { name } = c.req.valid("json");
@@ -141,6 +142,7 @@ const projectGroup = new Hono<{
       },
     }),
     validator("param", v.object({ id: v.string() })),
+    workspaceAccess.fromProjectGroup("id"),
     async (c) => {
       const { id } = c.req.valid("param");
       const group = await deleteProjectGroupCtrl(id);

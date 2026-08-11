@@ -60,4 +60,20 @@ describe("giteaFetch destination guard", () => {
       );
     });
   }
+
+  it("does not apply the private-webhook bypass to Gitea", async () => {
+    const original = process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS;
+    process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS = "true";
+    try {
+      await expect(
+        giteaFetch("http://127.0.0.1:1337", "token", "/user"),
+      ).rejects.toThrow(/non-routable/);
+    } finally {
+      if (original === undefined) {
+        delete process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS;
+      } else {
+        process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS = original;
+      }
+    }
+  });
 });

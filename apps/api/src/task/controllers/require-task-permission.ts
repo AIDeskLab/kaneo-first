@@ -7,6 +7,7 @@ import { requireWorkspacePermission } from "../../utils/require-workspace-permis
 type TaskEnv = {
   Variables: {
     userId: string;
+    authorizedTaskAssignee?: { userId: string | null };
   };
 };
 
@@ -34,6 +35,18 @@ type TaskAssigneeContext = Context<
       json: { userId?: string };
     };
   }
+>;
+
+type TaskCreateContext = Context<
+  TaskEnv,
+  string,
+  { out: { json: { userId?: string | null } } }
+>;
+
+type TaskImportContext = Context<
+  TaskEnv,
+  string,
+  { out: { json: { tasks: Array<{ userId?: string | null }> } } }
 >;
 
 export async function requireBulkTaskPermission(
@@ -69,9 +82,35 @@ export async function requireTaskAssigneePermission(
     .where(eq(taskTable.id, id))
     .limit(1);
 
-  if (existingTask && existingTask.userId !== (userId || null)) {
+  if (existingTask && existingTask.userId !== (userId?.trim() || null)) {
     return requireWorkspacePermission({ task: ["assign"] })(c, next);
   }
 
+  if (existingTask) {
+    c.set("authorizedTaskAssignee", { userId: existingTask.userId });
+  }
+
+  return next();
+}
+
+export async function requireCreateTaskAssigneePermission(
+  c: TaskCreateContext,
+  next: Next,
+) {
+  const { userId } = c.req.valid("json");
+  if (userId?.trim()) {
+    return requireWorkspacePermission({ task: ["assign"] })(c, next);
+  }
+  return next();
+}
+
+export async function requireImportTaskAssigneePermission(
+  c: TaskImportContext,
+  next: Next,
+) {
+  const { tasks } = c.req.valid("json");
+  if (tasks.some((task) => task.userId?.trim())) {
+    return requireWorkspacePermission({ task: ["assign"] })(c, next);
+  }
   return next();
 }

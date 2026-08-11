@@ -7,7 +7,9 @@
  * `instanceof Element` guard is load-bearing for the mouseleave handlers in
  * the comment and task-description editors.
  */
-export function isInCodeBlockLanguagePicker(target: EventTarget | null) {
+export function isInCodeBlockLanguagePicker(
+  target: EventTarget | null,
+): boolean {
   return (
     target instanceof Element &&
     target.closest(".kaneo-codeblock-language") !== null

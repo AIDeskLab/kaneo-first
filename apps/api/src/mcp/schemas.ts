@@ -25,7 +25,11 @@ const redirectUriSchema = v.pipe(
 );
 
 export const clientRegistrationSchema = v.object({
-  redirect_uris: v.pipe(v.array(redirectUriSchema), v.minLength(1)),
+  redirect_uris: v.pipe(
+    v.array(redirectUriSchema),
+    v.minLength(1),
+    v.maxLength(10),
+  ),
   client_name: v.optional(v.pipe(v.string(), v.maxLength(100))),
   token_endpoint_auth_method: v.optional(v.literal("none")),
   grant_types: v.optional(v.tuple([v.literal("authorization_code")])),

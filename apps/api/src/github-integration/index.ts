@@ -6,6 +6,7 @@ import { describeRoute, resolver, validator } from "hono-openapi";
 import * as v from "valibot";
 import db from "../database";
 import { integrationTable, projectTable } from "../database/schema";
+import { requireInstanceAdmin } from "../instance/middleware/require-instance-admin";
 import {
   type GitHubConfig,
   validateGitHubConfig,
@@ -89,7 +90,7 @@ const githubIntegration = new Hono<{
     },
   )
   .get(
-    "/repositories",
+    "/repositories/:projectId",
     describeRoute({
       operationId: "listGitHubRepositories",
       tags: ["GitHub"],
@@ -105,13 +106,17 @@ const githubIntegration = new Hono<{
         },
       },
     }),
+    validator("param", v.object({ projectId: v.string() })),
+    workspaceAccess.fromProject("projectId"),
+    requireWorkspacePermission({ workspace: ["manage_settings"] }),
+    requireInstanceAdmin,
     async (c) => {
       const repositories = await listUserRepositories();
       return c.json(repositories);
     },
   )
   .post(
-    "/verify",
+    "/verify/:projectId",
     describeRoute({
       operationId: "verifyGitHubInstallation",
       tags: ["GitHub"],
@@ -125,6 +130,7 @@ const githubIntegration = new Hono<{
         },
       },
     }),
+    validator("param", v.object({ projectId: v.string() })),
     validator(
       "json",
       v.object({
@@ -132,6 +138,9 @@ const githubIntegration = new Hono<{
         repositoryName: v.pipe(v.string(), v.minLength(1)),
       }),
     ),
+    workspaceAccess.fromProject("projectId"),
+    requireWorkspacePermission({ workspace: ["manage_settings"] }),
+    requireInstanceAdmin,
     async (c) => {
       const { repositoryOwner, repositoryName } = c.req.valid("json");
 
@@ -191,6 +200,7 @@ const githubIntegration = new Hono<{
     ),
     workspaceAccess.fromProject("projectId"),
     requireWorkspacePermission({ workspace: ["manage_settings"] }),
+    requireInstanceAdmin,
     async (c) => {
       const { projectId } = c.req.valid("param");
       const { repositoryOwner, repositoryName } = c.req.valid("json");

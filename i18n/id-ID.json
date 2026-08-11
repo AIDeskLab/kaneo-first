@@ -11,7 +11,9 @@
 			"remove": "Hapus",
 			"reset": "Atur ulang",
 			"filter": "Filter",
-			"clearAllFilters": "Hapus semua filter"
+			"clearAllFilters": "Hapus semua filter",
+			"edit": "Edit",
+			"save": "Save"
 		},
 		"a11y": {
 			"toggleSidebar": "Tampilkan/sembunyikan panel samping"
@@ -155,7 +157,7 @@
 			"githubError": "Gagal masuk dengan GitHub",
 			"discordError": "Gagal masuk dengan Discord",
 			"errors": {
-				"account_not_linked": "This identity could not be linked to the existing account. Sign in by email to verify the account, then try SSO again. If email sign-in is unavailable, contact your administrator.",
+				"account_not_linked": "Identitas ini tidak dapat ditautkan ke akun yang sudah ada. Masuk dengan email untuk memverifikasi akun, lalu coba SSO lagi. Jika masuk dengan email tidak tersedia, hubungi administrator Anda.",
 				"oauth_code_verification_failed": "Verifikasi OAuth gagal. Silakan coba lagi.",
 				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Pendaftaran saat ini dinonaktifkan. Anda memerlukan undangan yang valid untuk membuat akun."
 			},
@@ -429,20 +431,20 @@
 			"toastPreferencesSaveFailed": "Gagal menyimpan preferensi notifikasi",
 			"toastRuleSavedGeneric": "Aturan notifikasi ruang kerja disimpan",
 			"toastRuleRemovedGeneric": "Aturan notifikasi ruang kerja dihapus",
-			"eventComments": "Comments and mentions",
-			"eventCommentsHint": "Includes new comments on tasks assigned to you and direct @mentions.",
-			"eventDueDateReminders": "Due-date reminders",
-			"eventPreferencesDescription": "Choose which task events create in-app notifications and can be delivered to your connected channels.",
-			"eventPreferencesTitle": "Notify me about",
-			"eventStatusChanges": "Task status changes",
-			"eventTaskAssignments": "Task assignments",
-			"reminderLeadTimeHint": "Between 1 hour and 30 days before. Overdue notifications are sent separately.",
-			"reminderLeadTimeInvalid": "Enter a whole number between 1 and {{max}}.",
-			"reminderLeadTimeLabel": "Remind me before the due date",
-			"reminderLeadTimeUnitDays": "Days",
-			"reminderLeadTimeUnitHours": "Hours",
-			"saveEventPreferences": "Save notification types",
-			"workspaceEnabledLabel": "Enable notifications for {{workspaceName}}"
+			"eventComments": "Komentar dan sebutan",
+			"eventCommentsHint": "Termasuk komentar baru pada tugas yang ditugaskan kepada Anda dan @mention langsung.",
+			"eventDueDateReminders": "Pengingat tenggat",
+			"eventPreferencesDescription": "Pilih event tugas mana yang membuat notifikasi dalam aplikasi dan dapat dikirim ke kanal yang terhubung.",
+			"eventPreferencesTitle": "Beri tahu saya tentang",
+			"eventStatusChanges": "Perubahan status tugas",
+			"eventTaskAssignments": "Penugasan tugas",
+			"reminderLeadTimeHint": "Antara 1 jam hingga 30 hari sebelumnya. Notifikasi keterlambatan dikirim secara terpisah.",
+			"reminderLeadTimeInvalid": "Masukkan bilangan bulat antara 1 dan {{max}}.",
+			"reminderLeadTimeLabel": "Ingatkan saya sebelum tenggat",
+			"reminderLeadTimeUnitDays": "Hari",
+			"reminderLeadTimeUnitHours": "Jam",
+			"saveEventPreferences": "Simpan jenis notifikasi",
+			"workspaceEnabledLabel": "Aktifkan notifikasi untuk {{workspaceName}}"
 		},
 		"preferencesPage": {
 			"title": "Preferensi",
@@ -633,7 +635,10 @@
 				"keyShort": "Key harus minimal 2 karakter"
 			},
 			"importExportTasks": "Impor/Ekspor",
-			"importExportTasksDescription": "Impor dan ekspor tugas."
+			"importExportTasksDescription": "Impor dan ekspor tugas.",
+			"projectGroupLabel": "Project group",
+			"projectGroupHint": "Assign this project to a group",
+			"projectGroupNone": "None"
 		},
 		"projectIntegrations": {
 			"pageTitle": "Integrasi Proyek",
@@ -953,12 +958,12 @@
 				"taskDueDateChanged": "Tenggat diubah",
 				"taskAssigneeChanged": "Penanggung jawab diubah",
 				"taskUnassigned": "Penugasan dihapus",
-				"dueDateReminder": "Due-date reminders"
+				"dueDateReminder": "Pengingat tenggat"
 			},
 			"connect": "Hubungkan webhook",
 			"saveChanges": "Simpan perubahan",
 			"disconnect": "Putuskan",
-			"reminderLeadTimeLabel": "Send the webhook this many hours before"
+			"reminderLeadTimeLabel": "Kirim webhook sekian jam sebelum tenggat"
 		},
 		"telegramIntegration": {
 			"validation": {
@@ -1208,29 +1213,29 @@
 			}
 		},
 		"workspaceLabels": {
-			"cardDescription": "Manage labels that can be assigned to tasks.",
-			"colorLabel": "Color",
-			"createDescription": "Create a new label that can be used across tasks in this workspace.",
-			"createError": "Failed to create label",
-			"createLabel": "Create Label",
-			"createSuccess": "Label created",
-			"deleteConfirmDescription": "This will permanently remove this label from all tasks. This action cannot be undone.",
-			"deleteConfirmTitle": "Delete this label?",
-			"deleteError": "Failed to delete label",
-			"deleteLabel": "Delete",
-			"deleteSuccess": "Label deleted",
-			"editDescription": "Update the name or color of this label.",
+			"cardDescription": "Kelola label yang dapat ditetapkan ke tugas.",
+			"colorLabel": "Warna",
+			"createDescription": "Buat label baru yang dapat digunakan di semua tugas dalam ruang kerja ini.",
+			"createError": "Gagal membuat label",
+			"createLabel": "Buat Label",
+			"createSuccess": "Label dibuat",
+			"deleteConfirmDescription": "Ini akan menghapus label ini secara permanen dari semua tugas. Tindakan ini tidak dapat dibatalkan.",
+			"deleteConfirmTitle": "Hapus label ini?",
+			"deleteError": "Gagal menghapus label",
+			"deleteLabel": "Hapus",
+			"deleteSuccess": "Label dihapus",
+			"editDescription": "Perbarui nama atau warna label ini.",
 			"editLabel": "Edit Label",
-			"empty": "No labels yet. Create your first label to get started.",
-			"nameLabel": "Label name",
-			"namePlaceholder": "Enter label name",
-			"nameRequired": "Label name is required",
-			"pageTitle": "Label Settings",
-			"saveLabel": "Save",
-			"subtitle": "Create, edit, and delete workspace-level labels.",
-			"title": "Labels",
-			"updateError": "Failed to update label",
-			"updateSuccess": "Label updated"
+			"empty": "Belum ada label. Buat label pertama Anda untuk memulai.",
+			"nameLabel": "Nama label",
+			"namePlaceholder": "Masukkan nama label",
+			"nameRequired": "Nama label wajib diisi",
+			"pageTitle": "Pengaturan Label",
+			"saveLabel": "Simpan",
+			"subtitle": "Buat, edit, dan hapus label tingkat ruang kerja.",
+			"title": "Label",
+			"updateError": "Gagal memperbarui label",
+			"updateSuccess": "Label diperbarui"
 		}
 	},
 	"navigation": {
@@ -1384,25 +1389,25 @@
 				"contentWithoutTask": "Pelacakan waktu dimulai pada sebuah tugas"
 			},
 			"due_date_reminder": {
-				"content": "{{taskTitle}} is due in {{leadTime}}",
-				"title": "Task due soon"
+				"content": "{{taskTitle}} jatuh tempo dalam {{leadTime}}",
+				"title": "Tenggat tugas segera tiba"
 			},
 			"task_comment": {
-				"content": "New comment on {{taskTitle}}: {{commentPreview}}",
-				"title": "{{commenterName}} commented on your task"
+				"content": "Komentar baru pada {{taskTitle}}: {{commentPreview}}",
+				"title": "{{commenterName}} mengomentari tugas Anda"
 			},
 			"task_overdue": {
-				"content": "{{taskTitle}} is past its due date",
-				"title": "Task overdue"
+				"content": "{{taskTitle}} telah melewati tenggatnya",
+				"title": "Tugas terlambat"
 			}
 		},
 		"reminderLeadTime": {
-			"days_one": "{{count}} day",
-			"days_other": "{{count}} days",
-			"hours_one": "{{count}} hour",
-			"hours_other": "{{count}} hours",
-			"minutes_one": "{{count}} minute",
-			"minutes_other": "{{count}} minutes"
+			"days_one": "{{count}} hari",
+			"days_other": "{{count}} hari",
+			"hours_one": "{{count}} jam",
+			"hours_other": "{{count}} jam",
+			"minutes_one": "{{count}} menit",
+			"minutes_other": "{{count}} menit"
 		}
 	},
 	"activity": {
@@ -1925,18 +1930,29 @@
 				"deleteRow": "Hapus baris",
 				"deleteTable": "Hapus tabel"
 			}
+		},
+		"hierarchy": {
+			"mode": {
+				"flat": "Flat",
+				"tree": "Tree",
+				"nested": "Nested"
+			},
+			"expand": "Expand subtasks",
+			"collapse": "Collapse subtasks",
+			"subtaskOf": "Subtask of {{title}}",
+			"subtaskProgress": "{{completed}} of {{total}} subtasks completed"
 		}
 	},
 	"invitations": {
 		"email": {
-			"subject": "{{inviterName}} invited you to join {{workspaceName}} on Kaneo",
-			"preview": "You're invited to {{workspaceName}} on Kaneo",
-			"title": "Join {{workspaceName}}",
-			"subtitle": "{{inviterName}} ({{inviterEmail}}) invited you to collaborate in Kaneo.",
-			"cta": "Accept invitation",
-			"sameEmail": "You can accept with the same email that received this message.",
-			"ignore": "If this wasn't expected, you can safely ignore this email.",
-			"footer": "Kaneo workspace invitation"
+			"subject": "{{inviterName}} mengundang Anda bergabung ke {{workspaceName}} di Kaneo",
+			"preview": "Anda diundang ke {{workspaceName}} di Kaneo",
+			"title": "Bergabung ke {{workspaceName}}",
+			"subtitle": "{{inviterName}} ({{inviterEmail}}) mengundang Anda untuk berkolaborasi di Kaneo.",
+			"cta": "Terima undangan",
+			"sameEmail": "Anda dapat menerima undangan menggunakan alamat email yang menerima pesan ini.",
+			"ignore": "Jika ini tidak Anda harapkan, Anda dapat mengabaikan email ini dengan aman.",
+			"footer": "Undangan ruang kerja Kaneo"
 		},
 		"pageTitle": "Undangan",
 		"pendingInvitations": "Undangan Tertunda",
@@ -2022,7 +2038,7 @@
 		"members": {
 			"pageTitle": "Anggota",
 			"inviteMember": "Undang anggota",
-			"you": "You"
+			"you": "Anda"
 		},
 		"inviteModal": {
 			"title": "Undang Anggota Tim",
@@ -2066,8 +2082,8 @@
 			"ariaInvitationActions": "Invitation actions"
 		},
 		"invitations": {
-			"expires": "Expires {{date}}",
-			"pendingBadge": "pending",
+			"expires": "Kedaluwarsa {{date}}",
+			"pendingBadge": "tertunda",
 			"linkLabel": "Invitation link",
 			"copyLink": "Copy link",
 			"linkCopied": "Invitation link copied",
@@ -2115,5 +2131,70 @@
 		"updateAvailable": "Versi baru tersedia",
 		"refresh": "Muat ulang",
 		"offlineReady": "Aplikasi siap digunakan secara offline"
+	},
+	"admin": {
+		"users": {
+			"pageTitle": "User management",
+			"title": "Users",
+			"subtitle": "Manage instance users and workspace access.",
+			"navigationLabel": "Users",
+			"loading": "Loading users...",
+			"loadError": "Unable to load users.",
+			"empty": "No users found.",
+			"name": "Name",
+			"email": "Email",
+			"locale": "Locale",
+			"globalRole": "Global role",
+			"superUser": "Super User",
+			"createdAt": "Created",
+			"banned": "Status",
+			"active": "Active",
+			"bannedStatus": "Banned",
+			"workspaces": "Workspaces",
+			"noWorkspaces": "No workspaces",
+			"addToWorkspace": "Add to workspace",
+			"workspace": "Workspace",
+			"role": "Role",
+			"selectWorkspace": "Select workspace",
+			"selectRole": "Select role",
+			"add": "Add",
+			"changeRole": "Change role",
+			"removeFromWorkspace": "Remove from workspace",
+			"removeConfirmation": "Remove this user's workspace access?",
+			"ban": "Ban",
+			"unban": "Unban",
+			"banReason": "Reason",
+			"banExpires": "Expires",
+			"confirmBan": "Ban this user?",
+			"confirmUnban": "Unban this user?",
+			"accessDenied": "Access denied.",
+			"notFound": "User not found.",
+			"pagination": "Showing {{start}}–{{end}} of {{total}}",
+			"prev": "Previous",
+			"next": "Next",
+			"toast": {
+				"added": "User added to workspace.",
+				"addFailed": "Failed to add user.",
+				"roleUpdated": "Workspace role updated.",
+				"roleUpdateFailed": "Failed to update role.",
+				"removed": "User removed from workspace.",
+				"removeFailed": "Failed to remove user.",
+				"statusUpdated": "User status updated.",
+				"statusUpdateFailed": "Failed to update user status."
+			},
+			"validation": {
+				"workspaceRequired": "Workspace is required.",
+				"roleRequired": "Role is required.",
+				"invalidDate": "Invalid date."
+			}
+		}
+	},
+	"project-groups": {
+		"pageTitle": "Project Groups",
+		"create": "Create group",
+		"name": "Name",
+		"empty": "No project groups",
+		"emptyTitle": "No project groups",
+		"emptyDescription": "Create your first project group to organize projects."
 	}
 }

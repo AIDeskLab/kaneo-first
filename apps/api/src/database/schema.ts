@@ -2,6 +2,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   foreignKey,
   index,
   integer,
@@ -382,6 +383,10 @@ export const taskTable = pgTable(
     index("task_assigneeId_idx").on(table.userId),
     index("task_columnId_idx").on(table.columnId),
     unique("task_project_number_unique").on(table.projectId, table.number),
+    check(
+      "task_start_date_before_due_date_check",
+      sql`${table.startDate} IS NULL OR ${table.dueDate} IS NULL OR ${table.startDate} <= ${table.dueDate}`,
+    ),
   ],
 );
 
@@ -540,6 +545,7 @@ export const labelTable = pgTable(
       .primaryKey(),
     name: text("name").notNull(),
     color: text("color").notNull(),
+    source: text("source").default("local").notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" })
       .defaultNow()
@@ -555,6 +561,10 @@ export const labelTable = pgTable(
     }),
   },
   (table) => [
+    check(
+      "label_source_check",
+      sql`${table.source} in ('local', 'github', 'gitea', 'import')`,
+    ),
     index("label_task_id_idx").on(table.taskId),
     index("label_workspace_id_idx").on(table.workspaceId),
     unique("label_task_name_unique").on(table.taskId, table.name),
@@ -780,6 +790,7 @@ export const integrationTable = pgTable(
       }),
     type: text("type").notNull(),
     config: text("config").notNull(),
+    githubRepositoryKey: text("github_repository_key"),
     isActive: boolean("is_active").default(true),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" })
@@ -791,6 +802,15 @@ export const integrationTable = pgTable(
     index("integration_projectId_idx").on(table.projectId),
     index("integration_type_idx").on(table.type),
     unique("integration_project_type_unique").on(table.projectId, table.type),
+    uniqueIndex("integration_github_repository_key_active_unique")
+      .on(table.githubRepositoryKey)
+      .where(
+        sql`${table.type} = 'github' and ${table.isActive} = true and ${table.githubRepositoryKey} is not null`,
+      ),
+    check(
+      "integration_github_active_requires_key_check",
+      sql`${table.type} <> 'github' OR ${table.isActive} = false OR ${table.githubRepositoryKey} IS NOT NULL`,
+    ),
   ],
 );
 

@@ -1,19 +1,24 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import * as v from "valibot";
 import db from "../../../database";
-import { labelTable, taskTable } from "../../../database/schema";
+import { taskTable } from "../../../database/schema";
 import { publishEvent } from "../../../events";
+import { createGiteaLabelLoader } from "../../../gitea-integration/controllers/import-gitea-issues";
 import { findExternalLink } from "../../github/services/link-manager";
 import { updateTaskStatus } from "../../github/services/task-service";
 import {
   extractIssuePriority,
   extractIssueStatus,
 } from "../../github/utils/extract-priority";
+import { type GiteaConfig, giteaConfigSchema } from "../config";
 import {
   findAllIntegrationsByGiteaRepo,
   repoOwnerLogin,
 } from "../services/integration-lookup";
+import { createGiteaClient } from "../utils/gitea-api";
 import { isSystemLabelName } from "../utils/system-labels";
 import { baseUrlFromRepositoryHtmlUrl } from "../utils/webhook-repo";
+import { reconcileGiteaIssueLabels } from "./reconcile-issue-labels";
 
 type IssueLabeledPayload = {
   action: string;
@@ -32,91 +37,42 @@ type IssueLabeledPayload = {
   };
 };
 
-/** Non-system labels from a Gitea issue (used when action is label_updated). */
-function giteaLabelsForSync(
-  labels: IssueLabeledPayload["issue"]["labels"],
-): Array<{ name: string; color?: string }> {
-  if (!labels) return [];
-  const out: Array<{ name: string; color?: string }> = [];
-  for (const raw of labels) {
-    const name = typeof raw === "string" ? raw : raw.name;
-    if (!name || isSystemLabelName(name)) continue;
-    const color =
-      typeof raw === "object" && raw && "color" in raw ? raw.color : undefined;
-    out.push({ name, color });
+const LABEL_RECONCILE_ACTIONS = new Set([
+  "labeled",
+  "unlabeled",
+  "label_updated",
+]);
+
+function parseStrictGiteaConfig(raw: string): GiteaConfig | null {
+  try {
+    return v.parse(giteaConfigSchema, JSON.parse(raw));
+  } catch (error) {
+    console.warn("[Gitea Webhook] Invalid integration config", { error });
+    return null;
   }
-  return out;
 }
 
-function normalizedGiteaLabelColor(g: { color?: string }): string {
-  return g.color ? `#${g.color.replace(/^#/, "")}` : "#6B7280";
-}
-
-async function syncGiteaLabelsToTask(
-  taskId: string,
-  workspaceId: string,
-  giteaLabels: Array<{ name: string; color?: string }>,
-) {
-  const desiredNames = new Set(giteaLabels.map((l) => l.name));
-  const existingRows = await db.query.labelTable.findMany({
-    where: eq(labelTable.taskId, taskId),
-  });
-
-  const labelsToInsert = giteaLabels
-    .filter((g) => !existingRows.some((row) => row.name === g.name))
-    .map((g) => ({
-      name: g.name,
-      color: normalizedGiteaLabelColor(g),
-      taskId,
-      workspaceId,
-    }));
-
-  const colorToIds = new Map<string, string[]>();
-  for (const g of giteaLabels) {
-    if (isSystemLabelName(g.name)) continue;
-    const row = existingRows.find((r) => r.name === g.name);
-    if (!row) continue;
-    const want = normalizedGiteaLabelColor(g);
-    const have = row.color ? `#${row.color.replace(/^#/, "")}` : "#6B7280";
-    if (have === want) continue;
-    const list = colorToIds.get(want) ?? [];
-    list.push(row.id);
-    colorToIds.set(want, list);
+function payloadLabelNames(payload: IssueLabeledPayload): string[] {
+  const names: string[] = [];
+  if (payload.label?.name && !isSystemLabelName(payload.label.name)) {
+    names.push(payload.label.name);
   }
-
-  for (const [color, ids] of colorToIds) {
-    if (ids.length === 0) continue;
-    await db
-      .update(labelTable)
-      .set({ color })
-      .where(inArray(labelTable.id, ids));
+  if (payload.issue.labels) {
+    for (const raw of payload.issue.labels) {
+      const name = typeof raw === "string" ? raw : raw.name;
+      if (name && !isSystemLabelName(name)) {
+        names.push(name);
+      }
+    }
   }
-
-  if (labelsToInsert.length > 0) {
-    await db
-      .insert(labelTable)
-      .values(labelsToInsert)
-      .onConflictDoNothing({
-        target: [labelTable.taskId, labelTable.name],
-      });
-  }
-
-  const labelsToDelete = existingRows
-    .filter(
-      (row) => !desiredNames.has(row.name) && !isSystemLabelName(row.name),
-    )
-    .map((row) => row.id);
-
-  if (labelsToDelete.length > 0) {
-    await db.delete(labelTable).where(inArray(labelTable.id, labelsToDelete));
-  }
+  return names;
 }
 
 export async function handleGiteaIssueLabeled(
   payload: IssueLabeledPayload,
   integrationId?: string,
 ) {
-  const { issue, repository, label: addedLabel } = payload;
+  const { issue, repository } = payload;
 
   const baseUrl = baseUrlFromRepositoryHtmlUrl(repository.html_url);
   if (!baseUrl) return;
@@ -173,84 +129,60 @@ export async function handleGiteaIssueLabeled(
         }
       }
 
-      if (payload.action === "label_updated") {
-        if (issue.labels === undefined) {
-          continue;
-        }
-
-        const task = await db.query.taskTable.findFirst({
-          where: eq(taskTable.id, existingLink.taskId),
-          with: {
-            project: true,
-          },
-        });
-        if (task?.project?.workspaceId) {
-          await syncGiteaLabelsToTask(
-            existingLink.taskId,
-            task.project.workspaceId,
-            giteaLabelsForSync(issue.labels),
-          );
-        }
+      if (!LABEL_RECONCILE_ACTIONS.has(payload.action)) {
         continue;
       }
 
-      if (!addedLabel) {
+      const config = parseStrictGiteaConfig(integration.config);
+      if (!config) {
         continue;
       }
 
-      if (isSystemLabelName(addedLabel.name)) {
+      const task = await db.query.taskTable.findFirst({
+        where: eq(taskTable.id, existingLink.taskId),
+        with: {
+          project: true,
+        },
+      });
+      if (!task?.project?.workspaceId) {
         continue;
       }
 
-      if (payload.action === "labeled") {
-        const task = await db.query.taskTable.findFirst({
-          where: eq(taskTable.id, existingLink.taskId),
-          with: {
-            project: true,
-          },
+      const client = createGiteaClient(config);
+      const loader = createGiteaLabelLoader(client, config, issue.number);
+      const { assigned, unassigned } = await reconcileGiteaIssueLabels(
+        existingLink.taskId,
+        task.project.workspaceId,
+        payloadLabelNames(payload),
+        loader,
+      );
+
+      const taskContext = {
+        id: task.id,
+        projectId: task.projectId,
+        workspaceId: task.project.workspaceId,
+      };
+
+      for (const label of assigned) {
+        await publishEvent("task.label_assigned", {
+          label,
+          task: taskContext,
+          projectId: task.projectId,
+          taskId: task.id,
+          userId: null,
+          type: "label_assigned",
         });
-
-        if (task?.project?.workspaceId) {
-          const existingLabel = await db.query.labelTable.findFirst({
-            where: (table, { and, eq: e }) =>
-              and(
-                e(table.workspaceId, task.project.workspaceId),
-                e(table.name, addedLabel.name),
-                e(table.taskId, task.id),
-              ),
-          });
-
-          if (!existingLabel) {
-            const color = addedLabel.color
-              ? `#${addedLabel.color.replace(/^#/, "")}`
-              : "#6B7280";
-            await db
-              .insert(labelTable)
-              .values({
-                name: addedLabel.name,
-                color,
-                taskId: task.id,
-                workspaceId: task.project.workspaceId,
-              })
-              .onConflictDoNothing({
-                target: [labelTable.taskId, labelTable.name],
-              });
-          }
-        }
       }
 
-      if (payload.action === "unlabeled") {
-        const labelsToDelete = await db.query.labelTable.findMany({
-          where: (table, { and, eq: e }) =>
-            and(
-              e(table.taskId, existingLink.taskId),
-              e(table.name, addedLabel.name),
-            ),
+      for (const label of unassigned) {
+        await publishEvent("task.label_unassigned", {
+          label,
+          task: taskContext,
+          projectId: task.projectId,
+          taskId: task.id,
+          userId: null,
+          type: "label_unassigned",
         });
-
-        for (const label of labelsToDelete) {
-          await db.delete(labelTable).where(eq(labelTable.id, label.id));
-        }
       }
     } catch (error) {
       console.error("Gitea issue_labeled handler failed for integration", {

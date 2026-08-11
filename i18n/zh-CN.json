@@ -11,7 +11,9 @@
 			"remove": "移除",
 			"reset": "重置",
 			"filter": "筛选",
-			"clearAllFilters": "清除全部筛选"
+			"clearAllFilters": "清除全部筛选",
+			"edit": "Edit",
+			"save": "Save"
 		},
 		"a11y": {
 			"toggleSidebar": "切换侧边栏"
@@ -239,7 +241,10 @@
 			"accountCreated": "账户创建成功",
 			"passwordTooShort": "密码太短",
 			"creatingAccount": "正在创建账户…",
-			"createAccount": "创建账户"
+			"createAccount": "创建账户",
+			"setPassword": "Set password",
+			"setPasswordPlaceholder": "Choose a password",
+			"createAccountAndContinue": "Create account & continue"
 		},
 		"invitation": {
 			"pageTitleAccept": "接受邀请",
@@ -267,7 +272,10 @@
 			"toast": {
 				"acceptFailed": "接受邀请失败",
 				"acceptSuccess": "邀请已接受，欢迎加入团队！"
-			}
+			},
+			"signInToAccept": "Sign in to accept this invitation.",
+			"createAccountToAccept": "Create an account and set a password to accept this invitation.",
+			"alreadyHaveAccount": "Already have an account?"
 		},
 		"onboarding": {
 			"pageTitle": "欢迎使用 Kaneo",
@@ -784,10 +792,15 @@
 				"nameRequired": "项目名称不能为空",
 				"keyRequired": "标识不能为空",
 				"keyMax": "标识最多 8 个字符",
-				"iconRequired": "图标不能为空"
+				"iconRequired": "图标不能为空",
+				"nameShort": "Project name must be at least 2 characters",
+				"keyShort": "Key must be at least 2 characters"
 			},
 			"importExportTasks": "导入/导出",
-			"importExportTasksDescription": "导入和导出任务。"
+			"importExportTasksDescription": "导入和导出任务。",
+			"projectGroupLabel": "Project group",
+			"projectGroupHint": "Assign this project to a group",
+			"projectGroupNone": "None"
 		},
 		"projectIntegrations": {
 			"pageTitle": "项目集成",
@@ -1917,6 +1930,17 @@
 				"deleteRow": "删除行",
 				"deleteTable": "删除表格"
 			}
+		},
+		"hierarchy": {
+			"mode": {
+				"flat": "Flat",
+				"tree": "Tree",
+				"nested": "Nested"
+			},
+			"expand": "Expand subtasks",
+			"collapse": "Collapse subtasks",
+			"subtaskOf": "Subtask of {{title}}",
+			"subtaskProgress": "{{completed}} of {{total}} subtasks completed"
 		}
 	},
 	"invitations": {
@@ -2059,7 +2083,11 @@
 			"cancelInviteSuccess": "邀请已取消",
 			"cancelInviteError": "取消邀请失败",
 			"roleUpdateSuccess": "角色已更新",
-			"roleUpdateError": "更新角色失败"
+			"roleUpdateError": "更新角色失败",
+			"copyInviteLinkSuccess": "Invite link copied",
+			"copyInviteLinkError": "Failed to copy invite link",
+			"copyInviteLinkAria": "Copy invite link",
+			"copyInviteLinkHint": "Click to copy invite link"
 		}
 	},
 	"publicProject": {
@@ -2098,5 +2126,75 @@
 		"branding": {
 			"poweredBy": "由以下技术提供支持"
 		}
+	},
+	"admin": {
+		"users": {
+			"pageTitle": "User management",
+			"title": "Users",
+			"subtitle": "Manage instance users and workspace access.",
+			"navigationLabel": "Users",
+			"loading": "Loading users...",
+			"loadError": "Unable to load users.",
+			"empty": "No users found.",
+			"name": "Name",
+			"email": "Email",
+			"locale": "Locale",
+			"globalRole": "Global role",
+			"superUser": "Super User",
+			"createdAt": "Created",
+			"banned": "Status",
+			"active": "Active",
+			"bannedStatus": "Banned",
+			"workspaces": "Workspaces",
+			"noWorkspaces": "No workspaces",
+			"addToWorkspace": "Add to workspace",
+			"workspace": "Workspace",
+			"role": "Role",
+			"selectWorkspace": "Select workspace",
+			"selectRole": "Select role",
+			"add": "Add",
+			"changeRole": "Change role",
+			"removeFromWorkspace": "Remove from workspace",
+			"removeConfirmation": "Remove this user's workspace access?",
+			"ban": "Ban",
+			"unban": "Unban",
+			"banReason": "Reason",
+			"banExpires": "Expires",
+			"confirmBan": "Ban this user?",
+			"confirmUnban": "Unban this user?",
+			"accessDenied": "Access denied.",
+			"notFound": "User not found.",
+			"pagination": "Showing {{start}}–{{end}} of {{total}}",
+			"prev": "Previous",
+			"next": "Next",
+			"toast": {
+				"added": "User added to workspace.",
+				"addFailed": "Failed to add user.",
+				"roleUpdated": "Workspace role updated.",
+				"roleUpdateFailed": "Failed to update role.",
+				"removed": "User removed from workspace.",
+				"removeFailed": "Failed to remove user.",
+				"statusUpdated": "User status updated.",
+				"statusUpdateFailed": "Failed to update user status."
+			},
+			"validation": {
+				"workspaceRequired": "Workspace is required.",
+				"roleRequired": "Role is required.",
+				"invalidDate": "Invalid date."
+			}
+		}
+	},
+	"pwa": {
+		"updateAvailable": "A new version is available",
+		"refresh": "Refresh",
+		"offlineReady": "App is ready to work offline"
+	},
+	"project-groups": {
+		"pageTitle": "Project Groups",
+		"create": "Create group",
+		"name": "Name",
+		"empty": "No project groups",
+		"emptyTitle": "No project groups",
+		"emptyDescription": "Create your first project group to organize projects."
 	}
 }

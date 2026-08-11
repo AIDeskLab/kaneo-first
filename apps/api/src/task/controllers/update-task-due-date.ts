@@ -3,6 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { taskReminderSentTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
+import { validateDateRange } from "../../utils/validate-dates";
 
 async function updateTaskDueDate({
   id,
@@ -23,10 +24,7 @@ async function updateTaskDueDate({
     });
   }
 
-  // Clear sent reminders so new due date triggers fresh notifications
-  await db
-    .delete(taskReminderSentTable)
-    .where(eq(taskReminderSentTable.taskId, id));
+  validateDateRange(existingTask.startDate, dueDate);
 
   const [updatedTask] = await db
     .update(taskTable)
@@ -39,6 +37,12 @@ async function updateTaskDueDate({
       message: "Failed to update task due date",
     });
   }
+
+  // Only clear reminders after the database has accepted the new date. The
+  // date-range constraint can reject a concurrent conflicting start-date edit.
+  await db
+    .delete(taskReminderSentTable)
+    .where(eq(taskReminderSentTable.taskId, id));
 
   await publishEvent("task.due_date_changed", {
     taskId: updatedTask.id,

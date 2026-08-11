@@ -11,7 +11,9 @@
 			"remove": "निकालें",
 			"reset": "रीसेट करें",
 			"filter": "फ़िल्टर",
-			"clearAllFilters": "सभी फ़िल्टर साफ़ करें"
+			"clearAllFilters": "सभी फ़िल्टर साफ़ करें",
+			"edit": "Edit",
+			"save": "Save"
 		},
 		"a11y": {
 			"toggleSidebar": "साइडबार टॉगल करें"
@@ -239,7 +241,10 @@
 			"accountCreated": "खाता सफलतापूर्वक बनाया गया",
 			"passwordTooShort": "पासवर्ड बहुत छोटा है",
 			"creatingAccount": "खाता बना रहे हैं...",
-			"createAccount": "खाता बनाएँ"
+			"createAccount": "खाता बनाएँ",
+			"setPassword": "Set password",
+			"setPasswordPlaceholder": "Choose a password",
+			"createAccountAndContinue": "Create account & continue"
 		},
 		"invitation": {
 			"pageTitleAccept": "निमंत्रण स्वीकार करें",
@@ -267,7 +272,10 @@
 			"toast": {
 				"acceptFailed": "निमंत्रण स्वीकार करने में विफल",
 				"acceptSuccess": "निमंत्रण स्वीकार किया! टीम में स्वागत है।"
-			}
+			},
+			"signInToAccept": "Sign in to accept this invitation.",
+			"createAccountToAccept": "Create an account and set a password to accept this invitation.",
+			"alreadyHaveAccount": "Already have an account?"
 		},
 		"onboarding": {
 			"pageTitle": "Kaneo में आपका स्वागत है",
@@ -784,10 +792,15 @@
 				"nameRequired": "प्रोजेक्ट का नाम आवश्यक है",
 				"keyRequired": "कुंजी आवश्यक है",
 				"keyMax": "कुंजी अधिकतम 8 अक्षरों की होनी चाहिए",
-				"iconRequired": "आइकन आवश्यक है"
+				"iconRequired": "आइकन आवश्यक है",
+				"nameShort": "Project name must be at least 2 characters",
+				"keyShort": "Key must be at least 2 characters"
 			},
 			"importExportTasks": "आयात/निर्यात",
-			"importExportTasksDescription": "कार्यों को आयात और निर्यात करें।"
+			"importExportTasksDescription": "कार्यों को आयात और निर्यात करें।",
+			"projectGroupLabel": "Project group",
+			"projectGroupHint": "Assign this project to a group",
+			"projectGroupNone": "None"
 		},
 		"projectIntegrations": {
 			"pageTitle": "प्रोजेक्ट एकीकरण",
@@ -1917,6 +1930,17 @@
 				"deleteRow": "पंक्ति हटाएँ",
 				"deleteTable": "तालिका हटाएँ"
 			}
+		},
+		"hierarchy": {
+			"mode": {
+				"flat": "Flat",
+				"tree": "Tree",
+				"nested": "Nested"
+			},
+			"expand": "Expand subtasks",
+			"collapse": "Collapse subtasks",
+			"subtaskOf": "Subtask of {{title}}",
+			"subtaskProgress": "{{completed}} of {{total}} subtasks completed"
 		}
 	},
 	"invitations": {
@@ -2059,7 +2083,11 @@
 			"cancelInviteSuccess": "निमंत्रण सफलतापूर्वक रद्द किया गया",
 			"cancelInviteError": "निमंत्रण रद्द करने में विफल",
 			"roleUpdateSuccess": "भूमिका अपडेट की गई",
-			"roleUpdateError": "भूमिका अपडेट करने में विफल"
+			"roleUpdateError": "भूमिका अपडेट करने में विफल",
+			"copyInviteLinkSuccess": "Invite link copied",
+			"copyInviteLinkError": "Failed to copy invite link",
+			"copyInviteLinkAria": "Copy invite link",
+			"copyInviteLinkHint": "Click to copy invite link"
 		}
 	},
 	"publicProject": {
@@ -2098,5 +2126,75 @@
 		"branding": {
 			"poweredBy": "द्वारा संचालित"
 		}
+	},
+	"admin": {
+		"users": {
+			"pageTitle": "User management",
+			"title": "Users",
+			"subtitle": "Manage instance users and workspace access.",
+			"navigationLabel": "Users",
+			"loading": "Loading users...",
+			"loadError": "Unable to load users.",
+			"empty": "No users found.",
+			"name": "Name",
+			"email": "Email",
+			"locale": "Locale",
+			"globalRole": "Global role",
+			"superUser": "Super User",
+			"createdAt": "Created",
+			"banned": "Status",
+			"active": "Active",
+			"bannedStatus": "Banned",
+			"workspaces": "Workspaces",
+			"noWorkspaces": "No workspaces",
+			"addToWorkspace": "Add to workspace",
+			"workspace": "Workspace",
+			"role": "Role",
+			"selectWorkspace": "Select workspace",
+			"selectRole": "Select role",
+			"add": "Add",
+			"changeRole": "Change role",
+			"removeFromWorkspace": "Remove from workspace",
+			"removeConfirmation": "Remove this user's workspace access?",
+			"ban": "Ban",
+			"unban": "Unban",
+			"banReason": "Reason",
+			"banExpires": "Expires",
+			"confirmBan": "Ban this user?",
+			"confirmUnban": "Unban this user?",
+			"accessDenied": "Access denied.",
+			"notFound": "User not found.",
+			"pagination": "Showing {{start}}–{{end}} of {{total}}",
+			"prev": "Previous",
+			"next": "Next",
+			"toast": {
+				"added": "User added to workspace.",
+				"addFailed": "Failed to add user.",
+				"roleUpdated": "Workspace role updated.",
+				"roleUpdateFailed": "Failed to update role.",
+				"removed": "User removed from workspace.",
+				"removeFailed": "Failed to remove user.",
+				"statusUpdated": "User status updated.",
+				"statusUpdateFailed": "Failed to update user status."
+			},
+			"validation": {
+				"workspaceRequired": "Workspace is required.",
+				"roleRequired": "Role is required.",
+				"invalidDate": "Invalid date."
+			}
+		}
+	},
+	"pwa": {
+		"updateAvailable": "A new version is available",
+		"refresh": "Refresh",
+		"offlineReady": "App is ready to work offline"
+	},
+	"project-groups": {
+		"pageTitle": "Project Groups",
+		"create": "Create group",
+		"name": "Name",
+		"empty": "No project groups",
+		"emptyTitle": "No project groups",
+		"emptyDescription": "Create your first project group to organize projects."
 	}
 }

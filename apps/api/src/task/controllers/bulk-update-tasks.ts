@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import {
@@ -6,16 +6,27 @@ import {
   labelTable,
   projectTable,
   taskTable,
-  userTable,
   workspaceUserTable,
 } from "../../database/schema";
 import { publishEvent } from "../../events";
-import { removeLabelFromGitea } from "../../plugins/gitea/utils/sync-label-to-gitea";
-import { removeLabelFromGitHub } from "../../plugins/github/utils/sync-label-to-github";
+import { lockWorkspaceLabels } from "../../label/controllers/workspace-label-lock";
+import {
+  removeLabelFromGitea,
+  syncLabelToGitea,
+} from "../../plugins/gitea/utils/sync-label-to-gitea";
+import {
+  removeLabelFromGitHub,
+  syncLabelToGitHub,
+} from "../../plugins/github/utils/sync-label-to-github";
+import { validateDateRange } from "../../utils/validate-dates";
 import {
   assertValidPriority,
   assertValidTaskStatus,
 } from "../validate-task-fields";
+import {
+  lockWorkspaceAssignees,
+  requireWorkspaceAssignees,
+} from "./workspace-assignee-lock";
 
 type BulkOperation =
   | "updateStatus"
@@ -43,6 +54,7 @@ async function bulkUpdateTasks({
       title: taskTable.title,
       projectId: taskTable.projectId,
       userId: taskTable.userId,
+      startDate: taskTable.startDate,
       dueDate: taskTable.dueDate,
       workspaceId: projectTable.workspaceId,
     })
@@ -164,34 +176,42 @@ async function bulkUpdateTasks({
     }
 
     case "updateAssignee": {
-      const newAssigneeName = value
-        ? (
-            await db
-              .select({ name: userTable.name })
-              .from(userTable)
-              .where(eq(userTable.id, value))
-              .limit(1)
-          )[0]?.name
-        : undefined;
-
-      const result = await db
-        .update(taskTable)
-        .set({ userId: value || null })
-        .where(inArray(taskTable.id, foundIds));
+      const nextAssigneeId = value?.trim() || null;
+      const firstProjectId = tasks[0]?.projectId;
+      if (!firstProjectId) {
+        throw new HTTPException(400, {
+          message: "Could not determine project",
+        });
+      }
+      let newAssigneeName: string | undefined;
+      const result = await db.transaction(async (tx) => {
+        if (nextAssigneeId) {
+          await lockWorkspaceAssignees(tx, workspaceId, [nextAssigneeId]);
+          newAssigneeName = (
+            await requireWorkspaceAssignees(tx, workspaceId, [nextAssigneeId])
+          ).get(nextAssigneeId);
+        }
+        return tx
+          .update(taskTable)
+          .set({ userId: nextAssigneeId })
+          .where(inArray(taskTable.id, foundIds));
+      });
 
       updatedCount = result.rowCount ?? foundIds.length;
 
       for (const task of tasks) {
-        const eventType = value ? "task.assignee_changed" : "task.unassigned";
+        const eventType = nextAssigneeId
+          ? "task.assignee_changed"
+          : "task.unassigned";
         await publishEvent(eventType, {
           taskId: task.id,
           projectId: task.projectId,
           userId,
           oldAssignee: task.userId,
           newAssignee: newAssigneeName,
-          newAssigneeId: value || null,
+          newAssigneeId: nextAssigneeId,
           title: task.title,
-          type: value ? "assignee_changed" : "unassigned",
+          type: nextAssigneeId ? "assignee_changed" : "unassigned",
         });
       }
       break;
@@ -220,42 +240,61 @@ async function bulkUpdateTasks({
         throw new HTTPException(400, { message: "Label ID is required" });
       }
 
-      const label = await db.query.labelTable.findFirst({
-        where: eq(labelTable.id, value),
-      });
-
-      if (!label) {
-        throw new HTTPException(404, { message: "Label not found" });
-      }
-
-      if (label.workspaceId && label.workspaceId !== workspaceId) {
-        throw new HTTPException(400, {
-          message: "Label and tasks must belong to the same workspace",
+      const assignedTaskIds = await db.transaction(async (tx) => {
+        const preRead = await tx.query.labelTable.findFirst({
+          where: eq(labelTable.id, value),
         });
-      }
+        if (!preRead?.workspaceId || preRead.workspaceId !== workspaceId) {
+          throw new HTTPException(404, { message: "Label not found" });
+        }
+        if (preRead.taskId) {
+          throw new HTTPException(400, {
+            message: "Workspace label definition is required",
+          });
+        }
 
-      for (const task of tasks) {
-        const existingAssignment = await db.query.labelTable.findFirst({
+        await lockWorkspaceLabels(tx, workspaceId, [preRead.name]);
+        const definition = await tx.query.labelTable.findFirst({
           where: and(
-            eq(labelTable.name, label.name),
-            eq(labelTable.taskId, task.id),
+            eq(labelTable.id, value),
+            eq(labelTable.workspaceId, workspaceId),
+            isNull(labelTable.taskId),
           ),
         });
+        if (!definition) {
+          throw new HTTPException(404, { message: "Label not found" });
+        }
 
-        if (!existingAssignment) {
-          await db
+        const added: string[] = [];
+        for (const task of tasks) {
+          const existingAssignment = await tx.query.labelTable.findFirst({
+            where: and(
+              eq(labelTable.name, definition.name),
+              eq(labelTable.taskId, task.id),
+            ),
+          });
+          if (existingAssignment) continue;
+          await syncLabelToGitHub(task.id, definition.name, definition.color);
+          await syncLabelToGitea(task.id, definition.name, definition.color);
+          const inserted = await tx
             .insert(labelTable)
             .values({
-              name: label.name,
-              color: label.color,
+              name: definition.name,
+              color: definition.color,
               workspaceId: workspaceId,
               taskId: task.id,
             })
             .onConflictDoNothing({
               target: [labelTable.taskId, labelTable.name],
-            });
-          updatedCount++;
-
+            })
+            .returning({ id: labelTable.id });
+          if (inserted.length > 0) added.push(task.id);
+        }
+        return added;
+      });
+      updatedCount = assignedTaskIds.length;
+      for (const task of tasks) {
+        if (assignedTaskIds.includes(task.id)) {
           await publishEvent("task.label_assigned", {
             projectId: task.projectId,
             taskId: task.id,
@@ -280,32 +319,36 @@ async function bulkUpdateTasks({
         throw new HTTPException(404, { message: "Label not found" });
       }
 
-      const deletedLabels = await db
-        .delete(labelTable)
-        .where(
-          and(
+      const deletedLabels = await db.transaction(async (tx) => {
+        await lockWorkspaceLabels(tx, workspaceId, [label.name]);
+        const affectedLabels = await tx.query.labelTable.findMany({
+          where: and(
             eq(labelTable.workspaceId, workspaceId),
             eq(labelTable.name, label.name),
             inArray(labelTable.taskId, foundIds),
           ),
-        )
-        .returning();
+        });
+        for (const affectedLabel of affectedLabels) {
+          if (!affectedLabel.taskId) continue;
+          await removeLabelFromGitHub(affectedLabel.taskId, affectedLabel.name);
+          await removeLabelFromGitea(affectedLabel.taskId, affectedLabel.name);
+        }
+        return tx
+          .delete(labelTable)
+          .where(
+            and(
+              eq(labelTable.workspaceId, workspaceId),
+              eq(labelTable.name, label.name),
+              inArray(labelTable.taskId, foundIds),
+            ),
+          )
+          .returning();
+      });
 
       updatedCount = deletedLabels.length;
 
       for (const deletedLabel of deletedLabels) {
         if (!deletedLabel.taskId) continue;
-
-        removeLabelFromGitHub(deletedLabel.taskId, deletedLabel.name).catch(
-          (error) => {
-            console.error("Failed to remove label from GitHub:", error);
-          },
-        );
-        removeLabelFromGitea(deletedLabel.taskId, deletedLabel.name).catch(
-          (error) => {
-            console.error("Failed to remove label from Gitea:", error);
-          },
-        );
 
         const task = tasks.find((t) => t.id === deletedLabel.taskId);
         if (!task) continue;
@@ -331,6 +374,10 @@ async function bulkUpdateTasks({
             message: `Invalid date value "${value}"`,
           });
         }
+      }
+
+      for (const task of tasks) {
+        validateDateRange(task.startDate ?? undefined, parsedDate ?? undefined);
       }
 
       const result = await db

@@ -3,7 +3,9 @@ import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { labelTable, projectTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
+import { removeLabelFromGitea } from "../../plugins/gitea/utils/sync-label-to-gitea";
 import { removeLabelFromGitHub } from "../../plugins/github/utils/sync-label-to-github";
+import { lockWorkspaceLabels } from "./workspace-label-lock";
 
 async function unassignLabelFromTask(id: string, userId: string) {
   const label = await db.query.labelTable.findFirst({
@@ -39,23 +41,26 @@ async function unassignLabelFromTask(id: string, userId: string) {
     });
   }
 
-  const [deletedLabel] = await db
-    .delete(labelTable)
-    .where(eq(labelTable.id, id))
-    .returning();
+  const deletedLabel = await db.transaction(async (tx) => {
+    await lockWorkspaceLabels(tx, task.workspaceId, [label.name]);
+    const current = await tx.query.labelTable.findFirst({
+      where: (row, { eq }) => eq(row.id, id),
+    });
+    if (!current?.taskId)
+      throw new HTTPException(404, { message: "Label not found" });
+    await removeLabelFromGitHub(current.taskId, current.name);
+    await removeLabelFromGitea(current.taskId, current.name);
+    const [deleted] = await tx
+      .delete(labelTable)
+      .where(eq(labelTable.id, id))
+      .returning();
+    return deleted;
+  });
 
   if (!deletedLabel) {
     throw new HTTPException(500, {
       message: "Failed to detach label from task",
     });
-  }
-
-  if (deletedLabel.taskId) {
-    removeLabelFromGitHub(deletedLabel.taskId, deletedLabel.name).catch(
-      (error) => {
-        console.error("Failed to remove label from GitHub:", error);
-      },
-    );
   }
 
   await publishEvent("task.label_unassigned", {

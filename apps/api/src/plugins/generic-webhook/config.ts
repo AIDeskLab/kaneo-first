@@ -4,7 +4,11 @@ import { assertPublicDestination } from "../../utils/assert-public-destination";
 export async function assertPublicWebhookDestination(
   webhookUrl: string,
 ): Promise<void> {
-  await assertPublicDestination(webhookUrl, "Generic webhook");
+  await assertPublicDestination(webhookUrl, "Generic webhook", {
+    allowPrivate:
+      process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS === "true" ||
+      process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS === "1",
+  });
 }
 
 export const genericWebhookEventKeys = [

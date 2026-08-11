@@ -1,12 +1,15 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const fetchMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../../../apps/api/src/utils/assert-public-destination", () => ({
+  fetchPublicDestination: (url: string, _label: string, init?: RequestInit) =>
+    fetchMock(url, init),
+}));
 
 const { default: verifyGiteaAccess } = await import(
   "../../../apps/api/src/gitea-integration/controllers/verify-gitea-access"
 );
-
-// ponytail: capture the env var so we don't leak the SSRF bypass across tests.
-const originalAllowPrivate =
-  process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS;
 
 function makeResponse(status: number, body: string | object = ""): Response {
   const text = typeof body === "string" ? body : JSON.stringify(body);
@@ -17,23 +20,11 @@ function makeResponse(status: number, body: string | object = ""): Response {
 }
 
 beforeEach(() => {
-  // Bypass the SSRF DNS check so the test does not depend on outbound DNS
-  // resolving gitea.example. Without this, the real lookup would fail in CI.
-  process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS = "true";
-});
-
-afterEach(() => {
-  if (originalAllowPrivate === undefined) {
-    delete process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS;
-  } else {
-    process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS = originalAllowPrivate;
-  }
-  vi.unstubAllGlobals();
+  fetchMock.mockReset();
 });
 
 describe("verifyGiteaAccess — fetch integration", () => {
   it("returns success when the API returns a user and a writable repo", async () => {
-    const fetchMock = vi.fn();
     fetchMock
       .mockResolvedValueOnce(makeResponse(200, { id: 1, login: "owner" }))
       .mockResolvedValueOnce(
@@ -45,7 +36,6 @@ describe("verifyGiteaAccess — fetch integration", () => {
           permissions: { admin: true, push: true, pull: true },
         }),
       );
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
 
     const result = await verifyGiteaAccess({
       baseUrl: "https://gitea.example",
@@ -66,10 +56,7 @@ describe("verifyGiteaAccess — fetch integration", () => {
   });
 
   it("returns the 'not a Gitea instance' message when the response body is HTML, not JSON", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(makeResponse(200, "<html>Not Gitea</html>"));
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    fetchMock.mockResolvedValue(makeResponse(200, "<html>Not Gitea</html>"));
 
     const result = await verifyGiteaAccess({
       baseUrl: "https://gitea.example",
@@ -85,8 +72,7 @@ describe("verifyGiteaAccess — fetch integration", () => {
   });
 
   it("returns a redirect-specific message when the API responds with 308", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(makeResponse(308, ""));
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    fetchMock.mockResolvedValue(makeResponse(308, ""));
 
     const result = await verifyGiteaAccess({
       baseUrl: "http://gitea.example",
@@ -102,8 +88,7 @@ describe("verifyGiteaAccess — fetch integration", () => {
   });
 
   it("returns a redirect-specific message when the API responds with 301", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(makeResponse(301, ""));
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    fetchMock.mockResolvedValue(makeResponse(301, ""));
 
     const result = await verifyGiteaAccess({
       baseUrl: "http://gitea.example",
@@ -117,11 +102,9 @@ describe("verifyGiteaAccess — fetch integration", () => {
   });
 
   it("returns the repository-not-found message when getRepo responds with 404", async () => {
-    const fetchMock = vi.fn();
     fetchMock
       .mockResolvedValueOnce(makeResponse(200, { id: 1, login: "owner" }))
       .mockResolvedValueOnce(makeResponse(404, "Not Found"));
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
 
     const result = await verifyGiteaAccess({
       baseUrl: "https://gitea.example",
@@ -138,8 +121,7 @@ describe("verifyGiteaAccess — fetch integration", () => {
   });
 
   it("returns the not-a-gitea-instance message when /user responds with 404", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(makeResponse(404, "Not Found"));
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    fetchMock.mockResolvedValue(makeResponse(404, "Not Found"));
 
     const result = await verifyGiteaAccess({
       baseUrl: "https://gitea.example",

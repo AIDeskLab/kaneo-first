@@ -1,8 +1,12 @@
 import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
-import { taskTable, userTable } from "../../database/schema";
+import { projectTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
+import {
+  lockWorkspaceAssignees,
+  requireWorkspaceAssignees,
+} from "./workspace-assignee-lock";
 
 async function updateTaskAssignee({
   id,
@@ -13,26 +17,48 @@ async function updateTaskAssignee({
   userId: string | null;
   currentUserId: string;
 }) {
-  const existingTask = await db.query.taskTable.findFirst({
-    where: eq(taskTable.id, id),
-  });
-
-  if (!existingTask) {
-    throw new HTTPException(404, {
-      message: "Task not found",
-    });
-  }
-
-  const nextAssigneeId = userId || null;
-  if (existingTask.userId === nextAssigneeId) {
-    return existingTask;
-  }
-
-  const [updatedTask] = await db
-    .update(taskTable)
-    .set({ userId: nextAssigneeId || null })
+  const nextAssigneeId = userId?.trim() || null;
+  const taskContext = await db
+    .select({ workspaceId: projectTable.workspaceId })
+    .from(taskTable)
+    .innerJoin(projectTable, eq(projectTable.id, taskTable.projectId))
     .where(eq(taskTable.id, id))
-    .returning();
+    .limit(1);
+  const workspaceId = taskContext[0]?.workspaceId;
+  if (!workspaceId) throw new HTTPException(404, { message: "Task not found" });
+  let oldAssigneeId: string | null = null;
+  let newAssigneeName: string | undefined;
+  const updatedTask = await db.transaction(async (tx) => {
+    if (nextAssigneeId) {
+      await lockWorkspaceAssignees(tx, workspaceId, [nextAssigneeId]);
+    }
+    const [existingTask] = await tx
+      .select({ task: taskTable, workspaceId: projectTable.workspaceId })
+      .from(taskTable)
+      .innerJoin(projectTable, eq(projectTable.id, taskTable.projectId))
+      .where(eq(taskTable.id, id))
+      .for("update")
+      .limit(1);
+    if (!existingTask) {
+      throw new HTTPException(404, { message: "Task not found" });
+    }
+    oldAssigneeId = existingTask.task.userId;
+    if (oldAssigneeId === nextAssigneeId) return existingTask.task;
+
+    if (nextAssigneeId) {
+      newAssigneeName = (
+        await requireWorkspaceAssignees(tx, existingTask.workspaceId, [
+          nextAssigneeId,
+        ])
+      ).get(nextAssigneeId);
+    }
+    const [task] = await tx
+      .update(taskTable)
+      .set({ userId: nextAssigneeId })
+      .where(eq(taskTable.id, id))
+      .returning();
+    return task;
+  });
 
   if (!updatedTask) {
     throw new HTTPException(500, {
@@ -40,17 +66,7 @@ async function updateTaskAssignee({
     });
   }
 
-  const newAssigneeName = userId
-    ? (
-        await db
-          .select({ name: userTable.name })
-          .from(userTable)
-          .where(eq(userTable.id, userId))
-          .limit(1)
-      )[0]?.name
-    : undefined;
-
-  if (!userId) {
+  if (!nextAssigneeId) {
     await publishEvent("task.unassigned", {
       taskId: updatedTask.id,
       projectId: updatedTask.projectId,
@@ -66,9 +82,9 @@ async function updateTaskAssignee({
     taskId: updatedTask.id,
     projectId: updatedTask.projectId,
     userId: currentUserId,
-    oldAssignee: existingTask.userId,
+    oldAssignee: oldAssigneeId,
     newAssignee: newAssigneeName,
-    newAssigneeId: userId,
+    newAssigneeId: nextAssigneeId,
     title: updatedTask.title,
     type: "assignee_changed",
   });

@@ -11,7 +11,9 @@
 			"remove": "Retirer",
 			"reset": "Réinitialiser",
 			"filter": "Filtrer",
-			"clearAllFilters": "Effacer tous les filtres"
+			"clearAllFilters": "Effacer tous les filtres",
+			"edit": "Edit",
+			"save": "Save"
 		},
 		"a11y": {
 			"toggleSidebar": "Basculer la barre latérale"
@@ -429,20 +431,20 @@
 			"toastPreferencesSaveFailed": "Échec de l'enregistrement des préférences de notification",
 			"toastRuleSavedGeneric": "Règle de notification de l'espace de travail enregistrée",
 			"toastRuleRemovedGeneric": "Règle de notification de l'espace de travail supprimée",
-			"eventComments": "Comments and mentions",
-			"eventCommentsHint": "Includes new comments on tasks assigned to you and direct @mentions.",
-			"eventDueDateReminders": "Due-date reminders",
-			"eventPreferencesDescription": "Choose which task events create in-app notifications and can be delivered to your connected channels.",
-			"eventPreferencesTitle": "Notify me about",
-			"eventStatusChanges": "Task status changes",
-			"eventTaskAssignments": "Task assignments",
-			"reminderLeadTimeHint": "Between 1 hour and 30 days before. Overdue notifications are sent separately.",
-			"reminderLeadTimeInvalid": "Enter a whole number between 1 and {{max}}.",
-			"reminderLeadTimeLabel": "Remind me before the due date",
-			"reminderLeadTimeUnitDays": "Days",
-			"reminderLeadTimeUnitHours": "Hours",
-			"saveEventPreferences": "Save notification types",
-			"workspaceEnabledLabel": "Enable notifications for {{workspaceName}}"
+			"eventComments": "Commentaires et mentions",
+			"eventCommentsHint": "Inclut les nouveaux commentaires sur les tâches qui vous sont assignées et les @mentions directes.",
+			"eventDueDateReminders": "Rappels d'échéance",
+			"eventPreferencesDescription": "Choisissez quels événements de tâche créent des notifications dans l'application et peuvent être envoyés à vos canaux connectés.",
+			"eventPreferencesTitle": "Me notifier pour",
+			"eventStatusChanges": "Changements de statut des tâches",
+			"eventTaskAssignments": "Assignations de tâches",
+			"reminderLeadTimeHint": "Entre 1 heure et 30 jours avant. Les notifications de retard sont envoyées séparément.",
+			"reminderLeadTimeInvalid": "Entrez un nombre entier entre 1 et {{max}}.",
+			"reminderLeadTimeLabel": "Me rappeler avant la date d'échéance",
+			"reminderLeadTimeUnitDays": "Jours",
+			"reminderLeadTimeUnitHours": "Heures",
+			"saveEventPreferences": "Enregistrer les types de notification",
+			"workspaceEnabledLabel": "Activer les notifications pour {{workspaceName}}"
 		},
 		"preferencesPage": {
 			"title": "Préférences",
@@ -633,7 +635,10 @@
 				"keyShort": "La clé doit contenir au moins 2 caractères"
 			},
 			"importExportTasks": "Importation/Exportation",
-			"importExportTasksDescription": "Importation/Exportation des Tâches"
+			"importExportTasksDescription": "Importation/Exportation des Tâches",
+			"projectGroupLabel": "Project group",
+			"projectGroupHint": "Assign this project to a group",
+			"projectGroupNone": "None"
 		},
 		"projectIntegrations": {
 			"pageTitle": "Intégrations du projet",
@@ -688,12 +693,12 @@
 			"toastFinalOn": "Colonne marquée comme terminée",
 			"toastFinalOff": "La colonne n'est plus marquée comme terminée",
 			"toastUpdateError": "Échec de la mise à jour de la colonne",
-			"toastIconUpdated": "Column icon updated",
+			"toastIconUpdated": "Icône de la colonne mise à jour",
 			"toastDeleted": "Colonne supprimée",
 			"toastDeleteError": "Échec de la suppression de la colonne",
 			"loading": "Chargement des colonnes...",
-			"pickIconTitle": "Pick column icon",
-			"searchIconsPlaceholder": "Search icons...",
+			"pickIconTitle": "Choisir l'icône de la colonne",
+			"searchIconsPlaceholder": "Rechercher des icônes...",
 			"doneColumnTooltip": "Considérer ceci comme une colonne terminée",
 			"doneColumn": "Colonne terminée",
 			"markDoneAria": "Marquer {{name}} comme colonne terminée",
@@ -743,10 +748,10 @@
 			"statusNotInstalled": "Non installé",
 			"ownerLabel": "Propriétaire du dépôt",
 			"ownerHint": "Nom d'utilisateur ou organisation GitHub",
-			"ownerPlaceholder": "e.g., octocat",
+			"ownerPlaceholder": "ex. octocat",
 			"repoNameLabel": "Nom du dépôt",
 			"repoNameHint": "Le nom du dépôt",
-			"repoNamePlaceholder": "e.g., my-project",
+			"repoNamePlaceholder": "ex. mon-projet",
 			"actionsTitle": "Actions",
 			"actionsHint": "Gérer la connexion de votre dépôt",
 			"browse": "Parcourir",
@@ -765,78 +770,78 @@
 		},
 		"giteaIntegration": {
 			"validation": {
-				"baseUrlRequired": "Gitea base URL is required",
-				"baseUrlInvalid": "Enter a valid URL (e.g. https://gitea.example.com)",
-				"ownerRequired": "Repository owner is required",
-				"ownerInvalid": "Invalid repository owner format",
-				"nameRequired": "Repository name is required",
-				"nameInvalid": "Invalid repository name format"
+				"baseUrlRequired": "L'URL de base Gitea est requise",
+				"baseUrlInvalid": "Entrez une URL valide (ex. https://gitea.example.com)",
+				"ownerRequired": "Le propriétaire du dépôt est requis",
+				"ownerInvalid": "Format de propriétaire de dépôt invalide",
+				"nameRequired": "Le nom du dépôt est requis",
+				"nameInvalid": "Format de nom de dépôt invalide"
 			},
 			"toast": {
-				"verifyOk": "Gitea token can access this repository",
-				"verifyWarning": "Check token permissions or repository access",
-				"repoNotFound": "Repository not found or not accessible",
-				"verifyError": "Failed to verify Gitea access",
-				"tokenRequired": "Personal access token is required",
-				"tokenRequiredVerify": "Enter a token to verify",
-				"verifyFirst": "Verify access failed — check URL, token, and repository",
-				"updated": "Gitea integration saved",
-				"updateError": "Failed to save Gitea integration",
-				"removed": "Gitea integration removed",
-				"removeError": "Failed to remove Gitea integration",
-				"issuesImported": "Issues imported successfully",
-				"importError": "Failed to import issues",
-				"commentOnEnabled": "Kaneo will comment with a task link on new issues",
-				"commentOnDisabled": "Task link comments on new issues are turned off",
-				"settingsUpdateError": "Failed to update Gitea integration",
+				"verifyOk": "Le jeton Gitea peut accéder à ce dépôt",
+				"verifyWarning": "Vérifiez les permissions du jeton ou l'accès au dépôt",
+				"repoNotFound": "Dépôt non trouvé ou inaccessible",
+				"verifyError": "Échec de la vérification de l'accès Gitea",
+				"tokenRequired": "Le jeton d'accès personnel est requis",
+				"tokenRequiredVerify": "Entrez un jeton pour vérifier",
+				"verifyFirst": "Échec de la vérification de l'accès. Vérifiez l'URL, le jeton et le dépôt",
+				"updated": "Intégration Gitea enregistrée",
+				"updateError": "Échec de l'enregistrement de l'intégration Gitea",
+				"removed": "Intégration Gitea supprimée",
+				"removeError": "Échec de la suppression de l'intégration Gitea",
+				"issuesImported": "Issues importées avec succès",
+				"importError": "Échec de l'importation des issues",
+				"commentOnEnabled": "Kaneo commentera les nouvelles issues avec un lien vers la tâche",
+				"commentOnDisabled": "Les commentaires de lien de tâche sur les nouvelles issues sont désactivés",
+				"settingsUpdateError": "Échec de la mise à jour de l'intégration Gitea",
 				"secretCopied": "Copied",
-				"unableToCopySecret": "Unable to copy secret",
+				"unableToCopySecret": "Impossible de copier le secret",
 				"notGiteaInstance": "The URL does not point to a Gitea instance",
 				"redirected": "Gitea URL redirected (usually to HTTPS). Use the final URL directly."
 			},
 			"webhookShow": "Show",
 			"webhookHide": "Hide",
 			"webhookCopy": "Copy",
-			"connectionStatus": "Connection status",
-			"connectedActive": "Repository connected and active",
-			"notConnectedHint": "No Gitea repository connected",
+			"connectionStatus": "Statut de la connexion",
+			"connectedActive": "Dépôt connecté et actif",
+			"notConnectedHint": "Aucun dépôt Gitea connecté",
 			"badgeConnected": "Connected",
-			"badgeNotConnected": "Not connected",
+			"badgeNotConnected": "Non connecté",
 			"repository": "Repository",
-			"repositoryHint": "Linked Gitea repository",
-			"commentTaskLinkTitle": "Comment Kaneo link on new issues",
-			"commentTaskLinkHint": "When enabled, Kaneo posts a comment on each new issue with a link to the task.",
+			"repositoryHint": "Dépôt Gitea lié",
+			"commentTaskLinkTitle": "Commenter le lien Kaneo sur les nouvelles issues",
+			"commentTaskLinkHint": "Lorsque cette option est activée, Kaneo publie un commentaire sur chaque nouvelle issue avec un lien vers la tâche.",
 			"webhookTitle": "Webhook",
-			"webhookHint": "In your Gitea repository, add a webhook with this URL and secret. Enable push, pull request, issues, issue comments, and create (for labels).",
-			"webhookSecretLabel": "Secret (must match the webhook secret in Gitea)",
+			"webhookHint": "Dans votre dépôt Gitea, ajoutez un webhook avec cette URL et ce secret. Activez push, pull request, issues, commentaires d'issues et create (pour les labels).",
+			"webhookSecretLabel": "Secret (doit correspondre au secret du webhook dans Gitea)",
 			"baseUrlLabel": "Gitea URL",
-			"baseUrlHint": "Root URL of your Gitea instance",
-			"tokenLabel": "Personal access token",
-			"tokenHint": "Token with repo and issues access",
+			"baseUrlHint": "URL racine de votre instance Gitea",
+			"tokenLabel": "Jeton d'accès personnel",
+			"tokenHint": "Jeton avec accès aux dépôts et aux issues",
 			"tokenPlaceholder": "Paste token",
-			"tokenPlaceholderUpdate": "Paste new token to rotate",
+			"tokenPlaceholderUpdate": "Collez un nouveau jeton pour le remplacer",
 			"currentToken": "stored",
 			"ownerLabel": "Owner",
-			"ownerHint": "User or organization name",
-			"repoNameLabel": "Repository name",
-			"repoNameHint": "Repository name only (no owner)",
+			"ownerHint": "Nom d'utilisateur ou d'organisation",
+			"repoNameLabel": "Nom du dépôt",
+			"repoNameHint": "Nom du dépôt uniquement (sans le propriétaire)",
 			"actionsTitle": "Actions",
-			"actionsHint": "Verify access and connect",
+			"actionsHint": "Vérifier l'accès et connecter",
 			"browse": "Browse",
 			"verify": "Verify",
 			"update": "Update",
 			"connect": "Connect",
 			"disconnect": "Disconnect",
-			"importSectionTitle": "Import Gitea issues",
-			"importSectionHint": "Import open issues and pull requests from the repository",
+			"importSectionTitle": "Importer des issues Gitea",
+			"importSectionHint": "Importez les issues ouvertes et les pull requests depuis le dépôt",
 			"importing": "Importing…",
-			"importIssues": "Import issues",
-			"importDisabledHint": "Verify the repository above to enable importing",
-			"browseModalTitle": "Your repositories",
-			"browseModalHint": "Repositories your token can access",
+			"importIssues": "Importer les issues",
+			"importDisabledHint": "Vérifiez le dépôt ci-dessus pour activer l'importation",
+			"browseModalTitle": "Vos dépôts",
+			"browseModalHint": "Dépôts accessibles avec votre jeton",
 			"searchRepos": "Search…",
-			"browseNeedsCredentials": "Enter Gitea URL and token to browse",
-			"loadingRepos": "Loading repositories…",
+			"browseNeedsCredentials": "Entrez l'URL Gitea et le jeton pour parcourir",
+			"loadingRepos": "Chargement des dépôts…",
 			"retry": "Retry"
 		},
 		"slackIntegration": {
@@ -953,12 +958,12 @@
 				"taskDueDateChanged": "Date d'échéance modifiée",
 				"taskAssigneeChanged": "Assigné modifié",
 				"taskUnassigned": "Tâche désassignée",
-				"dueDateReminder": "Due-date reminders"
+				"dueDateReminder": "Rappels d'échéance"
 			},
 			"connect": "Connecter le webhook",
 			"saveChanges": "Enregistrer les modifications",
 			"disconnect": "Déconnecter",
-			"reminderLeadTimeLabel": "Send the webhook this many hours before"
+			"reminderLeadTimeLabel": "Nombre d'heures avant l'échéance pour l'envoi du webhook"
 		},
 		"telegramIntegration": {
 			"validation": {
@@ -1071,165 +1076,165 @@
 			"open": "Ouvert"
 		},
 		"workspaceLabels": {
-			"cardDescription": "Manage labels that can be assigned to tasks.",
-			"colorLabel": "Color",
-			"createDescription": "Create a new label that can be used across tasks in this workspace.",
-			"createError": "Failed to create label",
-			"createLabel": "Create Label",
-			"createSuccess": "Label created",
-			"deleteConfirmDescription": "This will permanently remove this label from all tasks. This action cannot be undone.",
-			"deleteConfirmTitle": "Delete this label?",
-			"deleteError": "Failed to delete label",
-			"deleteLabel": "Delete",
-			"deleteSuccess": "Label deleted",
-			"editDescription": "Update the name or color of this label.",
-			"editLabel": "Edit Label",
-			"empty": "No labels yet. Create your first label to get started.",
-			"nameLabel": "Label name",
-			"namePlaceholder": "Enter label name",
-			"nameRequired": "Label name is required",
-			"pageTitle": "Label Settings",
-			"saveLabel": "Save",
-			"subtitle": "Create, edit, and delete workspace-level labels.",
+			"cardDescription": "Gérez les labels pouvant être assignés aux tâches.",
+			"colorLabel": "Couleur",
+			"createDescription": "Créez un nouveau label utilisable dans les tâches de cet espace de travail.",
+			"createError": "Échec de la création du label",
+			"createLabel": "Créer un label",
+			"createSuccess": "Label créé",
+			"deleteConfirmDescription": "Cela supprimera définitivement ce label de toutes les tâches. Cette action ne peut pas être annulée.",
+			"deleteConfirmTitle": "Supprimer ce label ?",
+			"deleteError": "Échec de la suppression du label",
+			"deleteLabel": "Supprimer",
+			"deleteSuccess": "Label supprimé",
+			"editDescription": "Mettez à jour le nom ou la couleur de ce label.",
+			"editLabel": "Modifier le label",
+			"empty": "Aucun label pour le moment. Créez votre premier label pour commencer.",
+			"nameLabel": "Nom du label",
+			"namePlaceholder": "Entrez le nom du label",
+			"nameRequired": "Le nom du label est requis",
+			"pageTitle": "Paramètres des labels",
+			"saveLabel": "Enregistrer",
+			"subtitle": "Créez, modifiez et supprimez des labels au niveau de l'espace de travail.",
 			"title": "Labels",
-			"updateError": "Failed to update label",
-			"updateSuccess": "Label updated"
+			"updateError": "Échec de la mise à jour du label",
+			"updateSuccess": "Label mis à jour"
 		},
 		"workspaceRoles": {
-			"allChangesSaved": "All changes saved",
-			"createRole": "Create role",
-			"defaultBadge": "Default",
+			"allChangesSaved": "Toutes les modifications sont enregistrées",
+			"createRole": "Créer le rôle",
+			"defaultBadge": "Par défaut",
 			"defaultRoleDescriptions": {
-				"admin": "Has full access to the workspace.",
-				"member": "Can create and manage tasks and projects.",
-				"viewer": "Can view and comment on tasks."
+				"admin": "A un accès complet à l'espace de travail.",
+				"member": "Peut créer et gérer les tâches et les projets.",
+				"viewer": "Peut voir et commenter les tâches."
 			},
-			"defaultRoleHelp": "Default role — name is reserved and the row can't be deleted.",
+			"defaultRoleHelp": "Rôle par défaut : le nom est réservé et la ligne ne peut pas être supprimée.",
 			"deleteDialog": {
-				"description": "This will permanently delete the role \"{{role}}\". Members assigned to this role will lose its permissions.",
-				"title": "Delete role"
+				"description": "Cela supprimera définitivement le rôle \"{{role}}\". Les membres assignés à ce rôle perdront ses permissions.",
+				"title": "Supprimer le rôle"
 			},
-			"deleteRole": "Delete role",
-			"discard": "Discard",
-			"emptyDescription": "Default roles will appear here once they're seeded for this workspace.",
-			"emptyTitle": "No roles yet",
-			"loadError": "Failed to load roles.",
-			"loading": "Loading…",
-			"nameHint": "Lowercase. Cannot be changed later.",
-			"nameLabel": "Name",
-			"namePlaceholder": "e.g. reviewer",
-			"newRole": "New role",
-			"noAccess": "You need admin or owner permissions to manage workspace roles.",
-			"pageTitle": "Roles",
+			"deleteRole": "Supprimer le rôle",
+			"discard": "Abandonner",
+			"emptyDescription": "Les rôles par défaut apparaîtront ici une fois initialisés pour cet espace de travail.",
+			"emptyTitle": "Aucun rôle pour le moment",
+			"loadError": "Échec du chargement des rôles.",
+			"loading": "Chargement…",
+			"nameHint": "En minuscules. Ne peut pas être modifié ultérieurement.",
+			"nameLabel": "Nom",
+			"namePlaceholder": "ex. relecteur",
+			"newRole": "Nouveau rôle",
+			"noAccess": "Vous devez disposer de permissions admin ou propriétaire pour gérer les rôles de l'espace de travail.",
+			"pageTitle": "Rôles",
 			"permissionCount_one": "{{count}} permission",
 			"permissionCount_other": "{{count}} permissions",
 			"permissions": {
 				"label": {
 					"create": {
-						"description": "Can create labels",
-						"label": "Create"
+						"description": "Peut créer des labels",
+						"label": "Créer"
 					},
 					"delete": {
-						"description": "Can delete labels",
-						"label": "Delete"
+						"description": "Peut supprimer des labels",
+						"label": "Supprimer"
 					},
 					"read": {
-						"description": "Can view labels",
-						"label": "Read"
+						"description": "Peut voir les labels",
+						"label": "Lire"
 					},
 					"update": {
-						"description": "Can edit labels",
-						"label": "Update"
+						"description": "Peut modifier les labels",
+						"label": "Modifier"
 					}
 				},
 				"project": {
 					"create": {
-						"description": "Can create new projects",
-						"label": "Create"
+						"description": "Peut créer de nouveaux projets",
+						"label": "Créer"
 					},
 					"delete": {
-						"description": "Can delete projects",
-						"label": "Delete"
+						"description": "Peut supprimer des projets",
+						"label": "Supprimer"
 					},
 					"read": {
-						"description": "Can view projects",
-						"label": "Read"
+						"description": "Peut voir les projets",
+						"label": "Lire"
 					},
 					"share": {
-						"description": "Can share projects",
-						"label": "Share"
+						"description": "Peut partager des projets",
+						"label": "Partager"
 					},
 					"update": {
-						"description": "Can edit project settings",
-						"label": "Update"
+						"description": "Peut modifier les paramètres du projet",
+						"label": "Modifier"
 					}
 				},
 				"task": {
 					"assign": {
-						"description": "Can assign tasks to members",
-						"label": "Assign"
+						"description": "Peut assigner des tâches aux membres",
+						"label": "Assigner"
 					},
 					"create": {
-						"description": "Can create tasks",
-						"label": "Create"
+						"description": "Peut créer des tâches",
+						"label": "Créer"
 					},
 					"delete": {
-						"description": "Can delete tasks",
-						"label": "Delete"
+						"description": "Peut supprimer des tâches",
+						"label": "Supprimer"
 					},
 					"read": {
-						"description": "Can view tasks",
-						"label": "Read"
+						"description": "Peut voir les tâches",
+						"label": "Lire"
 					},
 					"update": {
-						"description": "Can edit tasks",
-						"label": "Update"
+						"description": "Peut modifier les tâches",
+						"label": "Modifier"
 					}
 				},
 				"workspace": {
 					"delete": {
-						"description": "Can delete workspace",
-						"label": "Delete"
+						"description": "Peut supprimer l'espace de travail",
+						"label": "Supprimer"
 					},
 					"manage_settings": {
-						"description": "Can manage workspace settings",
-						"label": "Manage Settings"
+						"description": "Peut gérer les paramètres de l'espace de travail",
+						"label": "Gérer les paramètres"
 					},
 					"read": {
-						"description": "Can view workspace settings",
-						"label": "Read"
+						"description": "Peut voir les paramètres de l'espace de travail",
+						"label": "Lire"
 					},
 					"update": {
-						"description": "Can update workspace settings",
-						"label": "Update"
+						"description": "Peut mettre à jour les paramètres de l'espace de travail",
+						"label": "Modifier"
 					}
 				}
 			},
 			"resources": {
 				"label": "Labels",
-				"project": "Projects",
-				"task": "Tasks",
-				"workspace": "Workspace"
+				"project": "Projets",
+				"task": "Tâches",
+				"workspace": "Espace de travail"
 			},
-			"saveChanges": "Save changes",
-			"sectionSubtitle": "Edit the default roles or add a tailored one. Members keep their assigned role name across edits.",
-			"sectionTitle": "Workspace roles",
-			"subtitle": "Define which actions members can perform in {{workspaceName}}.",
-			"thisWorkspace": "this workspace",
-			"title": "Roles",
+			"saveChanges": "Enregistrer les modifications",
+			"sectionSubtitle": "Modifiez les rôles par défaut ou ajoutez-en un sur mesure. Les membres conservent le nom de leur rôle assigné après modification.",
+			"sectionTitle": "Rôles de l'espace de travail",
+			"subtitle": "Définissez les actions que les membres peuvent effectuer dans {{workspaceName}}.",
+			"thisWorkspace": "cet espace de travail",
+			"title": "Rôles",
 			"toast": {
-				"created": "Role created",
-				"createError": "Failed to create role",
-				"deleted": "Role deleted",
-				"deleteError": "Failed to delete role",
-				"updated": "Role updated",
-				"updateError": "Failed to update role"
+				"created": "Rôle créé",
+				"createError": "Échec de la création du rôle",
+				"deleted": "Rôle supprimé",
+				"deleteError": "Échec de la suppression du rôle",
+				"updated": "Rôle mis à jour",
+				"updateError": "Échec de la mise à jour du rôle"
 			},
-			"unsavedChanges": "You have unsaved changes",
+			"unsavedChanges": "Vous avez des modifications non enregistrées",
 			"validation": {
-				"nameExists": "A role with this name already exists",
-				"nameRequired": "Role name is required",
-				"permissionRequired": "At least one permission must be selected"
+				"nameExists": "Un rôle avec ce nom existe déjà",
+				"nameRequired": "Le nom du rôle est requis",
+				"permissionRequired": "Au moins une permission doit être sélectionnée"
 			}
 		}
 	},
@@ -1384,23 +1389,23 @@
 				"contentWithoutTask": "Le suivi du temps a démarré sur une tâche"
 			},
 			"due_date_reminder": {
-				"content": "{{taskTitle}} is due in {{leadTime}}",
-				"title": "Task due soon"
+				"content": "{{taskTitle}} arrive à échéance dans {{leadTime}}",
+				"title": "Échéance proche"
 			},
 			"task_comment": {
-				"content": "New comment on {{taskTitle}}: {{commentPreview}}",
-				"title": "{{commenterName}} commented on your task"
+				"content": "Nouveau commentaire sur {{taskTitle}} : {{commentPreview}}",
+				"title": "{{commenterName}} a commenté votre tâche"
 			},
 			"task_overdue": {
-				"content": "{{taskTitle}} is past its due date",
-				"title": "Task overdue"
+				"content": "{{taskTitle}} a dépassé sa date d'échéance",
+				"title": "Tâche en retard"
 			}
 		},
 		"reminderLeadTime": {
-			"days_one": "{{count}} day",
-			"days_other": "{{count}} days",
-			"hours_one": "{{count}} hour",
-			"hours_other": "{{count}} hours",
+			"days_one": "{{count}} jour",
+			"days_other": "{{count}} jours",
+			"hours_one": "{{count}} heure",
+			"hours_other": "{{count}} heures",
 			"minutes_one": "{{count}} minute",
 			"minutes_other": "{{count}} minutes"
 		}
@@ -1420,7 +1425,7 @@
 		"githubUser": "GitHub User",
 		"comment": {
 			"github": "GitHub",
-			"viewGithubProfile": "View GitHub Profile",
+			"viewGithubProfile": "Voir le profil GitHub",
 			"commentedOnGithub": "a commenté sur GitHub",
 			"cannotBeEmpty": "Le commentaire ne peut pas être vide",
 			"mustBeLoggedInToEdit": "Vous devez être connecté pour modifier les commentaires",
@@ -1771,7 +1776,7 @@
 				"priority": "Priorité: {{name}}",
 				"assignee": "Assigné: {{name}}",
 				"due": "Échéance: {{date}}",
-				"label": "Label: {{name}}",
+				"label": "Label : {{name}}",
 				"dueThisWeek": "Échéance cette semaine",
 				"dueNextWeek": "Échéance la semaine prochaine",
 				"noDueDate": "Pas de date d'échéance"
@@ -1852,7 +1857,7 @@
 			"open": "Ouvert",
 			"label": "Pull Request",
 			"count_one": "{{count}} PR",
-			"count_other": "{{count}} PRs"
+			"count_other": "{{count}} PR"
 		},
 		"assignee": {
 			"label": "Assigné",
@@ -1925,6 +1930,17 @@
 				"deleteRow": "Supprimer la ligne",
 				"deleteTable": "Supprimer le tableau"
 			}
+		},
+		"hierarchy": {
+			"mode": {
+				"flat": "Flat",
+				"tree": "Tree",
+				"nested": "Nested"
+			},
+			"expand": "Expand subtasks",
+			"collapse": "Collapse subtasks",
+			"subtaskOf": "Subtask of {{title}}",
+			"subtaskProgress": "{{completed}} of {{total}} subtasks completed"
 		}
 	},
 	"invitations": {
@@ -2115,5 +2131,70 @@
 		"updateAvailable": "Une nouvelle version est disponible",
 		"refresh": "Actualiser",
 		"offlineReady": "L'application est prête à fonctionner hors ligne"
+	},
+	"admin": {
+		"users": {
+			"pageTitle": "User management",
+			"title": "Users",
+			"subtitle": "Manage instance users and workspace access.",
+			"navigationLabel": "Users",
+			"loading": "Loading users...",
+			"loadError": "Unable to load users.",
+			"empty": "No users found.",
+			"name": "Name",
+			"email": "Email",
+			"locale": "Locale",
+			"globalRole": "Global role",
+			"superUser": "Super User",
+			"createdAt": "Created",
+			"banned": "Status",
+			"active": "Active",
+			"bannedStatus": "Banned",
+			"workspaces": "Workspaces",
+			"noWorkspaces": "No workspaces",
+			"addToWorkspace": "Add to workspace",
+			"workspace": "Workspace",
+			"role": "Role",
+			"selectWorkspace": "Select workspace",
+			"selectRole": "Select role",
+			"add": "Add",
+			"changeRole": "Change role",
+			"removeFromWorkspace": "Remove from workspace",
+			"removeConfirmation": "Remove this user's workspace access?",
+			"ban": "Ban",
+			"unban": "Unban",
+			"banReason": "Reason",
+			"banExpires": "Expires",
+			"confirmBan": "Ban this user?",
+			"confirmUnban": "Unban this user?",
+			"accessDenied": "Access denied.",
+			"notFound": "User not found.",
+			"pagination": "Showing {{start}}–{{end}} of {{total}}",
+			"prev": "Previous",
+			"next": "Next",
+			"toast": {
+				"added": "User added to workspace.",
+				"addFailed": "Failed to add user.",
+				"roleUpdated": "Workspace role updated.",
+				"roleUpdateFailed": "Failed to update role.",
+				"removed": "User removed from workspace.",
+				"removeFailed": "Failed to remove user.",
+				"statusUpdated": "User status updated.",
+				"statusUpdateFailed": "Failed to update user status."
+			},
+			"validation": {
+				"workspaceRequired": "Workspace is required.",
+				"roleRequired": "Role is required.",
+				"invalidDate": "Invalid date."
+			}
+		}
+	},
+	"project-groups": {
+		"pageTitle": "Project Groups",
+		"create": "Create group",
+		"name": "Name",
+		"empty": "No project groups",
+		"emptyTitle": "No project groups",
+		"emptyDescription": "Create your first project group to organize projects."
 	}
 }

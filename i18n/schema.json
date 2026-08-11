@@ -45,6 +45,12 @@
 						},
 						"clearAllFilters": {
 							"type": "string"
+						},
+						"edit": {
+							"type": "string"
+						},
+						"save": {
+							"type": "string"
 						}
 					},
 					"required": [
@@ -57,7 +63,9 @@
 						"remove",
 						"reset",
 						"filter",
-						"clearAllFilters"
+						"clearAllFilters",
+						"edit",
+						"save"
 					]
 				},
 				"a11y": {
@@ -619,6 +627,9 @@
 								"oauth_code_verification_failed",
 								"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_"
 							]
+						},
+						"instanceStatusError": {
+							"type": "string"
 						}
 					},
 					"required": [
@@ -643,7 +654,8 @@
 						"googleError",
 						"githubError",
 						"discordError",
-						"errors"
+						"errors",
+						"instanceStatusError"
 					]
 				},
 				"providers": {
@@ -765,6 +777,15 @@
 						},
 						"toggleLink": {
 							"type": "string"
+						},
+						"instanceStatusError": {
+							"type": "string"
+						},
+						"instanceAdminTitle": {
+							"type": "string"
+						},
+						"instanceAdminSubtitle": {
+							"type": "string"
 						}
 					},
 					"required": [
@@ -780,7 +801,10 @@
 						"signingIn",
 						"continueAsGuest",
 						"toggleMessage",
-						"toggleLink"
+						"toggleLink",
+						"instanceStatusError",
+						"instanceAdminTitle",
+						"instanceAdminSubtitle"
 					]
 				},
 				"verifyOtp": {
@@ -1046,6 +1070,9 @@
 								}
 							},
 							"required": ["acceptFailed", "acceptSuccess"]
+						},
+						"createAccountOrSignIn": {
+							"type": "string"
 						}
 					},
 					"required": [
@@ -1073,7 +1100,8 @@
 						"youveBeenInvited",
 						"invitationFor",
 						"signIn",
-						"toast"
+						"toast",
+						"createAccountOrSignIn"
 					]
 				},
 				"onboarding": {
@@ -2258,6 +2286,66 @@
 								}
 							},
 							"required": ["nameRequired", "nameShort"]
+						},
+						"transferOwnership": {
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"toastSuccess": {
+									"type": "string"
+								},
+								"toastError": {
+									"type": "string"
+								},
+								"title": {
+									"type": "string"
+								},
+								"subtitle": {
+									"type": "string"
+								},
+								"pickerLabel": {
+									"type": "string"
+								},
+								"noEligibleMembers": {
+									"type": "string"
+								},
+								"pickerHint": {
+									"type": "string"
+								},
+								"pickerPlaceholder": {
+									"type": "string"
+								},
+								"button": {
+									"type": "string"
+								},
+								"dialogTitle": {
+									"type": "string"
+								},
+								"dialogDescription": {
+									"type": "string"
+								},
+								"transferring": {
+									"type": "string"
+								},
+								"confirm": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"toastSuccess",
+								"toastError",
+								"title",
+								"subtitle",
+								"pickerLabel",
+								"noEligibleMembers",
+								"pickerHint",
+								"pickerPlaceholder",
+								"button",
+								"dialogTitle",
+								"dialogDescription",
+								"transferring",
+								"confirm"
+							]
 						}
 					},
 					"required": [
@@ -2283,7 +2371,8 @@
 						"toastUpdateError",
 						"toastDeleted",
 						"toastDeleteError",
-						"validation"
+						"validation",
+						"transferOwnership"
 					]
 				},
 				"workspaceRoles": {
@@ -2971,19 +3060,36 @@
 								},
 								"iconRequired": {
 									"type": "string"
+								},
+								"nameShort": {
+									"type": "string"
+								},
+								"keyShort": {
+									"type": "string"
 								}
 							},
 							"required": [
 								"nameRequired",
 								"keyRequired",
 								"keyMax",
-								"iconRequired"
+								"iconRequired",
+								"nameShort",
+								"keyShort"
 							]
 						},
 						"importExportTasks": {
 							"type": "string"
 						},
 						"importExportTasksDescription": {
+							"type": "string"
+						},
+						"projectGroupLabel": {
+							"type": "string"
+						},
+						"projectGroupHint": {
+							"type": "string"
+						},
+						"projectGroupNone": {
 							"type": "string"
 						}
 					},
@@ -3019,7 +3125,10 @@
 						"toastDeleteError",
 						"validation",
 						"importExportTasks",
-						"importExportTasksDescription"
+						"importExportTasksDescription",
+						"projectGroupLabel",
+						"projectGroupHint",
+						"projectGroupNone"
 					]
 				},
 				"projectIntegrations": {
@@ -3582,6 +3691,12 @@
 								"repoNotFound": {
 									"type": "string"
 								},
+								"redirected": {
+									"type": "string"
+								},
+								"notGiteaInstance": {
+									"type": "string"
+								},
 								"verifyError": {
 									"type": "string"
 								},
@@ -3632,6 +3747,8 @@
 								"verifyOk",
 								"verifyWarning",
 								"repoNotFound",
+								"redirected",
+								"notGiteaInstance",
 								"verifyError",
 								"tokenRequired",
 								"tokenRequiredVerify",
@@ -5785,6 +5902,42 @@
 										"yaml"
 									]
 								},
+								"table": {
+									"type": "object",
+									"additionalProperties": false,
+									"properties": {
+										"addColumnBefore": {
+											"type": "string"
+										},
+										"addColumnAfter": {
+											"type": "string"
+										},
+										"deleteColumn": {
+											"type": "string"
+										},
+										"addRowBefore": {
+											"type": "string"
+										},
+										"addRowAfter": {
+											"type": "string"
+										},
+										"deleteRow": {
+											"type": "string"
+										},
+										"deleteTable": {
+											"type": "string"
+										}
+									},
+									"required": [
+										"addColumnBefore",
+										"addColumnAfter",
+										"deleteColumn",
+										"addRowBefore",
+										"addRowAfter",
+										"deleteRow",
+										"deleteTable"
+									]
+								},
 								"mermaid": {
 									"type": "object",
 									"additionalProperties": false,
@@ -5845,6 +5998,7 @@
 								"dropImageToUpload",
 								"previewImageAlt",
 								"codeLang",
+								"table",
 								"mermaid"
 							]
 						}
@@ -6316,16 +6470,6 @@
 										"yaml"
 									]
 								},
-								"mermaid": {
-									"type": "object",
-									"additionalProperties": false,
-									"properties": {
-										"renderFailed": {
-											"type": "string"
-										}
-									},
-									"required": ["renderFailed"]
-								},
 								"embed": {
 									"type": "object",
 									"additionalProperties": false,
@@ -6381,6 +6525,16 @@
 										"errors",
 										"onlyYoutubeInline"
 									]
+								},
+								"mermaid": {
+									"type": "object",
+									"additionalProperties": false,
+									"properties": {
+										"renderFailed": {
+											"type": "string"
+										}
+									},
+									"required": ["renderFailed"]
 								}
 							},
 							"required": [
@@ -6525,6 +6679,9 @@
 						},
 						"deleteAction": {
 							"type": "string"
+						},
+						"completeAria": {
+							"type": "string"
 						}
 					},
 					"required": [
@@ -6537,7 +6694,8 @@
 						"deleteError",
 						"deleteDialogTitle",
 						"deleteDialogDescription",
-						"deleteAction"
+						"deleteAction",
+						"completeAria"
 					]
 				},
 				"properties": {
@@ -7412,6 +7570,90 @@
 						"noActionsFound",
 						"changeStatus"
 					]
+				},
+				"editor": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"table": {
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"addColumnBefore": {
+									"type": "string"
+								},
+								"addColumnAfter": {
+									"type": "string"
+								},
+								"deleteColumn": {
+									"type": "string"
+								},
+								"addRowBefore": {
+									"type": "string"
+								},
+								"addRowAfter": {
+									"type": "string"
+								},
+								"deleteRow": {
+									"type": "string"
+								},
+								"deleteTable": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"addColumnBefore",
+								"addColumnAfter",
+								"deleteColumn",
+								"addRowBefore",
+								"addRowAfter",
+								"deleteRow",
+								"deleteTable"
+							]
+						}
+					},
+					"required": ["table"]
+				},
+				"hierarchy": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"mode": {
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"flat": {
+									"type": "string"
+								},
+								"tree": {
+									"type": "string"
+								},
+								"nested": {
+									"type": "string"
+								}
+							},
+							"required": ["flat", "tree", "nested"]
+						},
+						"expand": {
+							"type": "string"
+						},
+						"collapse": {
+							"type": "string"
+						},
+						"subtaskOf": {
+							"type": "string"
+						},
+						"subtaskProgress": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"mode",
+						"expand",
+						"collapse",
+						"subtaskOf",
+						"subtaskProgress"
+					]
 				}
 			},
 			"required": [
@@ -7442,7 +7684,9 @@
 				"update",
 				"contextMenu",
 				"actions",
-				"bulk"
+				"bulk",
+				"editor",
+				"hierarchy"
 			]
 		},
 		"invitations": {
@@ -8158,6 +8402,279 @@
 				"copyUrl",
 				"branding"
 			]
+		},
+		"admin": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"users": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"pageTitle": {
+							"type": "string"
+						},
+						"title": {
+							"type": "string"
+						},
+						"subtitle": {
+							"type": "string"
+						},
+						"navigationLabel": {
+							"type": "string"
+						},
+						"loading": {
+							"type": "string"
+						},
+						"loadError": {
+							"type": "string"
+						},
+						"empty": {
+							"type": "string"
+						},
+						"name": {
+							"type": "string"
+						},
+						"email": {
+							"type": "string"
+						},
+						"locale": {
+							"type": "string"
+						},
+						"globalRole": {
+							"type": "string"
+						},
+						"superUser": {
+							"type": "string"
+						},
+						"createdAt": {
+							"type": "string"
+						},
+						"banned": {
+							"type": "string"
+						},
+						"active": {
+							"type": "string"
+						},
+						"bannedStatus": {
+							"type": "string"
+						},
+						"workspaces": {
+							"type": "string"
+						},
+						"noWorkspaces": {
+							"type": "string"
+						},
+						"addToWorkspace": {
+							"type": "string"
+						},
+						"workspace": {
+							"type": "string"
+						},
+						"role": {
+							"type": "string"
+						},
+						"selectWorkspace": {
+							"type": "string"
+						},
+						"selectRole": {
+							"type": "string"
+						},
+						"add": {
+							"type": "string"
+						},
+						"changeRole": {
+							"type": "string"
+						},
+						"removeFromWorkspace": {
+							"type": "string"
+						},
+						"removeConfirmation": {
+							"type": "string"
+						},
+						"ban": {
+							"type": "string"
+						},
+						"unban": {
+							"type": "string"
+						},
+						"banReason": {
+							"type": "string"
+						},
+						"banExpires": {
+							"type": "string"
+						},
+						"confirmBan": {
+							"type": "string"
+						},
+						"confirmUnban": {
+							"type": "string"
+						},
+						"accessDenied": {
+							"type": "string"
+						},
+						"notFound": {
+							"type": "string"
+						},
+						"pagination": {
+							"type": "string"
+						},
+						"prev": {
+							"type": "string"
+						},
+						"next": {
+							"type": "string"
+						},
+						"toast": {
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"added": {
+									"type": "string"
+								},
+								"addFailed": {
+									"type": "string"
+								},
+								"roleUpdated": {
+									"type": "string"
+								},
+								"roleUpdateFailed": {
+									"type": "string"
+								},
+								"removed": {
+									"type": "string"
+								},
+								"removeFailed": {
+									"type": "string"
+								},
+								"statusUpdated": {
+									"type": "string"
+								},
+								"statusUpdateFailed": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"added",
+								"addFailed",
+								"roleUpdated",
+								"roleUpdateFailed",
+								"removed",
+								"removeFailed",
+								"statusUpdated",
+								"statusUpdateFailed"
+							]
+						},
+						"validation": {
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"workspaceRequired": {
+									"type": "string"
+								},
+								"roleRequired": {
+									"type": "string"
+								},
+								"invalidDate": {
+									"type": "string"
+								}
+							},
+							"required": ["workspaceRequired", "roleRequired", "invalidDate"]
+						}
+					},
+					"required": [
+						"pageTitle",
+						"title",
+						"subtitle",
+						"navigationLabel",
+						"loading",
+						"loadError",
+						"empty",
+						"name",
+						"email",
+						"locale",
+						"globalRole",
+						"superUser",
+						"createdAt",
+						"banned",
+						"active",
+						"bannedStatus",
+						"workspaces",
+						"noWorkspaces",
+						"addToWorkspace",
+						"workspace",
+						"role",
+						"selectWorkspace",
+						"selectRole",
+						"add",
+						"changeRole",
+						"removeFromWorkspace",
+						"removeConfirmation",
+						"ban",
+						"unban",
+						"banReason",
+						"banExpires",
+						"confirmBan",
+						"confirmUnban",
+						"accessDenied",
+						"notFound",
+						"pagination",
+						"prev",
+						"next",
+						"toast",
+						"validation"
+					]
+				}
+			},
+			"required": ["users"]
+		},
+		"pwa": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"updateAvailable": {
+					"type": "string"
+				},
+				"refresh": {
+					"type": "string"
+				},
+				"offlineReady": {
+					"type": "string"
+				}
+			},
+			"required": ["updateAvailable", "refresh", "offlineReady"]
+		},
+		"project-groups": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"pageTitle": {
+					"type": "string"
+				},
+				"create": {
+					"type": "string"
+				},
+				"name": {
+					"type": "string"
+				},
+				"empty": {
+					"type": "string"
+				},
+				"emptyTitle": {
+					"type": "string"
+				},
+				"emptyDescription": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"pageTitle",
+				"create",
+				"name",
+				"empty",
+				"emptyTitle",
+				"emptyDescription"
+			]
 		}
 	},
 	"required": [
@@ -8171,6 +8688,9 @@
 		"invitations",
 		"workspace",
 		"team",
-		"publicProject"
+		"publicProject",
+		"admin",
+		"pwa",
+		"project-groups"
 	]
 }

@@ -11,7 +11,9 @@
 			"remove": "Прибрати",
 			"reset": "Скинути",
 			"filter": "Фільтр",
-			"clearAllFilters": "Очистити всі фільтри"
+			"clearAllFilters": "Очистити всі фільтри",
+			"edit": "Edit",
+			"save": "Save"
 		},
 		"a11y": {
 			"toggleSidebar": "Перемикач бічної панелі"
@@ -155,9 +157,9 @@
 			"githubError": "Не вдалося увійти через GitHub",
 			"discordError": "Не вдалося увійти через Discord",
 			"errors": {
-				"account_not_linked": "This identity could not be linked to the existing account. Sign in by email to verify the account, then try SSO again. If email sign-in is unavailable, contact your administrator.",
-				"oauth_code_verification_failed": "OAuth verification failed. Please try again.",
-				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Registration is currently disabled. You need a valid invitation to create an account."
+				"account_not_linked": "Не вдалося пов'язати цей ідентифікатор з наявним обліковим записом. Увійдіть за допомогою електронної пошти, щоб підтвердити обліковий запис, а потім спробуйте SSO знову. Якщо вхід через пошту недоступний, зверніться до свого адміністратора.",
+				"oauth_code_verification_failed": "Не вдалося пройти перевірку OAuth. Спробуйте ще раз.",
+				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Реєстрацію наразі вимкнено. Для створення облікового запису потрібне дійсне запрошення."
 			},
 			"instanceStatusError": "Не вдалося зв'язатися із сервером. Повторіть спробу за мить."
 		},
@@ -429,20 +431,20 @@
 			"toastPreferencesSaveFailed": "Не вдалося зберегти налаштування сповіщень",
 			"toastRuleSavedGeneric": "Правило сповіщень робочого простору збережено",
 			"toastRuleRemovedGeneric": "Правило сповіщень робочого простору видалено",
-			"eventComments": "Comments and mentions",
-			"eventCommentsHint": "Includes new comments on tasks assigned to you and direct @mentions.",
-			"eventDueDateReminders": "Due-date reminders",
-			"eventPreferencesDescription": "Choose which task events create in-app notifications and can be delivered to your connected channels.",
-			"eventPreferencesTitle": "Notify me about",
-			"eventStatusChanges": "Task status changes",
-			"eventTaskAssignments": "Task assignments",
-			"reminderLeadTimeHint": "Between 1 hour and 30 days before. Overdue notifications are sent separately.",
-			"reminderLeadTimeInvalid": "Enter a whole number between 1 and {{max}}.",
-			"reminderLeadTimeLabel": "Remind me before the due date",
-			"reminderLeadTimeUnitDays": "Days",
-			"reminderLeadTimeUnitHours": "Hours",
-			"saveEventPreferences": "Save notification types",
-			"workspaceEnabledLabel": "Enable notifications for {{workspaceName}}"
+			"eventComments": "Коментарі та згадки",
+			"eventCommentsHint": "Включає нові коментарі до призначених вам завдань та прямі @-згадки.",
+			"eventDueDateReminders": "Нагадування про дату завершення",
+			"eventPreferencesDescription": "Оберіть, які події завдань створюють сповіщення в застосунку та можуть надсилатися на підключені канали.",
+			"eventPreferencesTitle": "Сповіщати мене про",
+			"eventStatusChanges": "Зміни статусу завдань",
+			"eventTaskAssignments": "Призначення завдань",
+			"reminderLeadTimeHint": "Від 1 години до 30 днів заздалегідь. Сповіщення про прострочені завдання надсилаються окремо.",
+			"reminderLeadTimeInvalid": "Введіть ціле число від 1 до {{max}}.",
+			"reminderLeadTimeLabel": "Нагадувати мені перед датою завершення",
+			"reminderLeadTimeUnitDays": "Дні",
+			"reminderLeadTimeUnitHours": "Години",
+			"saveEventPreferences": "Зберегти типи сповіщень",
+			"workspaceEnabledLabel": "Увімкнути сповіщення для {{workspaceName}}"
 		},
 		"preferencesPage": {
 			"title": "Налаштування",
@@ -632,8 +634,11 @@
 				"nameShort": "Назва проєкту має містити щонайменше 2 символи",
 				"keyShort": "Ключ має містити щонайменше 2 символи"
 			},
-			"importExportTasks": "Import/Export",
-			"importExportTasksDescription": "Import and export tasks."
+			"importExportTasks": "Імпорт/Експорт",
+			"importExportTasksDescription": "Імпортуйте та експортуйте завдання.",
+			"projectGroupLabel": "Project group",
+			"projectGroupHint": "Assign this project to a group",
+			"projectGroupNone": "None"
 		},
 		"projectIntegrations": {
 			"pageTitle": "Інтеґрації проєкту",
@@ -688,12 +693,12 @@
 			"toastFinalOn": "Колонку позначено як фінальну",
 			"toastFinalOff": "Позначення колонки як фінальної знято",
 			"toastUpdateError": "Не вдалося оновити колонку",
-			"toastIconUpdated": "Column icon updated",
+			"toastIconUpdated": "Іконку колонки оновлено",
 			"toastDeleted": "Колонку видалено",
 			"toastDeleteError": "Не вдалося видалити колонку",
 			"loading": "Завантаження колонок...",
-			"pickIconTitle": "Pick column icon",
-			"searchIconsPlaceholder": "Search icons...",
+			"pickIconTitle": "Обрати іконку колонки",
+			"searchIconsPlaceholder": "Пошук іконок...",
 			"doneColumnTooltip": "Вважати цю колонку колонкою готовності",
 			"doneColumn": "Колонка готовності",
 			"markDoneAria": "Позначити {{name}} як колонку готовності",
@@ -953,12 +958,12 @@
 				"taskDueDateChanged": "Змінено дату завершення",
 				"taskAssigneeChanged": "Змінено виконавця",
 				"taskUnassigned": "Призначення знято",
-				"dueDateReminder": "Due-date reminders"
+				"dueDateReminder": "Нагадування про дату завершення"
 			},
 			"connect": "Підключити вебхук",
 			"saveChanges": "Зберегти зміни",
 			"disconnect": "Від'єднати",
-			"reminderLeadTimeLabel": "Send the webhook this many hours before"
+			"reminderLeadTimeLabel": "Надсилати вебхук за вказану кількість годин заздалегідь"
 		},
 		"telegramIntegration": {
 			"validation": {
@@ -1071,165 +1076,165 @@
 			"open": "Відкрито"
 		},
 		"workspaceLabels": {
-			"cardDescription": "Manage labels that can be assigned to tasks.",
-			"colorLabel": "Color",
-			"createDescription": "Create a new label that can be used across tasks in this workspace.",
-			"createError": "Failed to create label",
-			"createLabel": "Create Label",
-			"createSuccess": "Label created",
-			"deleteConfirmDescription": "This will permanently remove this label from all tasks. This action cannot be undone.",
-			"deleteConfirmTitle": "Delete this label?",
-			"deleteError": "Failed to delete label",
-			"deleteLabel": "Delete",
-			"deleteSuccess": "Label deleted",
-			"editDescription": "Update the name or color of this label.",
-			"editLabel": "Edit Label",
-			"empty": "No labels yet. Create your first label to get started.",
-			"nameLabel": "Label name",
-			"namePlaceholder": "Enter label name",
-			"nameRequired": "Label name is required",
-			"pageTitle": "Label Settings",
-			"saveLabel": "Save",
-			"subtitle": "Create, edit, and delete workspace-level labels.",
-			"title": "Labels",
-			"updateError": "Failed to update label",
-			"updateSuccess": "Label updated"
+			"cardDescription": "Керуйте мітками, які можна призначати завданням.",
+			"colorLabel": "Колір",
+			"createDescription": "Створіть нову мітку, яку можна використовувати в завданнях цього робочого простору.",
+			"createError": "Не вдалося створити мітку",
+			"createLabel": "Створити мітку",
+			"createSuccess": "Мітку створено",
+			"deleteConfirmDescription": "Це назавжди видалить цю мітку з усіх завдань. Цю дію неможливо скасувати.",
+			"deleteConfirmTitle": "Видалити цю мітку?",
+			"deleteError": "Не вдалося видалити мітку",
+			"deleteLabel": "Видалити",
+			"deleteSuccess": "Мітку видалено",
+			"editDescription": "Оновіть назву або колір цієї мітки.",
+			"editLabel": "Редагувати мітку",
+			"empty": "Міток ще немає. Створіть першу мітку, щоб почати.",
+			"nameLabel": "Назва мітки",
+			"namePlaceholder": "Введіть назву мітки",
+			"nameRequired": "Назва мітки є обов'язковою",
+			"pageTitle": "Налаштування міток",
+			"saveLabel": "Зберегти",
+			"subtitle": "Створюйте, редагуйте та видаляйте мітки рівня робочого простору.",
+			"title": "Мітки",
+			"updateError": "Не вдалося оновити мітку",
+			"updateSuccess": "Мітку оновлено"
 		},
 		"workspaceRoles": {
-			"allChangesSaved": "All changes saved",
-			"createRole": "Create role",
-			"defaultBadge": "Default",
+			"allChangesSaved": "Усі зміни збережено",
+			"createRole": "Створити роль",
+			"defaultBadge": "Стандартна",
 			"defaultRoleDescriptions": {
-				"admin": "Has full access to the workspace.",
-				"member": "Can create and manage tasks and projects.",
-				"viewer": "Can view and comment on tasks."
+				"admin": "Має повний доступ до робочого простору.",
+				"member": "Може створювати завдання і проєкти та керувати ними.",
+				"viewer": "Може переглядати та коментувати завдання."
 			},
-			"defaultRoleHelp": "Default role — name is reserved and the row can't be deleted.",
+			"defaultRoleHelp": "Стандартна роль: назва зарезервована, і цей рядок не можна видалити.",
 			"deleteDialog": {
-				"description": "This will permanently delete the role \"{{role}}\". Members assigned to this role will lose its permissions.",
-				"title": "Delete role"
+				"description": "Це назавжди видалить роль «{{role}}». Учасники з цією роллю втратять її дозволи.",
+				"title": "Видалити роль"
 			},
-			"deleteRole": "Delete role",
-			"discard": "Discard",
-			"emptyDescription": "Default roles will appear here once they're seeded for this workspace.",
-			"emptyTitle": "No roles yet",
-			"loadError": "Failed to load roles.",
-			"loading": "Loading…",
-			"nameHint": "Lowercase. Cannot be changed later.",
-			"nameLabel": "Name",
-			"namePlaceholder": "e.g. reviewer",
-			"newRole": "New role",
-			"noAccess": "You need admin or owner permissions to manage workspace roles.",
-			"pageTitle": "Roles",
-			"permissionCount_one": "{{count}} permission",
-			"permissionCount_other": "{{count}} permissions",
+			"deleteRole": "Видалити роль",
+			"discard": "Відхилити",
+			"emptyDescription": "Стандартні ролі з'являться тут після їх створення для цього робочого простору.",
+			"emptyTitle": "Ролей ще немає",
+			"loadError": "Не вдалося завантажити ролі.",
+			"loading": "Завантаження…",
+			"nameHint": "Малими літерами. Не можна змінити пізніше.",
+			"nameLabel": "Назва",
+			"namePlaceholder": "напр., reviewer",
+			"newRole": "Нова роль",
+			"noAccess": "Для керування ролями робочого простору потрібні права адміністратора або власника.",
+			"pageTitle": "Ролі",
+			"permissionCount_one": "{{count}} дозвіл",
+			"permissionCount_other": "{{count}} дозволів",
 			"permissions": {
 				"label": {
 					"create": {
-						"description": "Can create labels",
-						"label": "Create"
+						"description": "Може створювати мітки",
+						"label": "Створення"
 					},
 					"delete": {
-						"description": "Can delete labels",
-						"label": "Delete"
+						"description": "Може видаляти мітки",
+						"label": "Видалення"
 					},
 					"read": {
-						"description": "Can view labels",
-						"label": "Read"
+						"description": "Може переглядати мітки",
+						"label": "Перегляд"
 					},
 					"update": {
-						"description": "Can edit labels",
-						"label": "Update"
+						"description": "Може редагувати мітки",
+						"label": "Редагування"
 					}
 				},
 				"project": {
 					"create": {
-						"description": "Can create new projects",
-						"label": "Create"
+						"description": "Може створювати нові проєкти",
+						"label": "Створення"
 					},
 					"delete": {
-						"description": "Can delete projects",
-						"label": "Delete"
+						"description": "Може видаляти проєкти",
+						"label": "Видалення"
 					},
 					"read": {
-						"description": "Can view projects",
-						"label": "Read"
+						"description": "Може переглядати проєкти",
+						"label": "Перегляд"
 					},
 					"share": {
-						"description": "Can share projects",
-						"label": "Share"
+						"description": "Може ділитися проєктами",
+						"label": "Поширення"
 					},
 					"update": {
-						"description": "Can edit project settings",
-						"label": "Update"
+						"description": "Може редагувати налаштування проєкту",
+						"label": "Редагування"
 					}
 				},
 				"task": {
 					"assign": {
-						"description": "Can assign tasks to members",
-						"label": "Assign"
+						"description": "Може призначати завдання учасникам",
+						"label": "Призначення"
 					},
 					"create": {
-						"description": "Can create tasks",
-						"label": "Create"
+						"description": "Може створювати завдання",
+						"label": "Створення"
 					},
 					"delete": {
-						"description": "Can delete tasks",
-						"label": "Delete"
+						"description": "Може видаляти завдання",
+						"label": "Видалення"
 					},
 					"read": {
-						"description": "Can view tasks",
-						"label": "Read"
+						"description": "Може переглядати завдання",
+						"label": "Перегляд"
 					},
 					"update": {
-						"description": "Can edit tasks",
-						"label": "Update"
+						"description": "Може редагувати завдання",
+						"label": "Редагування"
 					}
 				},
 				"workspace": {
 					"delete": {
-						"description": "Can delete workspace",
-						"label": "Delete"
+						"description": "Може видаляти робочий простір",
+						"label": "Видалення"
 					},
 					"manage_settings": {
-						"description": "Can manage workspace settings",
-						"label": "Manage Settings"
+						"description": "Може керувати налаштуваннями робочого простору",
+						"label": "Керування налаштуваннями"
 					},
 					"read": {
-						"description": "Can view workspace settings",
-						"label": "Read"
+						"description": "Може переглядати налаштування робочого простору",
+						"label": "Перегляд"
 					},
 					"update": {
-						"description": "Can update workspace settings",
-						"label": "Update"
+						"description": "Може оновлювати налаштування робочого простору",
+						"label": "Оновлення"
 					}
 				}
 			},
 			"resources": {
-				"label": "Labels",
-				"project": "Projects",
-				"task": "Tasks",
-				"workspace": "Workspace"
+				"label": "Мітки",
+				"project": "Проєкти",
+				"task": "Завдання",
+				"workspace": "Робочий простір"
 			},
-			"saveChanges": "Save changes",
-			"sectionSubtitle": "Edit the default roles or add a tailored one. Members keep their assigned role name across edits.",
-			"sectionTitle": "Workspace roles",
-			"subtitle": "Define which actions members can perform in {{workspaceName}}.",
-			"thisWorkspace": "this workspace",
-			"title": "Roles",
+			"saveChanges": "Зберегти зміни",
+			"sectionSubtitle": "Редагуйте стандартні ролі або додайте власну. Учасники зберігають призначену назву ролі після редагувань.",
+			"sectionTitle": "Ролі робочого простору",
+			"subtitle": "Визначте, які дії можуть виконувати учасники в {{workspaceName}}.",
+			"thisWorkspace": "цьому робочому просторі",
+			"title": "Ролі",
 			"toast": {
-				"created": "Role created",
-				"createError": "Failed to create role",
-				"deleted": "Role deleted",
-				"deleteError": "Failed to delete role",
-				"updated": "Role updated",
-				"updateError": "Failed to update role"
+				"created": "Роль створено",
+				"createError": "Не вдалося створити роль",
+				"deleted": "Роль видалено",
+				"deleteError": "Не вдалося видалити роль",
+				"updated": "Роль оновлено",
+				"updateError": "Не вдалося оновити роль"
 			},
-			"unsavedChanges": "You have unsaved changes",
+			"unsavedChanges": "У вас є незбережені зміни",
 			"validation": {
-				"nameExists": "A role with this name already exists",
-				"nameRequired": "Role name is required",
-				"permissionRequired": "At least one permission must be selected"
+				"nameExists": "Роль із такою назвою вже існує",
+				"nameRequired": "Назва ролі є обов'язковою",
+				"permissionRequired": "Потрібно обрати щонайменше один дозвіл"
 			},
 			"permissionCount_few": "{{count}} дозволи",
 			"permissionCount_many": "{{count}} дозволів"
@@ -1264,7 +1269,7 @@
 			"members": "Учасники",
 			"invitations": "Запрошення",
 			"more": "Більше",
-			"backToBoard": "Back to board"
+			"backToBoard": "Назад до дошки"
 		},
 		"projectList": {
 			"viewProject": "Переглянути проєкт",
@@ -1384,29 +1389,29 @@
 				"contentWithoutTask": "Відлік часу розпочато для завдання"
 			},
 			"due_date_reminder": {
-				"content": "{{taskTitle}} is due in {{leadTime}}",
-				"title": "Task due soon"
+				"content": "Термін виконання завдання {{taskTitle}} спливає через {{leadTime}}",
+				"title": "Наближається термін завдання"
 			},
 			"task_comment": {
-				"content": "New comment on {{taskTitle}}: {{commentPreview}}",
-				"title": "{{commenterName}} commented on your task"
+				"content": "Новий коментар до {{taskTitle}}: {{commentPreview}}",
+				"title": "{{commenterName}} прокоментував ваше завдання"
 			},
 			"task_mention": {
-				"content": "{{mentionerName}} mentioned you in: {{taskTitle}}",
-				"title": "{{mentionerName}} mentioned you"
+				"content": "{{mentionerName}} згадав вас у: {{taskTitle}}",
+				"title": "{{mentionerName}} згадав вас"
 			},
 			"task_overdue": {
-				"content": "{{taskTitle}} is past its due date",
-				"title": "Task overdue"
+				"content": "Дата завершення {{taskTitle}} вже минула",
+				"title": "Завдання прострочено"
 			}
 		},
 		"reminderLeadTime": {
-			"days_one": "{{count}} day",
-			"days_other": "{{count}} days",
-			"hours_one": "{{count}} hour",
-			"hours_other": "{{count}} hours",
-			"minutes_one": "{{count}} minute",
-			"minutes_other": "{{count}} minutes",
+			"days_one": "{{count}} день",
+			"days_other": "{{count}} днів",
+			"hours_one": "{{count}} година",
+			"hours_other": "{{count}} годин",
+			"minutes_one": "{{count}} хвилина",
+			"minutes_other": "{{count}} хвилин",
 			"minutes_few": "{{count}} хвилини",
 			"minutes_many": "{{count}} хвилин",
 			"hours_few": "{{count}} години",
@@ -1525,8 +1530,8 @@
 				}
 			}
 		},
-		"created": "created this task",
-		"moved": "moved task from \"{{from}}\" to \"{{to}}\""
+		"created": "створив це завдання",
+		"moved": "перемістив завдання з «{{from}}» до «{{to}}»"
 	},
 	"tasks": {
 		"status": {
@@ -1554,8 +1559,8 @@
 		"common": {
 			"selectTask": "Обрати завдання",
 			"loadingTask": "Завантаження завдання...",
-			"taskNotFound": "Task not found",
-			"taskNotFoundDescription": "The task you are looking for does not exist or has been deleted."
+			"taskNotFound": "Завдання не знайдено",
+			"taskNotFoundDescription": "Завдання, яке ви шукаєте, не існує або було видалено."
 		},
 		"detail": {
 			"subtaskOf": "Підзавдання",
@@ -1681,7 +1686,7 @@
 			"types": {
 				"blocks": "блокує",
 				"related": "пов'язано з",
-				"blocked_by": "blocked by"
+				"blocked_by": "заблоковано"
 			}
 		},
 		"subtasks": {
@@ -1937,18 +1942,29 @@
 				"deleteRow": "Видалити рядок",
 				"deleteTable": "Видалити таблицю"
 			}
+		},
+		"hierarchy": {
+			"mode": {
+				"flat": "Flat",
+				"tree": "Tree",
+				"nested": "Nested"
+			},
+			"expand": "Expand subtasks",
+			"collapse": "Collapse subtasks",
+			"subtaskOf": "Subtask of {{title}}",
+			"subtaskProgress": "{{completed}} of {{total}} subtasks completed"
 		}
 	},
 	"invitations": {
 		"email": {
-			"subject": "{{inviterName}} invited you to join {{workspaceName}} on Kaneo",
-			"preview": "You're invited to {{workspaceName}} on Kaneo",
-			"title": "Join {{workspaceName}}",
-			"subtitle": "{{inviterName}} ({{inviterEmail}}) invited you to collaborate in Kaneo.",
-			"cta": "Accept invitation",
-			"sameEmail": "You can accept with the same email that received this message.",
-			"ignore": "If this wasn't expected, you can safely ignore this email.",
-			"footer": "Kaneo workspace invitation"
+			"subject": "{{inviterName}} запрошує вас приєднатися до {{workspaceName}} у Kaneo",
+			"preview": "Вас запрошено до {{workspaceName}} у Kaneo",
+			"title": "Приєднуйтесь до {{workspaceName}}",
+			"subtitle": "{{inviterName}} ({{inviterEmail}}) запрошує вас до співпраці в Kaneo.",
+			"cta": "Прийняти запрошення",
+			"sameEmail": "Ви можете прийняти запрошення з тієї самої адреси електронної пошти, на яку надійшов цей лист.",
+			"ignore": "Якщо ви не очікували цього листа, просто проігноруйте його.",
+			"footer": "Запрошення до робочого простору Kaneo"
 		},
 		"pageTitle": "Запрошення",
 		"pendingInvitations": "Очікуючі запрошення",
@@ -1986,7 +2002,7 @@
 				"inProgress": "В роботі"
 			},
 			"noDueDate": "Без дати завершення",
-			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one.",
+			"emptyDescriptionReadOnly": "У цьому робочому просторі ще немає проєктів. Попросіть адміністратора створити проєкт.",
 			"reorderHandle": "Змінити порядок проєкту",
 			"reorderError": "Не вдалося змінити порядок проєктів"
 		},
@@ -2031,12 +2047,12 @@
 			"owner": "Власник",
 			"admin": "Адміністратор",
 			"member": "Учасник",
-			"viewer": "Viewer"
+			"viewer": "Спостерігач"
 		},
 		"members": {
 			"pageTitle": "Учасники",
 			"inviteMember": "Запросити учасника",
-			"you": "You"
+			"you": "Ви"
 		},
 		"inviteModal": {
 			"title": "Запросити учасника команди",
@@ -2075,13 +2091,13 @@
 			"copyInviteLinkError": "Failed to copy invite link",
 			"copyInviteLinkHint": "Click to copy invite link",
 			"copyInviteLinkSuccess": "Invite link copied",
-			"roleUpdateError": "Failed to update role",
-			"roleUpdateSuccess": "Role updated",
+			"roleUpdateError": "Не вдалося оновити роль",
+			"roleUpdateSuccess": "Роль оновлено",
 			"ariaInvitationActions": "Invitation actions"
 		},
 		"invitations": {
-			"expires": "Expires {{date}}",
-			"pendingBadge": "pending",
+			"expires": "Закінчується {{date}}",
+			"pendingBadge": "очікує",
 			"linkLabel": "Invitation link",
 			"copyLink": "Copy link",
 			"linkCopied": "Invitation link copied",
@@ -2129,5 +2145,70 @@
 		"updateAvailable": "Доступна нова версія",
 		"refresh": "Оновити",
 		"offlineReady": "Додаток готовий до роботи офлайн"
+	},
+	"admin": {
+		"users": {
+			"pageTitle": "User management",
+			"title": "Users",
+			"subtitle": "Manage instance users and workspace access.",
+			"navigationLabel": "Users",
+			"loading": "Loading users...",
+			"loadError": "Unable to load users.",
+			"empty": "No users found.",
+			"name": "Name",
+			"email": "Email",
+			"locale": "Locale",
+			"globalRole": "Global role",
+			"superUser": "Super User",
+			"createdAt": "Created",
+			"banned": "Status",
+			"active": "Active",
+			"bannedStatus": "Banned",
+			"workspaces": "Workspaces",
+			"noWorkspaces": "No workspaces",
+			"addToWorkspace": "Add to workspace",
+			"workspace": "Workspace",
+			"role": "Role",
+			"selectWorkspace": "Select workspace",
+			"selectRole": "Select role",
+			"add": "Add",
+			"changeRole": "Change role",
+			"removeFromWorkspace": "Remove from workspace",
+			"removeConfirmation": "Remove this user's workspace access?",
+			"ban": "Ban",
+			"unban": "Unban",
+			"banReason": "Reason",
+			"banExpires": "Expires",
+			"confirmBan": "Ban this user?",
+			"confirmUnban": "Unban this user?",
+			"accessDenied": "Access denied.",
+			"notFound": "User not found.",
+			"pagination": "Showing {{start}}–{{end}} of {{total}}",
+			"prev": "Previous",
+			"next": "Next",
+			"toast": {
+				"added": "User added to workspace.",
+				"addFailed": "Failed to add user.",
+				"roleUpdated": "Workspace role updated.",
+				"roleUpdateFailed": "Failed to update role.",
+				"removed": "User removed from workspace.",
+				"removeFailed": "Failed to remove user.",
+				"statusUpdated": "User status updated.",
+				"statusUpdateFailed": "Failed to update user status."
+			},
+			"validation": {
+				"workspaceRequired": "Workspace is required.",
+				"roleRequired": "Role is required.",
+				"invalidDate": "Invalid date."
+			}
+		}
+	},
+	"project-groups": {
+		"pageTitle": "Project Groups",
+		"create": "Create group",
+		"name": "Name",
+		"empty": "No project groups",
+		"emptyTitle": "No project groups",
+		"emptyDescription": "Create your first project group to organize projects."
 	}
 }

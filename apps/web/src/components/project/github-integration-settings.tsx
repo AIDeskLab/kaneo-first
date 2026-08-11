@@ -38,6 +38,7 @@ import {
 import useImportGithubIssues from "@/hooks/mutations/github-integration/use-import-github-issues";
 import { useUpdateGithubIntegration } from "@/hooks/mutations/github-integration/use-update-github-integration";
 import useGetGithubIntegration from "@/hooks/queries/github-integration/use-get-github-integration";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/cn";
 import { toast } from "@/lib/toast";
 
@@ -52,6 +53,8 @@ export function GitHubIntegrationSettings({
   projectId: string;
 }) {
   const { t } = useTranslation();
+  const { data: session } = authClient.useSession();
+  const canDiscoverRepositories = session?.user.role === "admin";
   const githubIntegrationSchema = React.useMemo(
     () =>
       z.object({
@@ -113,7 +116,7 @@ export function GitHubIntegrationSettings({
   const handleVerifyInstallation = React.useCallback(
     async (data: GithubIntegrationFormValues, showToast = true) => {
       try {
-        const result = await verifyInstallation(data);
+        const result = await verifyInstallation({ projectId, ...data });
         setVerificationResult(result);
 
         if (showToast) {
@@ -142,11 +145,16 @@ export function GitHubIntegrationSettings({
         setVerificationResult(null);
       }
     },
-    [verifyInstallation, t],
+    [verifyInstallation, projectId, t],
   );
 
   React.useEffect(() => {
-    if (repositoryOwner && repositoryName && form.formState.isValid) {
+    if (
+      canDiscoverRepositories &&
+      repositoryOwner &&
+      repositoryName &&
+      form.formState.isValid
+    ) {
       handleVerifyInstallation({ repositoryOwner, repositoryName }, false);
     }
   }, [
@@ -154,6 +162,7 @@ export function GitHubIntegrationSettings({
     repositoryName,
     form.formState.isValid,
     handleVerifyInstallation,
+    canDiscoverRepositories,
   ]);
 
   const handleRepositorySelect = (repository: {
@@ -177,7 +186,7 @@ export function GitHubIntegrationSettings({
 
   const onSubmit = async (data: GithubIntegrationFormValues) => {
     try {
-      const verification = await verifyInstallation(data);
+      const verification = await verifyInstallation({ projectId, ...data });
 
       if (!verification.isInstalled) {
         toast.error(t("settings:githubIntegration.toast.installAppFirst"));
@@ -484,30 +493,34 @@ export function GitHubIntegrationSettings({
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowRepositoryBrowser(true)}
-                  className="gap-2"
-                >
-                  <GitBranch className="size-3" />
-                  {t("settings:githubIntegration.browse")}
-                </Button>
+                {canDiscoverRepositories && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowRepositoryBrowser(true)}
+                      className="gap-2"
+                    >
+                      <GitBranch className="size-3" />
+                      {t("settings:githubIntegration.browse")}
+                    </Button>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleVerifyInstallation(form.getValues())}
-                  disabled={isVerifying || !form.formState.isValid}
-                  className="gap-2"
-                >
-                  <RefreshCw
-                    className={cn("size-3", isVerifying && "animate-spin")}
-                  />
-                  {t("settings:githubIntegration.verify")}
-                </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleVerifyInstallation(form.getValues())}
+                      disabled={isVerifying || !form.formState.isValid}
+                      className="gap-2"
+                    >
+                      <RefreshCw
+                        className={cn("size-3", isVerifying && "animate-spin")}
+                      />
+                      {t("settings:githubIntegration.verify")}
+                    </Button>
+                  </>
+                )}
 
                 <Button
                   type="submit"
@@ -515,6 +528,7 @@ export function GitHubIntegrationSettings({
                   disabled={
                     isCreating ||
                     isDeleting ||
+                    !canDiscoverRepositories ||
                     !form.formState.isValid ||
                     (verificationResult
                       ? !verificationResult.isInstalled ||
@@ -681,6 +695,7 @@ export function GitHubIntegrationSettings({
       )}
 
       <RepositoryBrowserModal
+        projectId={projectId}
         open={showRepositoryBrowser}
         onOpenChange={setShowRepositoryBrowser}
         onSelectRepository={handleRepositorySelect}

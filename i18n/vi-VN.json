@@ -11,7 +11,9 @@
 			"remove": "Gỡ bỏ",
 			"reset": "Đặt lại",
 			"filter": "Lọc",
-			"clearAllFilters": "Xóa tất cả bộ lọc"
+			"clearAllFilters": "Xóa tất cả bộ lọc",
+			"edit": "Edit",
+			"save": "Save"
 		},
 		"a11y": {
 			"toggleSidebar": "Bật/tắt thanh bên"
@@ -239,7 +241,10 @@
 			"accountCreated": "Tạo tài khoản thành công",
 			"passwordTooShort": "Mật khẩu quá ngắn",
 			"creatingAccount": "Đang tạo tài khoản...",
-			"createAccount": "Tạo tài khoản"
+			"createAccount": "Tạo tài khoản",
+			"setPassword": "Set password",
+			"setPasswordPlaceholder": "Choose a password",
+			"createAccountAndContinue": "Create account & continue"
 		},
 		"invitation": {
 			"pageTitleAccept": "Chấp nhận lời mời",
@@ -267,7 +272,10 @@
 			"toast": {
 				"acceptFailed": "Không thể chấp nhận lời mời",
 				"acceptSuccess": "Đã chấp nhận lời mời! Chào mừng bạn đến với nhóm."
-			}
+			},
+			"signInToAccept": "Sign in to accept this invitation.",
+			"createAccountToAccept": "Create an account and set a password to accept this invitation.",
+			"alreadyHaveAccount": "Already have an account?"
 		},
 		"onboarding": {
 			"pageTitle": "Chào mừng đến với Kaneo",
@@ -784,10 +792,15 @@
 				"nameRequired": "Cần có tên dự án",
 				"keyRequired": "Cần có mã",
 				"keyMax": "Mã tối đa 8 ký tự",
-				"iconRequired": "Cần có biểu tượng"
+				"iconRequired": "Cần có biểu tượng",
+				"nameShort": "Project name must be at least 2 characters",
+				"keyShort": "Key must be at least 2 characters"
 			},
 			"importExportTasks": "Nhập/Xuất",
-			"importExportTasksDescription": "Nhập và xuất công việc."
+			"importExportTasksDescription": "Nhập và xuất công việc.",
+			"projectGroupLabel": "Project group",
+			"projectGroupHint": "Assign this project to a group",
+			"projectGroupNone": "None"
 		},
 		"projectIntegrations": {
 			"pageTitle": "Tích hợp dự án",
@@ -1917,6 +1930,17 @@
 				"deleteRow": "Xóa hàng",
 				"deleteTable": "Xóa bảng"
 			}
+		},
+		"hierarchy": {
+			"mode": {
+				"flat": "Flat",
+				"tree": "Tree",
+				"nested": "Nested"
+			},
+			"expand": "Expand subtasks",
+			"collapse": "Collapse subtasks",
+			"subtaskOf": "Subtask of {{title}}",
+			"subtaskProgress": "{{completed}} of {{total}} subtasks completed"
 		}
 	},
 	"invitations": {
@@ -2059,7 +2083,11 @@
 			"cancelInviteSuccess": "Hủy lời mời thành công",
 			"cancelInviteError": "Không thể hủy lời mời",
 			"roleUpdateSuccess": "Đã cập nhật vai trò",
-			"roleUpdateError": "Không thể cập nhật vai trò"
+			"roleUpdateError": "Không thể cập nhật vai trò",
+			"copyInviteLinkSuccess": "Invite link copied",
+			"copyInviteLinkError": "Failed to copy invite link",
+			"copyInviteLinkAria": "Copy invite link",
+			"copyInviteLinkHint": "Click to copy invite link"
 		}
 	},
 	"publicProject": {
@@ -2098,5 +2126,75 @@
 		"branding": {
 			"poweredBy": "Được vận hành bởi"
 		}
+	},
+	"admin": {
+		"users": {
+			"pageTitle": "User management",
+			"title": "Users",
+			"subtitle": "Manage instance users and workspace access.",
+			"navigationLabel": "Users",
+			"loading": "Loading users...",
+			"loadError": "Unable to load users.",
+			"empty": "No users found.",
+			"name": "Name",
+			"email": "Email",
+			"locale": "Locale",
+			"globalRole": "Global role",
+			"superUser": "Super User",
+			"createdAt": "Created",
+			"banned": "Status",
+			"active": "Active",
+			"bannedStatus": "Banned",
+			"workspaces": "Workspaces",
+			"noWorkspaces": "No workspaces",
+			"addToWorkspace": "Add to workspace",
+			"workspace": "Workspace",
+			"role": "Role",
+			"selectWorkspace": "Select workspace",
+			"selectRole": "Select role",
+			"add": "Add",
+			"changeRole": "Change role",
+			"removeFromWorkspace": "Remove from workspace",
+			"removeConfirmation": "Remove this user's workspace access?",
+			"ban": "Ban",
+			"unban": "Unban",
+			"banReason": "Reason",
+			"banExpires": "Expires",
+			"confirmBan": "Ban this user?",
+			"confirmUnban": "Unban this user?",
+			"accessDenied": "Access denied.",
+			"notFound": "User not found.",
+			"pagination": "Showing {{start}}–{{end}} of {{total}}",
+			"prev": "Previous",
+			"next": "Next",
+			"toast": {
+				"added": "User added to workspace.",
+				"addFailed": "Failed to add user.",
+				"roleUpdated": "Workspace role updated.",
+				"roleUpdateFailed": "Failed to update role.",
+				"removed": "User removed from workspace.",
+				"removeFailed": "Failed to remove user.",
+				"statusUpdated": "User status updated.",
+				"statusUpdateFailed": "Failed to update user status."
+			},
+			"validation": {
+				"workspaceRequired": "Workspace is required.",
+				"roleRequired": "Role is required.",
+				"invalidDate": "Invalid date."
+			}
+		}
+	},
+	"pwa": {
+		"updateAvailable": "A new version is available",
+		"refresh": "Refresh",
+		"offlineReady": "App is ready to work offline"
+	},
+	"project-groups": {
+		"pageTitle": "Project Groups",
+		"create": "Create group",
+		"name": "Name",
+		"empty": "No project groups",
+		"emptyTitle": "No project groups",
+		"emptyDescription": "Create your first project group to organize projects."
 	}
 }

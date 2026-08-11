@@ -169,11 +169,11 @@ export function flattenTree(
   return nodes;
 }
 
-export function groupNestedByColumn(
-  columns: ColumnLike[],
+export function groupNestedByColumn<TColumn extends ColumnLike>(
+  columns: TColumn[],
   expandedSet: Set<string>,
   sort: SortConfig,
-): Array<ColumnLike & { tasks: TaskTreeNode[] }> {
+): Array<Omit<TColumn, "tasks"> & { tasks: TaskTreeNode[] }> {
   const allTasks = columns.flatMap((column) => column.tasks);
   const parentMap = buildParentMap(allTasks);
   const childrenMap = buildChildrenMap(allTasks, parentMap);

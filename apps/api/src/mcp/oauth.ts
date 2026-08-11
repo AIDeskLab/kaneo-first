@@ -3,11 +3,11 @@ import { createId } from "@paralleldrive/cuid2";
 import db from "../database";
 import { sessionTable } from "../database/schema";
 import {
+  consumeFixedWindowRateLimits,
   consumeState,
-  deleteExpiredStates,
-  enforceStateCap,
   getState,
-  putState,
+  putAuthorizationRequestWithCaps,
+  putStateWithCap,
 } from "./oauth-store";
 
 type RegisteredClient = {
@@ -37,6 +37,54 @@ const codeTtlMs = 5 * 60 * 1000;
 const requestTtlMs = 10 * 60 * 1000;
 // Same bound the in-memory store enforced; authorize is reachable without a session.
 const maxAuthorizationRequests = 10_000;
+const maxAuthorizationRequestsPerClient = 100;
+const maxRegisteredClients = 10_000;
+// Codes are short-lived, but the cap also bounds live, abandoned grants.
+const maxAuthorizationCodes = 10_000;
+const clientRegistrationWindowMs = 60_000;
+
+const clientRegistrationGlobalLimit = 600;
+const authorizationSourceLimit = 120;
+const authorizationClientLimit = 300;
+const authorizationGlobalLimit = 3_000;
+
+export async function consumeClientRegistrationRateLimits(source: string) {
+  return consumeFixedWindowRateLimits([
+    {
+      key: `client-registration:source:${source}`,
+      maxRequests: 20,
+      windowMs: clientRegistrationWindowMs,
+    },
+    {
+      key: "client-registration:global",
+      maxRequests: clientRegistrationGlobalLimit,
+      windowMs: clientRegistrationWindowMs,
+    },
+  ]);
+}
+
+export async function consumeAuthorizationRateLimits(
+  source: string,
+  clientId: string,
+) {
+  return consumeFixedWindowRateLimits([
+    {
+      key: `authorization:source:${source}`,
+      maxRequests: authorizationSourceLimit,
+      windowMs: 60_000,
+    },
+    {
+      key: `authorization:client:${clientId}`,
+      maxRequests: authorizationClientLimit,
+      windowMs: 60_000,
+    },
+    {
+      key: "authorization:global",
+      maxRequests: authorizationGlobalLimit,
+      windowMs: 60_000,
+    },
+  ]);
+}
 
 export async function getClient(
   clientId: string,
@@ -55,32 +103,38 @@ export async function registerClient(params: {
     clientName: params.clientName,
     issuedAt: Math.floor(Date.now() / 1000),
   };
-  await putState(
+  await putStateWithCap(
     "client",
     clientId,
     client,
     new Date(Date.now() + clientTtlMs),
+    maxRegisteredClients,
   );
   return client;
 }
 
 export async function createAuthCode(params: AuthCode): Promise<string> {
   const code = randomUUID();
-  await putState("code", code, params, new Date(Date.now() + codeTtlMs));
+  await putStateWithCap(
+    "code",
+    code,
+    params,
+    new Date(Date.now() + codeTtlMs),
+    maxAuthorizationCodes,
+  );
   return code;
 }
 
 export async function createAuthorizationRequest(
   params: AuthorizationRequest,
 ): Promise<string> {
-  await deleteExpiredStates();
-  await enforceStateCap("request", maxAuthorizationRequests);
   const requestId = randomUUID();
-  await putState(
-    "request",
+  await putAuthorizationRequestWithCaps(
     requestId,
     params,
     new Date(Date.now() + requestTtlMs),
+    maxAuthorizationRequests,
+    maxAuthorizationRequestsPerClient,
   );
   return requestId;
 }

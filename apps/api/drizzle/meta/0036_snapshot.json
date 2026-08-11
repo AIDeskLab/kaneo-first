@@ -1,6 +1,6 @@
 {
-	"id": "23f5b6df-7eb7-4ca3-936f-594440b532e3",
-	"prevId": "9fd8cbb4-bd49-4e02-a636-616041f7af9a",
+	"id": "ab3e420f-10b6-49a6-a10d-7033fb605ddd",
+	"prevId": "4de74375-3aae-46e3-888e-9911942b3956",
 	"version": "7",
 	"dialect": "postgresql",
 	"tables": {
@@ -720,38 +720,6 @@
 					"columns": ["object_key"]
 				}
 			},
-			"policies": {},
-			"checkConstraints": {},
-			"isRLSEnabled": false
-		},
-		"public.billing_event": {
-			"name": "billing_event",
-			"schema": "",
-			"columns": {
-				"id": {
-					"name": "id",
-					"type": "text",
-					"primaryKey": true,
-					"notNull": true
-				},
-				"event_type": {
-					"name": "event_type",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"processed_at": {
-					"name": "processed_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				}
-			},
-			"indexes": {},
-			"foreignKeys": {},
-			"compositePrimaryKeys": {},
-			"uniqueConstraints": {},
 			"policies": {},
 			"checkConstraints": {},
 			"isRLSEnabled": false
@@ -2007,6 +1975,77 @@
 			"checkConstraints": {},
 			"isRLSEnabled": false
 		},
+		"public.project_group": {
+			"name": "project_group",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"workspace_id": {
+					"name": "workspace_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"project_group_workspaceId_idx": {
+					"name": "project_group_workspaceId_idx",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"project_group_workspace_id_workspace_id_fk": {
+					"name": "project_group_workspace_id_workspace_id_fk",
+					"tableFrom": "project_group",
+					"tableTo": "workspace",
+					"columnsFrom": ["workspace_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
 		"public.project": {
 			"name": "project",
 			"schema": "",
@@ -2074,9 +2113,44 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": 0
+				},
+				"project_group_id": {
+					"name": "project_group_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"position": {
+					"name": "position",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
 				}
 			},
-			"indexes": {},
+			"indexes": {
+				"project_workspaceId_position_idx": {
+					"name": "project_workspaceId_position_idx",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "position",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
 			"foreignKeys": {
 				"project_workspace_id_workspace_id_fk": {
 					"name": "project_workspace_id_workspace_id_fk",
@@ -2086,6 +2160,15 @@
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "cascade"
+				},
+				"project_project_group_id_project_group_id_fk": {
+					"name": "project_project_group_id_project_group_id_fk",
+					"tableFrom": "project",
+					"tableTo": "project_group",
+					"columnsFrom": ["project_group_id"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
 				}
 			},
 			"compositePrimaryKeys": {},
@@ -3653,150 +3736,6 @@
 					"name": "workspace_slug_unique",
 					"nullsNotDistinct": false,
 					"columns": ["slug"]
-				}
-			},
-			"policies": {},
-			"checkConstraints": {},
-			"isRLSEnabled": false
-		},
-		"public.workspace_billing": {
-			"name": "workspace_billing",
-			"schema": "",
-			"columns": {
-				"id": {
-					"name": "id",
-					"type": "text",
-					"primaryKey": true,
-					"notNull": true
-				},
-				"workspace_id": {
-					"name": "workspace_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"founding_free": {
-					"name": "founding_free",
-					"type": "boolean",
-					"primaryKey": false,
-					"notNull": true,
-					"default": false
-				},
-				"trial_ends_at": {
-					"name": "trial_ends_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"creem_customer_id": {
-					"name": "creem_customer_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"creem_subscription_id": {
-					"name": "creem_subscription_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"creem_product_id": {
-					"name": "creem_product_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"plan": {
-					"name": "plan",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"billing_interval": {
-					"name": "billing_interval",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"status": {
-					"name": "status",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"seats": {
-					"name": "seats",
-					"type": "integer",
-					"primaryKey": false,
-					"notNull": true,
-					"default": 1
-				},
-				"current_period_end": {
-					"name": "current_period_end",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"canceled_at": {
-					"name": "canceled_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				},
-				"updated_at": {
-					"name": "updated_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				}
-			},
-			"indexes": {
-				"workspace_billing_workspaceId_idx": {
-					"name": "workspace_billing_workspaceId_idx",
-					"columns": [
-						{
-							"expression": "workspace_id",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				}
-			},
-			"foreignKeys": {
-				"workspace_billing_workspace_id_workspace_id_fk": {
-					"name": "workspace_billing_workspace_id_workspace_id_fk",
-					"tableFrom": "workspace_billing",
-					"tableTo": "workspace",
-					"columnsFrom": ["workspace_id"],
-					"columnsTo": ["id"],
-					"onDelete": "cascade",
-					"onUpdate": "cascade"
-				}
-			},
-			"compositePrimaryKeys": {},
-			"uniqueConstraints": {
-				"workspace_billing_workspace_id_unique": {
-					"name": "workspace_billing_workspace_id_unique",
-					"nullsNotDistinct": false,
-					"columns": ["workspace_id"]
-				},
-				"workspace_billing_creem_subscription_id_unique": {
-					"name": "workspace_billing_creem_subscription_id_unique",
-					"nullsNotDistinct": false,
-					"columns": ["creem_subscription_id"]
 				}
 			},
 			"policies": {},

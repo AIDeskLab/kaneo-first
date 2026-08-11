@@ -12,6 +12,7 @@ type WorkspaceIdSource =
       type: "lookup";
       resource:
         | "project"
+        | "projectGroup"
         | "task"
         | "label"
         | "timeEntry"
@@ -131,6 +132,7 @@ export function workspaceAccessMiddleware(
 async function lookupWorkspaceId(
   resource:
     | "project"
+    | "projectGroup"
     | "task"
     | "label"
     | "timeEntry"
@@ -149,6 +151,15 @@ async function lookupWorkspaceId(
           .where(eq(schema.projectTable.id, id))
           .limit(1);
         return project?.workspaceId || null;
+      }
+
+      case "projectGroup": {
+        const [group] = await db
+          .select({ workspaceId: schema.projectGroupTable.workspaceId })
+          .from(schema.projectGroupTable)
+          .where(eq(schema.projectGroupTable.id, id))
+          .limit(1);
+        return group?.workspaceId || null;
       }
 
       case "task": {
@@ -289,6 +300,11 @@ export const workspaceAccess = {
   fromProject: (idKey = "id") =>
     workspaceAccessMiddleware({
       sources: [{ type: "lookup", resource: "project", idKey }],
+    }),
+
+  fromProjectGroup: (idKey = "id") =>
+    workspaceAccessMiddleware({
+      sources: [{ type: "lookup", resource: "projectGroup", idKey }],
     }),
 
   fromTask: (idKey = "id") =>

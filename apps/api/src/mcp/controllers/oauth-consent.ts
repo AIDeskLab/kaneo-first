@@ -3,13 +3,16 @@ import type * as v from "valibot";
 import { auth } from "../../auth";
 import { publishEvent } from "../../events";
 import {
+  consumeAuthorizationRateLimits,
   consumeAuthorizationRequest,
+  consumeClientRegistrationRateLimits,
   createAuthCode,
   createAuthorizationRequest,
   getAuthorizationRequest,
   getClient,
   registerClient,
 } from "../oauth";
+import { StateCapacityError } from "../oauth-store";
 import type {
   authorizationDecisionSchema,
   authorizationQuerySchema,
@@ -24,7 +27,7 @@ type AuthorizationDecisionInput = v.InferOutput<
   typeof authorizationDecisionSchema
 >;
 
-type OAuthErrorStatus = 400 | 401 | 403 | 404;
+type OAuthErrorStatus = 400 | 401 | 403 | 404 | 429 | 503;
 
 function throwOAuthError(status: OAuthErrorStatus, error: string): never {
   throw new HTTPException(status, {
@@ -56,11 +59,40 @@ function isTrustedConsentOrigin(origin: string | undefined): boolean {
   }
 }
 
-export async function registerMcpClient(input: ClientRegistrationInput) {
-  const client = await registerClient({
-    redirectUris: input.redirect_uris,
-    clientName: input.client_name,
-  });
+export async function registerMcpClient(
+  input: ClientRegistrationInput,
+  source = "unknown",
+) {
+  const rateLimit = await consumeClientRegistrationRateLimits(source);
+  if (!rateLimit.allowed) {
+    throw new HTTPException(429, {
+      res: Response.json(
+        { error: "too_many_requests" },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        },
+      ),
+    });
+  }
+
+  let client: Awaited<ReturnType<typeof registerClient>>;
+  try {
+    client = await registerClient({
+      redirectUris: input.redirect_uris,
+      clientName: input.client_name,
+    });
+  } catch (error) {
+    if (error instanceof StateCapacityError) {
+      throw new HTTPException(503, {
+        res: Response.json(
+          { error: "temporarily_unavailable" },
+          { status: 503, headers: { "Retry-After": "60" } },
+        ),
+      });
+    }
+    throw error;
+  }
 
   return {
     client_id: client.clientId,
@@ -75,6 +107,7 @@ export async function registerMcpClient(input: ClientRegistrationInput) {
 
 export async function beginMcpAuthorization(
   input: AuthorizationInput,
+  source = "unknown",
 ): Promise<string> {
   const client = await getClient(input.client_id);
   if (!client) throwOAuthError(400, "invalid_client");
@@ -82,12 +115,41 @@ export async function beginMcpAuthorization(
     throwOAuthError(400, "invalid_redirect_uri");
   }
 
-  const requestId = await createAuthorizationRequest({
-    clientId: input.client_id,
-    codeChallenge: input.code_challenge,
-    redirectUri: input.redirect_uri,
-    state: input.state,
-  });
+  const rateLimit = await consumeAuthorizationRateLimits(
+    source,
+    input.client_id,
+  );
+  if (!rateLimit.allowed) {
+    throw new HTTPException(429, {
+      res: Response.json(
+        { error: "temporarily_unavailable" },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        },
+      ),
+    });
+  }
+
+  let requestId: string;
+  try {
+    requestId = await createAuthorizationRequest({
+      clientId: input.client_id,
+      codeChallenge: input.code_challenge,
+      redirectUri: input.redirect_uri,
+      state: input.state,
+    });
+  } catch (error) {
+    if (error instanceof StateCapacityError) {
+      throw new HTTPException(503, {
+        res: Response.json(
+          { error: "temporarily_unavailable" },
+          { status: 503, headers: { "Retry-After": "60" } },
+        ),
+      });
+    }
+    throw error;
+  }
   const consentUrl = new URL("/mcp/authorize", clientUrl);
   consentUrl.searchParams.set("request_id", requestId);
   return consentUrl.toString();
@@ -123,7 +185,7 @@ export async function decideMcpAuthorizationRequest(params: {
   if (!request) throwOAuthError(404, "invalid_or_expired_request");
 
   const client = await getClient(request.clientId);
-  if (!client || !client.redirectUris.includes(request.redirectUri)) {
+  if (!client?.redirectUris.includes(request.redirectUri)) {
     throwOAuthError(400, "invalid_client");
   }
 
@@ -131,12 +193,20 @@ export async function decideMcpAuthorizationRequest(params: {
     return buildAuthorizationRedirect(request, { error: "access_denied" });
   }
 
-  const code = await createAuthCode({
-    clientId: request.clientId,
-    userId: session.user.id,
-    codeChallenge: request.codeChallenge,
-    redirectUri: request.redirectUri,
-  });
+  let code: string;
+  try {
+    code = await createAuthCode({
+      clientId: request.clientId,
+      userId: session.user.id,
+      codeChallenge: request.codeChallenge,
+      redirectUri: request.redirectUri,
+    });
+  } catch (error) {
+    if (error instanceof StateCapacityError) {
+      throwOAuthError(503, "temporarily_unavailable");
+    }
+    throw error;
+  }
   await publishEvent("mcp.authorization_code_issued", {
     clientId: request.clientId,
     userId: session.user.id,

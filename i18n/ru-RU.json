@@ -157,9 +157,9 @@
 			"githubError": "Не удалось войти через GitHub",
 			"discordError": "Не удалось войти через Discord",
 			"errors": {
-				"account_not_linked": "This identity could not be linked to the existing account. Sign in by email to verify the account, then try SSO again. If email sign-in is unavailable, contact your administrator.",
-				"oauth_code_verification_failed": "OAuth verification failed. Please try again.",
-				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Registration is currently disabled. You need a valid invitation to create an account."
+				"account_not_linked": "Не удалось привязать эту учётную запись к существующему аккаунту. Войдите по электронной почте, чтобы подтвердить аккаунт, затем повторите вход через SSO. Если вход по почте недоступен, обратитесь к администратору.",
+				"oauth_code_verification_failed": "Не удалось выполнить проверку OAuth. Попробуйте ещё раз.",
+				"registration_is_currently_disabled_you_need_a_valid_invitation_to_create_an_account_": "Регистрация в данный момент отключена. Для создания аккаунта требуется действительное приглашение."
 			},
 			"instanceStatusError": "Не удалось связаться с сервером. Повторите попытку чуть позже."
 		},
@@ -431,20 +431,20 @@
 			"toastPreferencesSaveFailed": "Не удалось сохранить настройки уведомлений",
 			"toastRuleSavedGeneric": "Правило уведомлений для рабочей области сохранено",
 			"toastRuleRemovedGeneric": "Правило уведомлений для рабочей области удалено",
-			"eventComments": "Comments and mentions",
-			"eventCommentsHint": "Includes new comments on tasks assigned to you and direct @mentions.",
-			"eventDueDateReminders": "Due-date reminders",
-			"eventPreferencesDescription": "Choose which task events create in-app notifications and can be delivered to your connected channels.",
-			"eventPreferencesTitle": "Notify me about",
-			"eventStatusChanges": "Task status changes",
-			"eventTaskAssignments": "Task assignments",
-			"reminderLeadTimeHint": "Between 1 hour and 30 days before. Overdue notifications are sent separately.",
-			"reminderLeadTimeInvalid": "Enter a whole number between 1 and {{max}}.",
-			"reminderLeadTimeLabel": "Remind me before the due date",
-			"reminderLeadTimeUnitDays": "Days",
-			"reminderLeadTimeUnitHours": "Hours",
-			"saveEventPreferences": "Save notification types",
-			"workspaceEnabledLabel": "Enable notifications for {{workspaceName}}"
+			"eventComments": "Комментарии и упоминания",
+			"eventCommentsHint": "Включает новые комментарии к назначенным вам задачам и прямые @упоминания.",
+			"eventDueDateReminders": "Напоминания о сроках",
+			"eventPreferencesDescription": "Выберите, какие события задач создают уведомления в приложении и могут доставляться в подключённые каналы.",
+			"eventPreferencesTitle": "Уведомлять меня о",
+			"eventStatusChanges": "Изменения статуса задач",
+			"eventTaskAssignments": "Назначения задач",
+			"reminderLeadTimeHint": "От 1 часа до 30 дней до срока. Уведомления о просроченных задачах отправляются отдельно.",
+			"reminderLeadTimeInvalid": "Введите целое число от 1 до {{max}}.",
+			"reminderLeadTimeLabel": "Напоминать до наступления срока",
+			"reminderLeadTimeUnitDays": "Дни",
+			"reminderLeadTimeUnitHours": "Часы",
+			"saveEventPreferences": "Сохранить типы уведомлений",
+			"workspaceEnabledLabel": "Включить уведомления для {{workspaceName}}"
 		},
 		"preferencesPage": {
 			"title": "Настройки",
@@ -634,8 +634,8 @@
 				"nameShort": "Название проекта должно содержать не менее 2 символов",
 				"keyShort": "Ключ должен содержать не менее 2 символов"
 			},
-			"importExportTasks": "Import/Export",
-			"importExportTasksDescription": "Import and export tasks.",
+			"importExportTasks": "Импорт/Экспорт",
+			"importExportTasksDescription": "Импортируйте и экспортируйте задачи.",
 			"projectGroupLabel": "Группа проекта",
 			"projectGroupHint": "Назначить проект в группу",
 			"projectGroupNone": "Нет"
@@ -693,12 +693,12 @@
 			"toastFinalOn": "Колонка отмечена как завершающая",
 			"toastFinalOff": "Колонка больше не завершающая",
 			"toastUpdateError": "Не удалось обновить колонку",
-			"toastIconUpdated": "Column icon updated",
+			"toastIconUpdated": "Иконка колонки обновлена",
 			"toastDeleted": "Колонка удалена",
 			"toastDeleteError": "Не удалось удалить колонку",
 			"loading": "Загрузка колонок...",
-			"pickIconTitle": "Pick column icon",
-			"searchIconsPlaceholder": "Search icons...",
+			"pickIconTitle": "Выберите иконку колонки",
+			"searchIconsPlaceholder": "Поиск иконок...",
 			"doneColumnTooltip": "Считать эту колонку завершающей",
 			"doneColumn": "Колонка завершения",
 			"markDoneAria": "Отметить {{name}} как колонку завершения",
@@ -958,12 +958,12 @@
 				"taskDueDateChanged": "Изменен срок выполнения",
 				"taskAssigneeChanged": "Изменен исполнитель",
 				"taskUnassigned": "Назначение снято",
-				"dueDateReminder": "Due-date reminders"
+				"dueDateReminder": "Напоминания о сроках"
 			},
 			"connect": "Подключить вебхук",
 			"saveChanges": "Сохранить изменения",
 			"disconnect": "Отключить",
-			"reminderLeadTimeLabel": "Send the webhook this many hours before"
+			"reminderLeadTimeLabel": "Отправлять вебхук за указанное число часов до срока"
 		},
 		"telegramIntegration": {
 			"validation": {
@@ -1054,8 +1054,8 @@
 			"invalidFormat": "Некорректный формат файла импорта",
 			"noFileDropped": "Файл не был перетащен",
 			"notJsonFile": "Пожалуйста, загрузите JSON-файл",
-			"importPartialError": "Failed to import {{count}} tasks",
-			"importSuccess": "Imported {{count}} tasks successfully"
+			"importPartialError": "Не удалось импортировать {{count}} задач",
+			"importSuccess": "Успешно импортировано {{count}} задач"
 		},
 		"workflowEditor": {
 			"loading": "Загрузка...",
@@ -1084,165 +1084,165 @@
 			"open": "Открыт"
 		},
 		"workspaceLabels": {
-			"cardDescription": "Manage labels that can be assigned to tasks.",
-			"colorLabel": "Color",
-			"createDescription": "Create a new label that can be used across tasks in this workspace.",
-			"createError": "Failed to create label",
-			"createLabel": "Create Label",
-			"createSuccess": "Label created",
-			"deleteConfirmDescription": "This will permanently remove this label from all tasks. This action cannot be undone.",
-			"deleteConfirmTitle": "Delete this label?",
-			"deleteError": "Failed to delete label",
-			"deleteLabel": "Delete",
-			"deleteSuccess": "Label deleted",
-			"editDescription": "Update the name or color of this label.",
-			"editLabel": "Edit Label",
-			"empty": "No labels yet. Create your first label to get started.",
-			"nameLabel": "Label name",
-			"namePlaceholder": "Enter label name",
-			"nameRequired": "Label name is required",
-			"pageTitle": "Label Settings",
-			"saveLabel": "Save",
-			"subtitle": "Create, edit, and delete workspace-level labels.",
-			"title": "Labels",
-			"updateError": "Failed to update label",
-			"updateSuccess": "Label updated"
+			"cardDescription": "Управляйте метками, которые можно назначать задачам.",
+			"colorLabel": "Цвет",
+			"createDescription": "Создайте новую метку, которую можно использовать в задачах этой рабочей области.",
+			"createError": "Не удалось создать метку",
+			"createLabel": "Создать метку",
+			"createSuccess": "Метка создана",
+			"deleteConfirmDescription": "Метка будет безвозвратно удалена из всех задач. Это действие нельзя отменить.",
+			"deleteConfirmTitle": "Удалить эту метку?",
+			"deleteError": "Не удалось удалить метку",
+			"deleteLabel": "Удалить",
+			"deleteSuccess": "Метка удалена",
+			"editDescription": "Обновите название или цвет этой метки.",
+			"editLabel": "Редактировать метку",
+			"empty": "Меток пока нет. Создайте первую метку, чтобы начать.",
+			"nameLabel": "Название метки",
+			"namePlaceholder": "Введите название метки",
+			"nameRequired": "Название метки обязательно",
+			"pageTitle": "Настройки меток",
+			"saveLabel": "Сохранить",
+			"subtitle": "Создавайте, редактируйте и удаляйте метки уровня рабочей области.",
+			"title": "Метки",
+			"updateError": "Не удалось обновить метку",
+			"updateSuccess": "Метка обновлена"
 		},
 		"workspaceRoles": {
-			"allChangesSaved": "All changes saved",
-			"createRole": "Create role",
-			"defaultBadge": "Default",
+			"allChangesSaved": "Все изменения сохранены",
+			"createRole": "Создать роль",
+			"defaultBadge": "По умолчанию",
 			"defaultRoleDescriptions": {
-				"admin": "Has full access to the workspace.",
-				"member": "Can create and manage tasks and projects.",
-				"viewer": "Can view and comment on tasks."
+				"admin": "Имеет полный доступ к рабочей области.",
+				"member": "Может создавать задачи и проекты и управлять ими.",
+				"viewer": "Может просматривать задачи и оставлять комментарии."
 			},
-			"defaultRoleHelp": "Default role — name is reserved and the row can't be deleted.",
+			"defaultRoleHelp": "Роль по умолчанию: название зарезервировано, и строку нельзя удалить.",
 			"deleteDialog": {
-				"description": "This will permanently delete the role \"{{role}}\". Members assigned to this role will lose its permissions.",
-				"title": "Delete role"
+				"description": "Роль «{{role}}» будет безвозвратно удалена. Участники с этой ролью потеряют её права.",
+				"title": "Удалить роль"
 			},
-			"deleteRole": "Delete role",
-			"discard": "Discard",
-			"emptyDescription": "Default roles will appear here once they're seeded for this workspace.",
-			"emptyTitle": "No roles yet",
-			"loadError": "Failed to load roles.",
-			"loading": "Loading…",
-			"nameHint": "Lowercase. Cannot be changed later.",
-			"nameLabel": "Name",
-			"namePlaceholder": "e.g. reviewer",
-			"newRole": "New role",
-			"noAccess": "You need admin or owner permissions to manage workspace roles.",
-			"pageTitle": "Roles",
-			"permissionCount_one": "{{count}} permission",
-			"permissionCount_other": "{{count}} permissions",
+			"deleteRole": "Удалить роль",
+			"discard": "Отменить",
+			"emptyDescription": "Роли по умолчанию появятся здесь, когда они будут созданы для этой рабочей области.",
+			"emptyTitle": "Ролей пока нет",
+			"loadError": "Не удалось загрузить роли.",
+			"loading": "Загрузка…",
+			"nameHint": "Строчными буквами. Нельзя изменить позже.",
+			"nameLabel": "Название",
+			"namePlaceholder": "например, reviewer",
+			"newRole": "Новая роль",
+			"noAccess": "Для управления ролями рабочей области нужны права администратора или владельца.",
+			"pageTitle": "Роли",
+			"permissionCount_one": "{{count}} право",
+			"permissionCount_other": "{{count}} прав",
 			"permissions": {
 				"label": {
 					"create": {
-						"description": "Can create labels",
-						"label": "Create"
+						"description": "Может создавать метки",
+						"label": "Создание"
 					},
 					"delete": {
-						"description": "Can delete labels",
-						"label": "Delete"
+						"description": "Может удалять метки",
+						"label": "Удаление"
 					},
 					"read": {
-						"description": "Can view labels",
-						"label": "Read"
+						"description": "Может просматривать метки",
+						"label": "Просмотр"
 					},
 					"update": {
-						"description": "Can edit labels",
-						"label": "Update"
+						"description": "Может редактировать метки",
+						"label": "Изменение"
 					}
 				},
 				"project": {
 					"create": {
-						"description": "Can create new projects",
-						"label": "Create"
+						"description": "Может создавать новые проекты",
+						"label": "Создание"
 					},
 					"delete": {
-						"description": "Can delete projects",
-						"label": "Delete"
+						"description": "Может удалять проекты",
+						"label": "Удаление"
 					},
 					"read": {
-						"description": "Can view projects",
-						"label": "Read"
+						"description": "Может просматривать проекты",
+						"label": "Просмотр"
 					},
 					"share": {
-						"description": "Can share projects",
-						"label": "Share"
+						"description": "Может делиться проектами",
+						"label": "Общий доступ"
 					},
 					"update": {
-						"description": "Can edit project settings",
-						"label": "Update"
+						"description": "Может изменять настройки проекта",
+						"label": "Изменение"
 					}
 				},
 				"task": {
 					"assign": {
-						"description": "Can assign tasks to members",
-						"label": "Assign"
+						"description": "Может назначать задачи участникам",
+						"label": "Назначение"
 					},
 					"create": {
-						"description": "Can create tasks",
-						"label": "Create"
+						"description": "Может создавать задачи",
+						"label": "Создание"
 					},
 					"delete": {
-						"description": "Can delete tasks",
-						"label": "Delete"
+						"description": "Может удалять задачи",
+						"label": "Удаление"
 					},
 					"read": {
-						"description": "Can view tasks",
-						"label": "Read"
+						"description": "Может просматривать задачи",
+						"label": "Просмотр"
 					},
 					"update": {
-						"description": "Can edit tasks",
-						"label": "Update"
+						"description": "Может редактировать задачи",
+						"label": "Изменение"
 					}
 				},
 				"workspace": {
 					"delete": {
-						"description": "Can delete workspace",
-						"label": "Delete"
+						"description": "Может удалить рабочую область",
+						"label": "Удаление"
 					},
 					"manage_settings": {
-						"description": "Can manage workspace settings",
-						"label": "Manage Settings"
+						"description": "Может управлять настройками рабочей области",
+						"label": "Управление настройками"
 					},
 					"read": {
-						"description": "Can view workspace settings",
-						"label": "Read"
+						"description": "Может просматривать настройки рабочей области",
+						"label": "Просмотр"
 					},
 					"update": {
-						"description": "Can update workspace settings",
-						"label": "Update"
+						"description": "Может изменять настройки рабочей области",
+						"label": "Изменение"
 					}
 				}
 			},
 			"resources": {
-				"label": "Labels",
-				"project": "Projects",
-				"task": "Tasks",
-				"workspace": "Workspace"
+				"label": "Метки",
+				"project": "Проекты",
+				"task": "Задачи",
+				"workspace": "Рабочая область"
 			},
-			"saveChanges": "Save changes",
-			"sectionSubtitle": "Edit the default roles or add a tailored one. Members keep their assigned role name across edits.",
-			"sectionTitle": "Workspace roles",
-			"subtitle": "Define which actions members can perform in {{workspaceName}}.",
-			"thisWorkspace": "this workspace",
-			"title": "Roles",
+			"saveChanges": "Сохранить изменения",
+			"sectionSubtitle": "Отредактируйте роли по умолчанию или добавьте собственную. Назначенные участникам роли сохраняются при изменениях.",
+			"sectionTitle": "Роли рабочей области",
+			"subtitle": "Определите, какие действия участники могут выполнять в {{workspaceName}}.",
+			"thisWorkspace": "этой рабочей области",
+			"title": "Роли",
 			"toast": {
-				"created": "Role created",
-				"createError": "Failed to create role",
-				"deleted": "Role deleted",
-				"deleteError": "Failed to delete role",
-				"updated": "Role updated",
-				"updateError": "Failed to update role"
+				"created": "Роль создана",
+				"createError": "Не удалось создать роль",
+				"deleted": "Роль удалена",
+				"deleteError": "Не удалось удалить роль",
+				"updated": "Роль обновлена",
+				"updateError": "Не удалось обновить роль"
 			},
-			"unsavedChanges": "You have unsaved changes",
+			"unsavedChanges": "Есть несохранённые изменения",
 			"validation": {
-				"nameExists": "A role with this name already exists",
-				"nameRequired": "Role name is required",
-				"permissionRequired": "At least one permission must be selected"
+				"nameExists": "Роль с таким названием уже существует",
+				"nameRequired": "Название роли обязательно",
+				"permissionRequired": "Необходимо выбрать хотя бы одно право"
 			},
 			"permissionCount_few": "{{count}} права",
 			"permissionCount_many": "{{count}} прав"
@@ -1277,7 +1277,7 @@
 			"members": "Участники",
 			"invitations": "Приглашения",
 			"more": "Ещё",
-			"backToBoard": "Back to board"
+			"backToBoard": "Назад к доске"
 		},
 		"projectList": {
 			"viewProject": "Открыть проект",
@@ -1397,29 +1397,29 @@
 				"contentWithoutTask": "Трекинг времени начат для задачи"
 			},
 			"due_date_reminder": {
-				"content": "{{taskTitle}} is due in {{leadTime}}",
-				"title": "Task due soon"
+				"content": "Срок задачи «{{taskTitle}}» наступит через {{leadTime}}",
+				"title": "Скоро срок выполнения задачи"
 			},
 			"task_comment": {
-				"content": "New comment on {{taskTitle}}: {{commentPreview}}",
-				"title": "{{commenterName}} commented on your task"
+				"content": "Новый комментарий к задаче «{{taskTitle}}»: {{commentPreview}}",
+				"title": "{{commenterName}} прокомментировал вашу задачу"
 			},
 			"task_mention": {
-				"content": "{{mentionerName}} mentioned you in: {{taskTitle}}",
-				"title": "{{mentionerName}} mentioned you"
+				"content": "{{mentionerName}} упомянул вас в задаче: {{taskTitle}}",
+				"title": "{{mentionerName}} упомянул вас"
 			},
 			"task_overdue": {
-				"content": "{{taskTitle}} is past its due date",
-				"title": "Task overdue"
+				"content": "Срок выполнения задачи «{{taskTitle}}» истёк",
+				"title": "Задача просрочена"
 			}
 		},
 		"reminderLeadTime": {
-			"days_one": "{{count}} day",
-			"days_other": "{{count}} days",
-			"hours_one": "{{count}} hour",
-			"hours_other": "{{count}} hours",
-			"minutes_one": "{{count}} minute",
-			"minutes_other": "{{count}} minutes",
+			"days_one": "{{count}} день",
+			"days_other": "{{count}} дней",
+			"hours_one": "{{count}} час",
+			"hours_other": "{{count}} часов",
+			"minutes_one": "{{count}} минута",
+			"minutes_other": "{{count}} минут",
 			"minutes_few": "{{count}} минуты",
 			"minutes_many": "{{count}} минут",
 			"hours_few": "{{count}} часа",
@@ -1538,8 +1538,8 @@
 				}
 			}
 		},
-		"created": "created this task",
-		"moved": "moved task from \"{{from}}\" to \"{{to}}\""
+		"created": "создал эту задачу",
+		"moved": "переместил задачу из «{{from}}» в «{{to}}»"
 	},
 	"tasks": {
 		"status": {
@@ -1567,8 +1567,8 @@
 		"common": {
 			"selectTask": "Выбрать задачу",
 			"loadingTask": "Загрузка задачи...",
-			"taskNotFound": "Task not found",
-			"taskNotFoundDescription": "The task you are looking for does not exist or has been deleted."
+			"taskNotFound": "Задача не найдена",
+			"taskNotFoundDescription": "Задача, которую вы ищете, не существует или была удалена."
 		},
 		"detail": {
 			"subtaskOf": "Подзадача",
@@ -1694,7 +1694,7 @@
 			"types": {
 				"blocks": "блокирует",
 				"related": "связана с",
-				"blocked_by": "blocked by"
+				"blocked_by": "заблокирована"
 			}
 		},
 		"subtasks": {
@@ -1802,7 +1802,7 @@
 				"dueNextWeek": "Срок на следующей неделе",
 				"noDueDate": "Без срока"
 			},
-			"moveAllSuccess": "Moved {{count}} tasks to To Do"
+			"moveAllSuccess": "{{count}} задач перемещено в «К выполнению»"
 		},
 		"sort": {
 			"label": "Сортировка",
@@ -1841,7 +1841,7 @@
 				"isAnyOf": "любой из",
 				"includeAnyOf": "включает любой из"
 			},
-			"selectedCount": "{{count}} selected"
+			"selectedCount": "{{count}} выбрано"
 		},
 		"gantt": {
 			"pageTitle": "{{name}} — Гант",
@@ -1871,7 +1871,7 @@
 			"success_few": "{{count}} задачи архивированы",
 			"success_many": "{{count}} задач архивировано",
 			"success_other": "{{count}} задач архивировано",
-			"success": "Archived {{count}} tasks"
+			"success": "{{count}} задач архивировано"
 		},
 		"listView": {
 			"addTask": "Добавить задачу",
@@ -1989,15 +1989,15 @@
 			"searchActions": "Поиск действий...",
 			"noActionsFound": "Действия не найдены.",
 			"changeStatus": "Изменить статус",
-			"addLabelSuccess": "Label added to {{count}} tasks",
-			"archiveSuccess": "{{count}} tasks archived",
-			"assignSuccess": "{{count}} tasks assigned",
-			"deleteConfirm": "Delete {{count}} tasks? This action cannot be undone.",
-			"deleteSuccess": "{{count}} tasks deleted",
-			"moveToBacklogSuccess": "{{count}} tasks moved to backlog",
-			"moveToBoardSuccess": "{{count}} tasks moved to board",
-			"selectedCount": "{{count}} selected",
-			"updateSuccess": "{{count}} tasks updated"
+			"addLabelSuccess": "Метка добавлена к {{count}} задачам",
+			"archiveSuccess": "{{count}} задач архивировано",
+			"assignSuccess": "{{count}} задач назначено",
+			"deleteConfirm": "Удалить {{count}} задач? Это действие нельзя отменить.",
+			"deleteSuccess": "{{count}} задач удалено",
+			"moveToBacklogSuccess": "{{count}} задач перемещено в бэклог",
+			"moveToBoardSuccess": "{{count}} задач перемещено на доску",
+			"selectedCount": "{{count}} выбрано",
+			"updateSuccess": "{{count}} задач обновлено"
 		},
 		"editor": {
 			"table": {
@@ -2013,14 +2013,14 @@
 	},
 	"invitations": {
 		"email": {
-			"subject": "{{inviterName}} invited you to join {{workspaceName}} on Kaneo",
-			"preview": "You're invited to {{workspaceName}} on Kaneo",
-			"title": "Join {{workspaceName}}",
-			"subtitle": "{{inviterName}} ({{inviterEmail}}) invited you to collaborate in Kaneo.",
-			"cta": "Accept invitation",
-			"sameEmail": "You can accept with the same email that received this message.",
-			"ignore": "If this wasn't expected, you can safely ignore this email.",
-			"footer": "Kaneo workspace invitation"
+			"subject": "{{inviterName}} приглашает вас присоединиться к {{workspaceName}} в Kaneo",
+			"preview": "Вас пригласили в {{workspaceName}} в Kaneo",
+			"title": "Присоединяйтесь к {{workspaceName}}",
+			"subtitle": "{{inviterName}} ({{inviterEmail}}) приглашает вас к совместной работе в Kaneo.",
+			"cta": "Принять приглашение",
+			"sameEmail": "Вы можете принять приглашение с того же адреса электронной почты, на который пришло это письмо.",
+			"ignore": "Если вы не ожидали этого письма, просто проигнорируйте его.",
+			"footer": "Приглашение в рабочую область Kaneo"
 		},
 		"pageTitle": "Приглашения",
 		"pendingInvitations": "Ожидающие приглашения",
@@ -2058,7 +2058,7 @@
 				"inProgress": "В работе"
 			},
 			"noDueDate": "Без срока",
-			"emptyDescriptionReadOnly": "There are no projects in this workspace yet. Ask an admin to create one.",
+			"emptyDescriptionReadOnly": "В этой рабочей области пока нет проектов. Попросите администратора создать проект.",
 			"reorderHandle": "Изменить порядок проекта",
 			"reorderError": "Не удалось изменить порядок проектов"
 		},
@@ -2103,12 +2103,12 @@
 			"owner": "Владелец",
 			"admin": "Администратор",
 			"member": "Участник",
-			"viewer": "Viewer"
+			"viewer": "Наблюдатель"
 		},
 		"members": {
 			"pageTitle": "Участники",
 			"inviteMember": "Пригласить участника",
-			"you": "You"
+			"you": "Вы"
 		},
 		"inviteModal": {
 			"title": "Пригласить участника команды",
@@ -2147,13 +2147,13 @@
 			"copyInviteLinkError": "Не удалось скопировать ссылку на приглашение",
 			"copyInviteLinkAria": "Скопировать ссылку на приглашение",
 			"copyInviteLinkHint": "Нажмите, чтобы скопировать ссылку на приглашение",
-			"roleUpdateError": "Failed to update role",
-			"roleUpdateSuccess": "Role updated",
+			"roleUpdateError": "Не удалось обновить роль",
+			"roleUpdateSuccess": "Роль обновлена",
 			"ariaInvitationActions": "Invitation actions"
 		},
 		"invitations": {
-			"expires": "Expires {{date}}",
-			"pendingBadge": "pending",
+			"expires": "Истекает {{date}}",
+			"pendingBadge": "ожидает",
 			"linkLabel": "Invitation link",
 			"copyLink": "Copy link",
 			"linkCopied": "Invitation link copied",
