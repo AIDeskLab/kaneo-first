@@ -438,7 +438,7 @@ describe("API integration: workspace RBAC enforcement", () => {
           value: foreignLabel.id,
         }),
       });
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(404);
 
       const copiedLabel = await db.query.labelTable.findFirst({
         where: and(
