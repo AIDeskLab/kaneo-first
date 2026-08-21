@@ -2,7 +2,6 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import {
-  columnTable,
   labelTable,
   projectTable,
   taskTable,
@@ -20,11 +19,9 @@ import {
 } from "../../plugins/github/utils/sync-label-to-github";
 import { cleanupAssetKeys } from "../../storage/cleanup-assets";
 import { validateDateRange } from "../../utils/validate-dates";
-import {
-  assertValidPriority,
-  assertValidTaskStatus,
-} from "../validate-task-fields";
+import { assertValidPriority } from "../validate-task-fields";
 import { deleteTaskHierarchy } from "./delete-task-hierarchy";
+import { updateTaskHierarchyStatus } from "./update-task-hierarchy-status";
 import {
   lockWorkspaceAssignees,
   requireWorkspaceAssignees,
@@ -111,39 +108,31 @@ async function bulkUpdateTasks({
       if (!value) {
         throw new HTTPException(400, { message: "Status value is required" });
       }
-      const projectIds = [...new Set(tasks.map((t) => t.projectId))];
 
-      for (const projectId of projectIds) {
-        await assertValidTaskStatus(value, projectId);
+      // Cascades to all recursive "subtask" descendants; overlapping roots
+      // are deduped inside updateTaskHierarchyStatus / resolveTaskHierarchy.
+      const { changedTasks } = await db.transaction(async (tx) =>
+        updateTaskHierarchyStatus(tx, workspaceId, foundIds, value),
+      );
 
-        const column = await db.query.columnTable.findFirst({
-          where: and(
-            eq(columnTable.projectId, projectId),
-            eq(columnTable.slug, value),
-          ),
+      updatedCount = changedTasks.length;
+
+      for (const changed of changedTasks) {
+        await publishEvent("task.status_changed", {
+          taskId: changed.id,
+          projectId: changed.projectId,
+          userId,
+          oldStatus: changed.oldStatus,
+          newStatus: changed.newStatus,
+          title: changed.title,
+          assigneeId: changed.assigneeId,
+          type: "status_changed",
         });
+      }
 
-        const projectTaskIds = tasks
-          .filter((t) => t.projectId === projectId)
-          .map((t) => t.id);
-
-        const result = await db
-          .update(taskTable)
-          .set({ status: value, columnId: column?.id ?? null })
-          .where(inArray(taskTable.id, projectTaskIds));
-
-        updatedCount += result.rowCount ?? projectTaskIds.length;
-
-        for (const taskId of projectTaskIds) {
-          await publishEvent("task.status_changed", {
-            taskId,
-            projectId,
-            userId,
-            newStatus: value,
-            type: "status_changed",
-          });
-        }
-
+      for (const projectId of [
+        ...new Set(changedTasks.map((task) => task.projectId)),
+      ]) {
         await publishEvent("task-relation.refresh", {
           projectId,
           userId,
