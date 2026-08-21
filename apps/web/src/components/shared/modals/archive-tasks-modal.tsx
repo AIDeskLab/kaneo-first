@@ -8,15 +8,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useBulkOperations } from "@/hooks/mutations/task/use-bulk-operations";
 
 type ArchiveTasksModalProps = {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void | Promise<void>;
   taskCount: number;
-  /** When set, archives via a single bulkArchive call (PATCH /api/task/bulk). */
-  taskIds?: string[];
+  isPending: boolean;
 };
 
 export function ArchiveTasksModal({
@@ -24,21 +22,11 @@ export function ArchiveTasksModal({
   onClose,
   onConfirm,
   taskCount,
-  taskIds,
+  isPending,
 }: ArchiveTasksModalProps) {
-  const { bulkArchive } = useBulkOperations();
   const isSingular = taskCount === 1;
   const taskLabel = isSingular ? "completed task" : "completed tasks";
   const allLabel = isSingular ? "" : "all ";
-
-  const handleConfirm = async () => {
-    if (taskIds != null && taskIds.length > 0) {
-      await bulkArchive(taskIds);
-      onClose();
-      return;
-    }
-    await onConfirm();
-  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -73,6 +61,7 @@ export function ArchiveTasksModal({
             type="button"
             variant="ghost"
             onClick={onClose}
+            disabled={isPending}
             className="text-muted-foreground hover:text-foreground hover:bg-accent min-w-[80px]"
           >
             Cancel
@@ -80,10 +69,11 @@ export function ArchiveTasksModal({
           <Button
             type="button"
             variant="default"
-            onClick={handleConfirm}
+            onClick={onConfirm}
+            disabled={isPending}
             className="shadow-sm min-w-[100px] font-medium"
           >
-            Confirm
+            {isPending ? "Archiving..." : "Confirm"}
           </Button>
         </DialogFooter>
       </DialogContent>
