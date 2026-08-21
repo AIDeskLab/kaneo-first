@@ -18,11 +18,13 @@ import {
   removeLabelFromGitHub,
   syncLabelToGitHub,
 } from "../../plugins/github/utils/sync-label-to-github";
+import { cleanupAssetKeys } from "../../storage/cleanup-assets";
 import { validateDateRange } from "../../utils/validate-dates";
 import {
   assertValidPriority,
   assertValidTaskStatus,
 } from "../validate-task-fields";
+import { deleteTaskHierarchy } from "./delete-task-hierarchy";
 import {
   lockWorkspaceAssignees,
   requireWorkspaceAssignees,
@@ -218,20 +220,47 @@ async function bulkUpdateTasks({
     }
 
     case "delete": {
-      const result = await db
-        .delete(taskTable)
-        .where(inArray(taskTable.id, foundIds));
+      const { deletedTasks, deletedRelations, assetKeys } =
+        await db.transaction(async (tx) =>
+          deleteTaskHierarchy(tx, workspaceId, foundIds),
+        );
 
-      updatedCount = result.rowCount ?? foundIds.length;
+      updatedCount = deletedTasks.length;
 
-      for (const task of tasks) {
+      const projectByTaskId = new Map(
+        deletedTasks.map((deleted) => [deleted.id, deleted.projectId]),
+      );
+      const fallbackProjectId = deletedTasks[0]?.projectId ?? tasks[0]?.projectId;
+
+      for (const deleted of deletedTasks) {
         await publishEvent("task.deleted", {
-          taskId: task.id,
-          projectId: task.projectId,
+          taskId: deleted.id,
+          projectId: deleted.projectId,
           userId,
-          title: task.title,
+          title: deleted.title,
         });
       }
+
+      for (const relation of deletedRelations) {
+        const projectId =
+          projectByTaskId.get(relation.sourceTaskId) ??
+          projectByTaskId.get(relation.targetTaskId) ??
+          fallbackProjectId;
+
+        if (!projectId) continue;
+
+        await publishEvent("task-relation.deleted", {
+          projectId,
+          userId,
+          taskId: projectByTaskId.has(relation.sourceTaskId)
+            ? relation.sourceTaskId
+            : relation.targetTaskId,
+          sourceTaskId: relation.sourceTaskId,
+          targetTaskId: relation.targetTaskId,
+        });
+      }
+
+      cleanupAssetKeys(assetKeys).catch(() => {});
       break;
     }
 
