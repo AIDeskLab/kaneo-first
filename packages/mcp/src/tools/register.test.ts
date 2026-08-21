@@ -3,7 +3,10 @@ import { registerTools } from "./register.js";
 
 type RegisteredTool = {
   name: string;
-  config: { inputSchema?: { parse: (args: unknown) => unknown } };
+  config: {
+    description?: string;
+    inputSchema?: { parse: (args: unknown) => unknown };
+  };
   handler: (args: Record<string, unknown>) => Promise<{
     content: Array<{ type: string; text: string }>;
     isError?: boolean;
@@ -47,6 +50,67 @@ describe("registerTools", () => {
       expect.any(Object),
       expect.any(Function),
     );
+    expect(server.registerTool).toHaveBeenCalledWith(
+      "update_task_status",
+      expect.any(Object),
+      expect.any(Function),
+    );
+    expect(server.registerTool).toHaveBeenCalledWith(
+      "delete_task",
+      expect.any(Object),
+      expect.any(Function),
+    );
+  });
+
+  it("registers delete_task as DELETE /api/task/:id with taskId input", async () => {
+    const { server, tools } = createServerMock();
+    const client = {
+      json: vi.fn().mockResolvedValue({ id: "task-1" }),
+    };
+
+    registerTools(server as never, { client: client as never });
+
+    const tool = tools.get("delete_task");
+    expect(tool).toBeDefined();
+    expect(tool?.config.description).toMatch(/cascade/i);
+
+    const schema = tool?.config.inputSchema;
+    expect(schema).toBeDefined();
+    expect(schema?.parse({ taskId: "task-1" })).toEqual({ taskId: "task-1" });
+    expect(() => schema?.parse({})).toThrow();
+    expect(() => schema?.parse({ taskId: "  " })).toThrow();
+
+    await tool?.handler({ taskId: "task 1" });
+
+    expect(client.json).toHaveBeenCalledWith("/api/task/task%201", {
+      method: "DELETE",
+    });
+  });
+
+  it("documents recursive subtask cascade on update_task and update_task_status", () => {
+    const { server, tools } = createServerMock();
+    const client = { json: vi.fn() };
+
+    registerTools(server as never, { client: client as never });
+
+    const updateTask = tools.get("update_task");
+    const updateTaskStatus = tools.get("update_task_status");
+
+    expect(updateTask).toBeDefined();
+    expect(updateTaskStatus).toBeDefined();
+    expect(updateTask?.config.description).toMatch(
+      /cascade to recursive subtask descendants/i,
+    );
+    expect(updateTaskStatus?.config.description).toMatch(
+      /cascades to recursive subtask descendants/i,
+    );
+
+    expect(
+      updateTaskStatus?.config.inputSchema?.parse({
+        taskId: "task-1",
+        status: "done",
+      }),
+    ).toEqual({ taskId: "task-1", status: "done" });
   });
 
   it("builds the expected query string for list_tasks", async () => {
