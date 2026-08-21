@@ -4,6 +4,7 @@ import db from "../../database";
 import { projectTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { deleteOrphanedAssets } from "../../storage/cleanup-assets";
+import { lockWorkspaceTaskHierarchy } from "./task-cascade";
 import { updateTaskHierarchyStatus } from "./update-task-hierarchy-status";
 import {
   lockWorkspaceAssignees,
@@ -54,8 +55,10 @@ async function updateTask(
   });
   if (!project) throw new HTTPException(404, { message: "Project not found" });
 
-  const { changedTasks, refreshProjectId, updatedTask } = await db.transaction(
+  const { changedTasks, refreshProjectIds, updatedTask } = await db.transaction(
     async (tx) => {
+      await lockWorkspaceTaskHierarchy(tx, project.workspaceId);
+
       const requestedAssigneeId = normalizedUserId ?? null;
       if (requestedAssigneeId) {
         await lockWorkspaceAssignees(tx, project.workspaceId, [
@@ -67,7 +70,10 @@ async function updateTask(
       }
 
       const [lockedTask] = await tx
-        .select({ userId: taskTable.userId })
+        .select({
+          userId: taskTable.userId,
+          projectId: taskTable.projectId,
+        })
         .from(taskTable)
         .where(eq(taskTable.id, id))
         .for("update")
@@ -80,6 +86,11 @@ async function updateTask(
       ) {
         throw new HTTPException(409, {
           message: "Task assignee changed while the task was being updated",
+        });
+      }
+      if (lockedTask.projectId !== projectId) {
+        throw new HTTPException(409, {
+          message: "Task project changed while the task was being updated",
         });
       }
 
@@ -98,7 +109,6 @@ async function updateTask(
           title,
           startDate: startDate || null,
           dueDate: dueDate || null,
-          projectId,
           description,
           priority,
           position,
@@ -128,7 +138,7 @@ async function updateTask(
     });
   }
 
-  if (refreshProjectId) {
+  for (const refreshProjectId of refreshProjectIds) {
     await publishEvent("task-relation.refresh", {
       projectId: refreshProjectId,
       userId: currentUserId,
