@@ -19,6 +19,7 @@ import { Flag } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { priorityColorsTaskCard } from "@/constants/priority-colors";
+import { useBulkOperations } from "@/hooks/mutations/task/use-bulk-operations";
 import { useUpdateTask } from "@/hooks/mutations/task/use-update-task";
 import { useRegisterShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { flattenTree, groupNestedByColumn } from "@/lib/build-task-hierarchy";
@@ -59,6 +60,7 @@ function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
   const clearFocus = useBulkSelectionStore((state) => state.clearFocus);
   const { isExpanded, toggleExpanded } = useHierarchyExpansionStore();
   const { mutate: updateTask } = useUpdateTask();
+  const { bulkArchive } = useBulkOperations();
   const navigate = useNavigate();
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
@@ -325,29 +327,12 @@ function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
     setIsArchiveModalOpen(true);
   };
 
-  const handleConfirmArchive = () => {
+  const handleConfirmArchive = async () => {
     if (!columnToArchive) return;
 
-    const updatedProject = produce(project, (draft) => {
-      const archivedColumn = draft?.columns?.find(
-        (col) => col.id === columnToArchive.id,
-      );
-      if (!archivedColumn) return;
-
-      for (const task of archivedColumn.tasks) {
-        updateTask({
-          ...task,
-          status: "archived",
-        });
-      }
-
-      archivedColumn.tasks = [];
-    });
-
-    setProject(updatedProject);
-    toast.success(
-      t("tasks:archive.success", { count: columnToArchive.tasks.length }),
-    );
+    const taskIds = columnToArchive.tasks.map((task) => task.id);
+    await bulkArchive(taskIds);
+    toast.success(t("tasks:archive.success", { count: taskIds.length }));
 
     setIsArchiveModalOpen(false);
     setColumnToArchive(null);
