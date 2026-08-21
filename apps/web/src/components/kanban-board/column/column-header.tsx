@@ -1,9 +1,8 @@
-import { produce } from "immer";
 import { Archive, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import CreateTaskModal from "@/components/shared/modals/create-task-modal";
-import { useUpdateTask } from "@/hooks/mutations/task/use-update-task";
+import { useBulkOperations } from "@/hooks/mutations/task/use-bulk-operations";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { getColumnIcon } from "@/lib/column";
 import { toast } from "@/lib/toast";
@@ -17,8 +16,8 @@ type ColumnHeaderProps = {
 
 export function ColumnHeader({ column }: ColumnHeaderProps) {
   const { t } = useTranslation();
-  const { project, setProject } = useProjectStore();
-  const { mutate: updateTask } = useUpdateTask();
+  const { project } = useProjectStore();
+  const { bulkArchive } = useBulkOperations();
   const { canManageTasks, canCreateTasks } = useWorkspacePermission();
   const canTask = canManageTasks();
   const canCreate = canCreateTasks();
@@ -26,27 +25,12 @@ export function ColumnHeader({ column }: ColumnHeaderProps) {
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
-  const handleConfirmArchive = () => {
+  const handleConfirmArchive = async () => {
     if (!column.isFinal || !project) return;
 
-    const updatedProject = produce(project, (draft) => {
-      const archivedColumn = draft?.columns?.find(
-        (col) => col.id === column.id,
-      );
-      if (!archivedColumn) return;
-
-      for (const task of archivedColumn.tasks) {
-        updateTask({
-          ...task,
-          status: "archived",
-        });
-      }
-
-      archivedColumn.tasks = [];
-    });
-
-    setProject(updatedProject);
-    toast.success(t("tasks:archive.success", { count: column.tasks.length }));
+    const taskIds = column.tasks.map((task) => task.id);
+    await bulkArchive(taskIds);
+    toast.success(t("tasks:archive.success", { count: taskIds.length }));
     setIsArchiveModalOpen(false);
   };
 
