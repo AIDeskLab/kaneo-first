@@ -67,6 +67,15 @@ async function bulkUpdateTasks({
     });
   }
 
+  // Fail closed: any missing requested root aborts the whole bulk op
+  // (no partial writes). Duplicate ids in the request are allowed.
+  const uniqueRequestedIds = [...new Set(taskIds)];
+  if (tasks.length !== uniqueRequestedIds.length) {
+    throw new HTTPException(404, {
+      message: "Task not found",
+    });
+  }
+
   const workspaceIds = [...new Set(tasks.map((t) => t.workspaceId))];
 
   if (workspaceIds.length > 1) {
@@ -109,10 +118,12 @@ async function bulkUpdateTasks({
         throw new HTTPException(400, { message: "Status value is required" });
       }
 
-      // Cascades to all recursive "subtask" descendants; overlapping roots
-      // are deduped inside updateTaskHierarchyStatus / resolveTaskHierarchy.
-      const { changedTasks } = await db.transaction(async (tx) =>
-        updateTaskHierarchyStatus(tx, workspaceId, foundIds, value),
+      // Cascades to all recursive "subtask" descendants (including archive via
+      // status="archived"); overlapping roots are deduped inside
+      // updateTaskHierarchyStatus / resolveTaskHierarchy.
+      const { changedTasks, refreshProjectIds } = await db.transaction(
+        async (tx) =>
+          updateTaskHierarchyStatus(tx, workspaceId, foundIds, value),
       );
 
       updatedCount = changedTasks.length;
@@ -130,11 +141,9 @@ async function bulkUpdateTasks({
         });
       }
 
-      for (const projectId of [
-        ...new Set(changedTasks.map((task) => task.projectId)),
-      ]) {
+      for (const refreshProjectId of refreshProjectIds) {
         await publishEvent("task-relation.refresh", {
-          projectId,
+          projectId: refreshProjectId,
           userId,
         });
       }
@@ -214,12 +223,14 @@ async function bulkUpdateTasks({
           deleteTaskHierarchy(tx, workspaceId, foundIds),
         );
 
+      // Unique affected tasks after hierarchy expand + overlapping-root dedupe.
       updatedCount = deletedTasks.length;
 
       const projectByTaskId = new Map(
         deletedTasks.map((deleted) => [deleted.id, deleted.projectId]),
       );
-      const fallbackProjectId = deletedTasks[0]?.projectId ?? tasks[0]?.projectId;
+      const fallbackProjectId =
+        deletedTasks[0]?.projectId ?? tasks[0]?.projectId;
 
       for (const deleted of deletedTasks) {
         await publishEvent("task.deleted", {
@@ -246,6 +257,25 @@ async function bulkUpdateTasks({
             : relation.targetTaskId,
           sourceTaskId: relation.sourceTaskId,
           targetTaskId: relation.targetTaskId,
+        });
+      }
+
+      // Refresh every project touched by the cascade (deleted tasks + both
+      // endpoints of incident relations), not only the root project.
+      const refreshProjectIds = [
+        ...new Set([
+          ...deletedTasks.map((deleted) => deleted.projectId),
+          ...deletedRelations.flatMap((relation) => [
+            relation.sourceProjectId,
+            relation.targetProjectId,
+          ]),
+        ]),
+      ].sort();
+
+      for (const refreshProjectId of refreshProjectIds) {
+        await publishEvent("task-relation.refresh", {
+          projectId: refreshProjectId,
+          userId,
         });
       }
 
