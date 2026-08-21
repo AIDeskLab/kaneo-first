@@ -8,12 +8,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useBulkOperations } from "@/hooks/mutations/task/use-bulk-operations";
 
 type ArchiveTasksModalProps = {
   open: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   taskCount: number;
+  /** When set, archives via a single bulkArchive call (PATCH /api/task/bulk). */
+  taskIds?: string[];
 };
 
 export function ArchiveTasksModal({
@@ -21,10 +24,21 @@ export function ArchiveTasksModal({
   onClose,
   onConfirm,
   taskCount,
+  taskIds,
 }: ArchiveTasksModalProps) {
+  const { bulkArchive } = useBulkOperations();
   const isSingular = taskCount === 1;
   const taskLabel = isSingular ? "completed task" : "completed tasks";
   const allLabel = isSingular ? "" : "all ";
+
+  const handleConfirm = async () => {
+    if (taskIds != null && taskIds.length > 0) {
+      await bulkArchive(taskIds);
+      onClose();
+      return;
+    }
+    await onConfirm();
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -49,7 +63,7 @@ export function ArchiveTasksModal({
                 {taskCount}
               </span>
               {taskLabel}? This will move them from the active board to your
-              archive.
+              archive. Nested subtasks will also be archived.
             </DialogDescription>
           </div>
         </div>
@@ -66,7 +80,7 @@ export function ArchiveTasksModal({
           <Button
             type="button"
             variant="default"
-            onClick={onConfirm}
+            onClick={handleConfirm}
             className="shadow-sm min-w-[100px] font-medium"
           >
             Confirm
