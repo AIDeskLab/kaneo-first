@@ -537,6 +537,30 @@ export const assetTable = pgTable(
   ],
 );
 
+export const assetCleanupOutboxTable = pgTable(
+  "asset_cleanup_outbox",
+  {
+    id: text("id")
+      .$defaultFn(() => createId())
+      .primaryKey(),
+    objectKey: text("object_key").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique("asset_cleanup_outbox_object_key_unique").on(table.objectKey),
+    index("asset_cleanup_outbox_next_attempt_at_idx").on(table.nextAttemptAt),
+  ],
+);
+
 export const labelTable = pgTable(
   "label",
   {
