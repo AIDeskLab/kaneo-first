@@ -9,6 +9,7 @@ import {
 } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { claimTaskNumber } from "./claim-task-numbers";
+import { lockWorkspaceTaskHierarchy } from "./task-cascade";
 
 type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -20,11 +21,12 @@ function isSameProjectMove(
 }
 
 async function resolveDestinationStatus(
+  dbOrTx: DbOrTx,
   destinationProjectId: string,
   currentStatus: string,
   requestedStatus?: string,
 ) {
-  const destinationColumns = await db
+  const destinationColumns = await dbOrTx
     .select({
       id: columnTable.id,
       slug: columnTable.slug,
@@ -127,13 +129,92 @@ async function moveTask({
     });
   }
 
-  const resolvedColumn = await resolveDestinationStatus(
-    destinationProjectId,
-    existingTask.status,
-    destinationStatus,
-  );
+  const {
+    movedTask,
+    sourceProjectSnapshot,
+    destinationProjectSnapshot,
+    oldStatus,
+    newStatus,
+  } = await db.transaction(async (tx) => {
+    await lockWorkspaceTaskHierarchy(tx, sourceProject.workspaceId);
 
-  const movedTask = await db.transaction(async (tx) => {
+    const [lockedTask] = await tx
+      .select({
+        id: taskTable.id,
+        projectId: taskTable.projectId,
+        status: taskTable.status,
+      })
+      .from(taskTable)
+      .where(eq(taskTable.id, taskId))
+      .for("update")
+      .limit(1);
+
+    if (!lockedTask) {
+      throw new HTTPException(404, {
+        message: "Task not found",
+      });
+    }
+
+    const [lockedSourceProject] = await tx
+      .select({
+        id: projectTable.id,
+        name: projectTable.name,
+        workspaceId: projectTable.workspaceId,
+      })
+      .from(projectTable)
+      .where(eq(projectTable.id, existingTask.projectId))
+      .for("update")
+      .limit(1);
+
+    if (!lockedSourceProject) {
+      throw new HTTPException(404, {
+        message: "Project not found",
+      });
+    }
+
+    if (lockedTask.projectId !== existingTask.projectId) {
+      throw new HTTPException(409, {
+        message: "Task project changed while the task was being moved",
+      });
+    }
+
+    if (lockedSourceProject.workspaceId !== sourceProject.workspaceId) {
+      throw new HTTPException(409, {
+        message: "Task workspace changed while the task was being moved",
+      });
+    }
+
+    const [lockedDestinationProject] = await tx
+      .select({
+        id: projectTable.id,
+        name: projectTable.name,
+        workspaceId: projectTable.workspaceId,
+      })
+      .from(projectTable)
+      .where(eq(projectTable.id, destinationProjectId))
+      .for("update")
+      .limit(1);
+
+    if (!lockedDestinationProject) {
+      throw new HTTPException(404, {
+        message: "Project not found",
+      });
+    }
+
+    if (lockedDestinationProject.workspaceId !== sourceProject.workspaceId) {
+      throw new HTTPException(409, {
+        message:
+          "Destination project workspace changed while the task was being moved",
+      });
+    }
+
+    const resolvedColumn = await resolveDestinationStatus(
+      tx,
+      destinationProjectId,
+      lockedTask.status,
+      destinationStatus,
+    );
+
     const [nextTaskNumber, nextPosition] = await Promise.all([
       claimTaskNumber(destinationProjectId, tx),
       getNextTaskPosition(
@@ -167,25 +248,31 @@ async function moveTask({
       .set({ projectId: destinationProjectId })
       .where(eq(assetTable.taskId, taskId));
 
-    return updatedTask;
+    return {
+      movedTask: updatedTask,
+      sourceProjectSnapshot: lockedSourceProject,
+      destinationProjectSnapshot: lockedDestinationProject,
+      oldStatus: lockedTask.status,
+      newStatus: resolvedColumn.slug,
+    };
   });
 
   await publishEvent("task.moved", {
     taskId,
     type: "moved",
     userId: currentUserId,
-    fromProjectId: sourceProject.id,
-    fromProjectName: sourceProject.name,
-    toProjectId: destinationProject.id,
-    toProjectName: destinationProject.name,
-    oldStatus: existingTask.status,
-    newStatus: resolvedColumn.slug,
+    fromProjectId: sourceProjectSnapshot.id,
+    fromProjectName: sourceProjectSnapshot.name,
+    toProjectId: destinationProjectSnapshot.id,
+    toProjectName: destinationProjectSnapshot.name,
+    oldStatus,
+    newStatus,
   });
 
   return {
     task: movedTask,
-    sourceProjectId: sourceProject.id,
-    destinationProjectId: destinationProject.id,
+    sourceProjectId: sourceProjectSnapshot.id,
+    destinationProjectId: destinationProjectSnapshot.id,
   };
 }
 
