@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import bulkOperation from "@/fetchers/task/bulk-operation";
-import deleteTask from "@/fetchers/task/delete-task";
 
 export function useBulkOperations() {
   const queryClientRef = useQueryClient();
@@ -12,7 +11,10 @@ export function useBulkOperations() {
 
   const bulkDelete = useMutation({
     mutationFn: async (taskIds: string[]) => {
-      await Promise.all(taskIds.map((id) => deleteTask(id)));
+      await bulkOperation({
+        taskIds,
+        operation: "delete",
+      });
     },
     onSuccess: invalidateCommon,
   });
