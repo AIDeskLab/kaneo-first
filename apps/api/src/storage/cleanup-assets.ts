@@ -143,9 +143,26 @@ export async function getTaskAssetKeys(taskId: string): Promise<string[]> {
   return assets.map((a) => a.objectKey);
 }
 
+/**
+ * Remove snapshotted object keys from storage after a DB delete has committed.
+ *
+ * Used by cascade delete (and single-task delete): asset rows are already gone
+ * with the tasks, so this only deletes S3 objects. Idempotent — empty input is
+ * a no-op, duplicates are collapsed, and S3 DeleteObject treats missing keys as
+ * success.
+ */
+export async function cleanupAssetKeys(keys: string[]): Promise<void> {
+  const uniqueKeys = [...new Set(keys.filter((key) => key.length > 0))];
+  if (uniqueKeys.length === 0) return;
+
+  await deleteS3Keys(uniqueKeys);
+}
+
 export async function deleteS3Keys(
   keys: string[],
 ): Promise<PromiseSettledResult<void>[]> {
+  if (keys.length === 0) return [];
+
   const deleteResults = await Promise.allSettled(
     keys.map((key) => deleteS3Object(key)),
   );
