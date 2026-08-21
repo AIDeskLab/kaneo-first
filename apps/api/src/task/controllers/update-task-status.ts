@@ -27,7 +27,7 @@ async function updateTaskStatus({
     });
   }
 
-  const { changedTasks, refreshProjectId, updatedTask } = await db.transaction(
+  const { changedTasks, refreshProjectIds, updatedTask } = await db.transaction(
     async (tx) => {
       const result = await updateTaskHierarchyStatus(
         tx,
@@ -65,7 +65,7 @@ async function updateTaskStatus({
     });
   }
 
-  if (refreshProjectId) {
+  for (const refreshProjectId of refreshProjectIds) {
     await publishEvent("task-relation.refresh", {
       projectId: refreshProjectId,
       userId: currentUserId,
