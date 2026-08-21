@@ -23,8 +23,7 @@ async function deleteTask(taskId: string, currentUserId: string) {
   }
 
   const { deletedTasks, deletedRelations, assetKeys } = await db.transaction(
-    async (tx) =>
-      deleteTaskHierarchy(tx, project.workspaceId, [taskId]),
+    async (tx) => deleteTaskHierarchy(tx, project.workspaceId, [taskId]),
   );
 
   if (deletedTasks.length === 0) {
@@ -33,9 +32,7 @@ async function deleteTask(taskId: string, currentUserId: string) {
     });
   }
 
-  const projectByTaskId = new Map(
-    deletedTasks.map((deleted) => [deleted.id, deleted.projectId]),
-  );
+  const deletedTaskIds = new Set(deletedTasks.map((deleted) => deleted.id));
 
   for (const deleted of deletedTasks) {
     await publishEvent("task.deleted", {
@@ -47,20 +44,25 @@ async function deleteTask(taskId: string, currentUserId: string) {
   }
 
   for (const relation of deletedRelations) {
-    const projectId =
-      projectByTaskId.get(relation.sourceTaskId) ??
-      projectByTaskId.get(relation.targetTaskId) ??
-      task.projectId;
+    const projectIds = [
+      ...new Set([relation.sourceProjectId, relation.targetProjectId]),
+    ].sort();
+    const incidentTaskId = deletedTaskIds.has(relation.sourceTaskId)
+      ? relation.sourceTaskId
+      : relation.targetTaskId;
 
-    await publishEvent("task-relation.deleted", {
-      projectId,
-      userId: currentUserId,
-      taskId: projectByTaskId.has(relation.sourceTaskId)
-        ? relation.sourceTaskId
-        : relation.targetTaskId,
-      sourceTaskId: relation.sourceTaskId,
-      targetTaskId: relation.targetTaskId,
-    });
+    for (const projectId of projectIds) {
+      await publishEvent("task-relation.deleted", {
+        id: relation.id,
+        sourceTaskId: relation.sourceTaskId,
+        targetTaskId: relation.targetTaskId,
+        relationType: relation.relationType,
+        createdAt: relation.createdAt,
+        userId: currentUserId,
+        taskId: incidentTaskId,
+        projectId,
+      });
+    }
   }
 
   // Fire-and-forget S3 cleanup after successful DB delete
