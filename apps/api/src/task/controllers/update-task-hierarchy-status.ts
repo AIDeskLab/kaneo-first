@@ -1,10 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { columnTable, taskTable } from "../../database/schema";
-import {
-  assertValidTaskStatus,
-  VIRTUAL_STATUSES,
-} from "../validate-task-fields";
+import { VIRTUAL_STATUSES } from "../validate-task-fields";
 import { resolveTaskHierarchy } from "./task-cascade";
 import type { DbOrTx } from "./workspace-assignee-lock";
 
@@ -20,7 +17,15 @@ export type StatusChangedHierarchyTask = {
 export type UpdateTaskHierarchyStatusResult = {
   /** Tasks whose status value actually changed (for post-commit events). */
   changedTasks: StatusChangedHierarchyTask[];
-  /** Single project id for one `task-relation.refresh` after commit. */
+  /**
+   * Every project that received a status/column write, sorted
+   * deterministically (for post-commit `task-relation.refresh`).
+   */
+  refreshProjectIds: string[];
+  /**
+   * Legacy singular field: first entry of `refreshProjectIds`, or null when
+   * the update was empty/idempotent. Prefer `refreshProjectIds`.
+   */
   refreshProjectId: string | null;
 };
 
@@ -28,15 +33,17 @@ export type UpdateTaskHierarchyStatusResult = {
  * Atomically set status on root task(s) and every recursive "subtask" descendant.
  *
  * Must run inside a transaction. Acquires the workspace hierarchy advisory
- * lock (namespace 1540) via `resolveTaskHierarchy`. Validates the target
- * status against every affected project before any write — virtual statuses
- * ("planned", "archived") always use `columnId=null`; other statuses resolve
- * a project-specific column. Any validation error aborts with no writes.
+ * lock (namespace 1540) via `resolveTaskHierarchy`, then re-reads every
+ * resolved task with `SELECT ... FOR UPDATE` in deterministic id order.
+ * Validates the target status against every affected project through `tx`
+ * before any write — virtual statuses ("planned", "archived") always use
+ * `columnId=null`; other statuses resolve a project-specific column. Any
+ * validation error aborts with no writes.
  *
- * Callers must publish `task.status_changed` only for `changedTasks` and one
- * `task-relation.refresh` (when `refreshProjectId` is set) after the
- * surrounding transaction commits. Priority/assignee/dates/labels/move are
- * intentionally out of scope.
+ * Callers must publish `task.status_changed` only for `changedTasks` and
+ * `task-relation.refresh` for `refreshProjectIds` (or the legacy singular
+ * `refreshProjectId`) after the surrounding transaction commits.
+ * Priority/assignee/dates/labels/move are intentionally out of scope.
  */
 export async function updateTaskHierarchyStatus(
   tx: DbOrTx,
@@ -46,16 +53,33 @@ export async function updateTaskHierarchyStatus(
 ): Promise<UpdateTaskHierarchyStatusResult> {
   const hierarchy = await resolveTaskHierarchy(tx, workspaceId, rootTaskIds);
   if (hierarchy.length === 0) {
-    return { changedTasks: [], refreshProjectId: null };
+    return { changedTasks: [], refreshProjectIds: [], refreshProjectId: null };
   }
 
-  const taskIds = hierarchy.map((task) => task.id);
-  const projectIds = [...new Set(hierarchy.map((task) => task.projectId))];
+  const taskIds = [...new Set(hierarchy.map((task) => task.id))].sort();
 
-  // Preflight: validate across all affected projects before any write.
-  for (const projectId of projectIds) {
-    await assertValidTaskStatus(status, projectId);
+  const taskRows = await tx
+    .select({
+      id: taskTable.id,
+      projectId: taskTable.projectId,
+      title: taskTable.title,
+      status: taskTable.status,
+      columnId: taskTable.columnId,
+      userId: taskTable.userId,
+    })
+    .from(taskTable)
+    .where(inArray(taskTable.id, taskIds))
+    .orderBy(asc(taskTable.id))
+    .for("update");
+
+  if (taskRows.length !== taskIds.length) {
+    throw new HTTPException(404, { message: "Task not found" });
   }
+
+  const byId = new Map(taskRows.map((task) => [task.id, task]));
+  const projectIds = [
+    ...new Set(taskRows.map((task) => task.projectId)),
+  ].sort();
 
   const isVirtual = (VIRTUAL_STATUSES as readonly string[]).includes(status);
   const columnIdByProject = new Map<string, string | null>();
@@ -83,23 +107,6 @@ export async function updateTaskHierarchyStatus(
     columnIdByProject.set(projectId, column.id);
   }
 
-  const taskRows = await tx
-    .select({
-      id: taskTable.id,
-      projectId: taskTable.projectId,
-      title: taskTable.title,
-      status: taskTable.status,
-      columnId: taskTable.columnId,
-      userId: taskTable.userId,
-    })
-    .from(taskTable)
-    .where(inArray(taskTable.id, taskIds));
-
-  if (taskRows.length !== taskIds.length) {
-    throw new HTTPException(404, { message: "Task not found" });
-  }
-
-  const byId = new Map(taskRows.map((task) => [task.id, task]));
   const changedTasks: StatusChangedHierarchyTask[] = [];
   const updateIdsByProject = new Map<string, string[]>();
 
@@ -130,7 +137,14 @@ export async function updateTaskHierarchyStatus(
     }
   }
 
-  for (const [projectId, ids] of updateIdsByProject) {
+  const refreshProjectIds = [...updateIdsByProject.keys()].sort();
+
+  for (const projectId of refreshProjectIds) {
+    const ids = updateIdsByProject.get(projectId);
+    if (!ids) {
+      continue;
+    }
+
     const columnId = columnIdByProject.get(projectId) ?? null;
     await tx
       .update(taskTable)
@@ -138,10 +152,9 @@ export async function updateTaskHierarchyStatus(
       .where(inArray(taskTable.id, ids));
   }
 
-  const rootProjectId = hierarchy[0]?.projectId ?? null;
-
   return {
     changedTasks,
-    refreshProjectId: updateIdsByProject.size > 0 ? rootProjectId : null,
+    refreshProjectIds,
+    refreshProjectId: refreshProjectIds[0] ?? null,
   };
 }
