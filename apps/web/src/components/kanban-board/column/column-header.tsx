@@ -17,7 +17,7 @@ type ColumnHeaderProps = {
 export function ColumnHeader({ column }: ColumnHeaderProps) {
   const { t } = useTranslation();
   const { project } = useProjectStore();
-  const { bulkArchive } = useBulkOperations();
+  const { bulkArchive, bulkArchivePending } = useBulkOperations();
   const { canManageTasks, canCreateTasks } = useWorkspacePermission();
   const canTask = canManageTasks();
   const canCreate = canCreateTasks();
@@ -26,12 +26,16 @@ export function ColumnHeader({ column }: ColumnHeaderProps) {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
   const handleConfirmArchive = async () => {
-    if (!column.isFinal || !project) return;
+    if (!column.isFinal || !project || bulkArchivePending) return;
 
     const taskIds = column.tasks.map((task) => task.id);
-    await bulkArchive(taskIds);
-    toast.success(t("tasks:archive.success", { count: taskIds.length }));
-    setIsArchiveModalOpen(false);
+    try {
+      await bulkArchive(taskIds);
+      toast.success(t("tasks:archive.success", { count: taskIds.length }));
+      setIsArchiveModalOpen(false);
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
   };
 
   return (
@@ -83,6 +87,7 @@ export function ColumnHeader({ column }: ColumnHeaderProps) {
         onClose={() => setIsArchiveModalOpen(false)}
         onConfirm={handleConfirmArchive}
         taskCount={column.tasks.length}
+        isPending={bulkArchivePending}
       />
     </div>
   );
