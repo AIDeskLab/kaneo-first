@@ -5,6 +5,7 @@ import {
   taskRelationTable,
   taskTable,
 } from "../../database/schema";
+import { enqueueAssetCleanupKeys } from "../../storage/asset-cleanup-outbox";
 import { resolveTaskHierarchy } from "./task-cascade";
 import type { DbOrTx } from "./workspace-assignee-lock";
 
@@ -149,11 +150,17 @@ export async function deleteTaskHierarchy(
     .from(assetTable)
     .where(inArray(assetTable.taskId, lockIds));
 
+  const assetKeys = assets.map((asset) => asset.objectKey);
+  await enqueueAssetCleanupKeys(
+    tx as Parameters<typeof enqueueAssetCleanupKeys>[0],
+    assetKeys,
+  );
+
   await tx.delete(taskTable).where(inArray(taskTable.id, lockIds));
 
   return {
     deletedTasks,
     deletedRelations,
-    assetKeys: assets.map((asset) => asset.objectKey),
+    assetKeys,
   };
 }
