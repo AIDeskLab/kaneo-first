@@ -227,7 +227,9 @@ describe("API integration: task asset cleanup outbox", () => {
     const now = new Date("2026-01-15T12:00:00.000Z");
     const objectKey = "workspace/ws/project/p/task/t/a.png";
 
-    await db.insert(assetCleanupOutboxTable).values({ objectKey });
+    await db
+      .insert(assetCleanupOutboxTable)
+      .values({ objectKey, nextAttemptAt: now });
 
     const result = await processAssetCleanupOutbox({ now });
 
@@ -241,7 +243,9 @@ describe("API integration: task asset cleanup outbox", () => {
     const now = new Date("2026-01-15T12:00:00.000Z");
     const objectKey = "workspace/ws/project/p/task/t/fail.png";
 
-    await db.insert(assetCleanupOutboxTable).values({ objectKey });
+    await db
+      .insert(assetCleanupOutboxTable)
+      .values({ objectKey, nextAttemptAt: now });
     mocks.deleteS3Object.mockRejectedValueOnce(new Error("S3 unavailable"));
 
     const result = await processAssetCleanupOutbox({ now });
@@ -265,7 +269,9 @@ describe("API integration: task asset cleanup outbox", () => {
     const retryAt = new Date("2026-01-15T12:05:00.000Z");
     const objectKey = "workspace/ws/project/p/task/t/retry.png";
 
-    await db.insert(assetCleanupOutboxTable).values({ objectKey });
+    await db
+      .insert(assetCleanupOutboxTable)
+      .values({ objectKey, nextAttemptAt: failAt });
     mocks.deleteS3Object.mockRejectedValueOnce(new Error("transient S3 error"));
 
     await processAssetCleanupOutbox({ now: failAt });
@@ -303,7 +309,9 @@ describe("API integration: task asset cleanup outbox", () => {
     const now = new Date("2026-01-15T12:00:00.000Z");
     const objectKey = "workspace/ws/project/p/task/t/locked.png";
 
-    await db.insert(assetCleanupOutboxTable).values({ objectKey });
+    await db
+      .insert(assetCleanupOutboxTable)
+      .values({ objectKey, nextAttemptAt: now });
 
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
