@@ -2,7 +2,6 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import {
-  columnTable,
   labelTable,
   projectTable,
   taskTable,
@@ -18,11 +17,11 @@ import {
   removeLabelFromGitHub,
   syncLabelToGitHub,
 } from "../../plugins/github/utils/sync-label-to-github";
+import { cleanupAssetKeys } from "../../storage/cleanup-assets";
 import { validateDateRange } from "../../utils/validate-dates";
-import {
-  assertValidPriority,
-  assertValidTaskStatus,
-} from "../validate-task-fields";
+import { assertValidPriority } from "../validate-task-fields";
+import { deleteTaskHierarchy } from "./delete-task-hierarchy";
+import { updateTaskHierarchyStatus } from "./update-task-hierarchy-status";
 import {
   lockWorkspaceAssignees,
   requireWorkspaceAssignees,
@@ -68,6 +67,15 @@ async function bulkUpdateTasks({
     });
   }
 
+  // Fail closed: any missing requested root aborts the whole bulk op
+  // (no partial writes). Duplicate ids in the request are allowed.
+  const uniqueRequestedIds = [...new Set(taskIds)];
+  if (tasks.length !== uniqueRequestedIds.length) {
+    throw new HTTPException(404, {
+      message: "Task not found",
+    });
+  }
+
   const workspaceIds = [...new Set(tasks.map((t) => t.workspaceId))];
 
   if (workspaceIds.length > 1) {
@@ -109,41 +117,33 @@ async function bulkUpdateTasks({
       if (!value) {
         throw new HTTPException(400, { message: "Status value is required" });
       }
-      const projectIds = [...new Set(tasks.map((t) => t.projectId))];
 
-      for (const projectId of projectIds) {
-        await assertValidTaskStatus(value, projectId);
+      // Cascades to all recursive "subtask" descendants (including archive via
+      // status="archived"); overlapping roots are deduped inside
+      // updateTaskHierarchyStatus / resolveTaskHierarchy.
+      const { changedTasks, refreshProjectIds } = await db.transaction(
+        async (tx) =>
+          updateTaskHierarchyStatus(tx, workspaceId, foundIds, value),
+      );
 
-        const column = await db.query.columnTable.findFirst({
-          where: and(
-            eq(columnTable.projectId, projectId),
-            eq(columnTable.slug, value),
-          ),
+      updatedCount = changedTasks.length;
+
+      for (const changed of changedTasks) {
+        await publishEvent("task.status_changed", {
+          taskId: changed.id,
+          projectId: changed.projectId,
+          userId,
+          oldStatus: changed.oldStatus,
+          newStatus: changed.newStatus,
+          title: changed.title,
+          assigneeId: changed.assigneeId,
+          type: "status_changed",
         });
+      }
 
-        const projectTaskIds = tasks
-          .filter((t) => t.projectId === projectId)
-          .map((t) => t.id);
-
-        const result = await db
-          .update(taskTable)
-          .set({ status: value, columnId: column?.id ?? null })
-          .where(inArray(taskTable.id, projectTaskIds));
-
-        updatedCount += result.rowCount ?? projectTaskIds.length;
-
-        for (const taskId of projectTaskIds) {
-          await publishEvent("task.status_changed", {
-            taskId,
-            projectId,
-            userId,
-            newStatus: value,
-            type: "status_changed",
-          });
-        }
-
+      for (const refreshProjectId of refreshProjectIds) {
         await publishEvent("task-relation.refresh", {
-          projectId,
+          projectId: refreshProjectId,
           userId,
         });
       }
@@ -218,20 +218,68 @@ async function bulkUpdateTasks({
     }
 
     case "delete": {
-      const result = await db
-        .delete(taskTable)
-        .where(inArray(taskTable.id, foundIds));
+      const { deletedTasks, deletedRelations, assetKeys } =
+        await db.transaction(async (tx) =>
+          deleteTaskHierarchy(tx, workspaceId, foundIds),
+        );
 
-      updatedCount = result.rowCount ?? foundIds.length;
+      // Unique affected tasks after hierarchy expand + overlapping-root dedupe.
+      updatedCount = deletedTasks.length;
 
-      for (const task of tasks) {
+      const projectByTaskId = new Map(
+        deletedTasks.map((deleted) => [deleted.id, deleted.projectId]),
+      );
+      const fallbackProjectId =
+        deletedTasks[0]?.projectId ?? tasks[0]?.projectId;
+
+      for (const deleted of deletedTasks) {
         await publishEvent("task.deleted", {
-          taskId: task.id,
-          projectId: task.projectId,
+          taskId: deleted.id,
+          projectId: deleted.projectId,
           userId,
-          title: task.title,
+          title: deleted.title,
         });
       }
+
+      for (const relation of deletedRelations) {
+        const projectId =
+          projectByTaskId.get(relation.sourceTaskId) ??
+          projectByTaskId.get(relation.targetTaskId) ??
+          fallbackProjectId;
+
+        if (!projectId) continue;
+
+        await publishEvent("task-relation.deleted", {
+          projectId,
+          userId,
+          taskId: projectByTaskId.has(relation.sourceTaskId)
+            ? relation.sourceTaskId
+            : relation.targetTaskId,
+          sourceTaskId: relation.sourceTaskId,
+          targetTaskId: relation.targetTaskId,
+        });
+      }
+
+      // Refresh every project touched by the cascade (deleted tasks + both
+      // endpoints of incident relations), not only the root project.
+      const refreshProjectIds = [
+        ...new Set([
+          ...deletedTasks.map((deleted) => deleted.projectId),
+          ...deletedRelations.flatMap((relation) => [
+            relation.sourceProjectId,
+            relation.targetProjectId,
+          ]),
+        ]),
+      ].sort();
+
+      for (const refreshProjectId of refreshProjectIds) {
+        await publishEvent("task-relation.refresh", {
+          projectId: refreshProjectId,
+          userId,
+        });
+      }
+
+      cleanupAssetKeys(assetKeys).catch(() => {});
       break;
     }
 

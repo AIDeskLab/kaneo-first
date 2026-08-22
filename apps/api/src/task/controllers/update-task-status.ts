@@ -1,9 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
-import { columnTable, taskTable } from "../../database/schema";
+import { projectTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
-import { assertValidTaskStatus } from "../validate-task-fields";
+import { updateTaskHierarchyStatus } from "./update-task-hierarchy-status";
 
 async function updateTaskStatus({
   id,
@@ -14,52 +14,63 @@ async function updateTaskStatus({
   status: string;
   currentUserId: string;
 }) {
-  const existingTask = await db.query.taskTable.findFirst({
-    where: eq(taskTable.id, id),
-  });
+  const [taskContext] = await db
+    .select({ workspaceId: projectTable.workspaceId })
+    .from(taskTable)
+    .innerJoin(projectTable, eq(projectTable.id, taskTable.projectId))
+    .where(eq(taskTable.id, id))
+    .limit(1);
 
-  if (!existingTask) {
+  if (!taskContext?.workspaceId) {
     throw new HTTPException(404, {
       message: "Task not found",
     });
   }
 
-  await assertValidTaskStatus(status, existingTask.projectId);
+  const { changedTasks, refreshProjectIds, updatedTask } = await db.transaction(
+    async (tx) => {
+      const result = await updateTaskHierarchyStatus(
+        tx,
+        taskContext.workspaceId,
+        [id],
+        status,
+      );
 
-  const column = await db.query.columnTable.findFirst({
-    where: and(
-      eq(columnTable.projectId, existingTask.projectId),
-      eq(columnTable.slug, status),
-    ),
-  });
+      const [rootTask] = await tx
+        .select()
+        .from(taskTable)
+        .where(eq(taskTable.id, id))
+        .limit(1);
 
-  const [updatedTask] = await db
-    .update(taskTable)
-    .set({ status, columnId: column?.id ?? null })
-    .where(eq(taskTable.id, id))
-    .returning();
+      if (!rootTask) {
+        throw new HTTPException(404, {
+          message: "Task not found",
+        });
+      }
 
-  if (!updatedTask) {
-    throw new HTTPException(500, {
-      message: "Failed to update task status",
+      return { ...result, updatedTask: rootTask };
+    },
+  );
+
+  for (const changed of changedTasks) {
+    await publishEvent("task.status_changed", {
+      taskId: changed.id,
+      projectId: changed.projectId,
+      userId: currentUserId,
+      oldStatus: changed.oldStatus,
+      newStatus: changed.newStatus,
+      title: changed.title,
+      assigneeId: changed.assigneeId,
+      type: "status_changed",
     });
   }
 
-  await publishEvent("task.status_changed", {
-    taskId: updatedTask.id,
-    projectId: updatedTask.projectId,
-    userId: currentUserId,
-    oldStatus: existingTask.status,
-    newStatus: status,
-    title: updatedTask.title,
-    assigneeId: updatedTask.userId,
-    type: "status_changed",
-  });
-
-  await publishEvent("task-relation.refresh", {
-    projectId: updatedTask.projectId,
-    userId: currentUserId,
-  });
+  for (const refreshProjectId of refreshProjectIds) {
+    await publishEvent("task-relation.refresh", {
+      projectId: refreshProjectId,
+      userId: currentUserId,
+    });
+  }
 
   return updatedTask;
 }

@@ -292,7 +292,7 @@ export function registerTools(
     "update_task",
     {
       description:
-        "Update a task (fetches current task, merges fields, then full update).",
+        "Update a task (fetches current task, merges fields, then full update). Status and archive changes cascade to recursive subtask descendants.",
       inputSchema: updateTaskSchema,
     },
     async (args) => {
@@ -339,7 +339,8 @@ export function registerTools(
   server.registerTool(
     "update_task_status",
     {
-      description: "Update only the status (column) of a task.",
+      description:
+        "Update only the status (column) of a task. Cascades to recursive subtask descendants.",
       inputSchema: z.object({
         taskId: nonEmptyString,
         status: nonEmptyString,
@@ -350,6 +351,21 @@ export function registerTools(
         client.json(`/api/task/status/${encodeURIComponent(args.taskId)}`, {
           method: "PUT",
           body: JSON.stringify({ status: args.status }),
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "delete_task",
+    {
+      description:
+        "Delete a task by ID. Cascades to recursive subtask descendants.",
+      inputSchema: z.object({ taskId: nonEmptyString }),
+    },
+    async (args) =>
+      run(() =>
+        client.json(`/api/task/${encodeURIComponent(args.taskId)}`, {
+          method: "DELETE",
         }),
       ),
   );

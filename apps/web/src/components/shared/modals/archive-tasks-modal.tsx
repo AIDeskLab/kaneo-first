@@ -12,8 +12,9 @@ import {
 type ArchiveTasksModalProps = {
   open: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   taskCount: number;
+  isPending: boolean;
 };
 
 export function ArchiveTasksModal({
@@ -21,6 +22,7 @@ export function ArchiveTasksModal({
   onClose,
   onConfirm,
   taskCount,
+  isPending,
 }: ArchiveTasksModalProps) {
   const isSingular = taskCount === 1;
   const taskLabel = isSingular ? "completed task" : "completed tasks";
@@ -49,7 +51,7 @@ export function ArchiveTasksModal({
                 {taskCount}
               </span>
               {taskLabel}? This will move them from the active board to your
-              archive.
+              archive. Nested subtasks will also be archived.
             </DialogDescription>
           </div>
         </div>
@@ -59,6 +61,7 @@ export function ArchiveTasksModal({
             type="button"
             variant="ghost"
             onClick={onClose}
+            disabled={isPending}
             className="text-muted-foreground hover:text-foreground hover:bg-accent min-w-[80px]"
           >
             Cancel
@@ -67,9 +70,10 @@ export function ArchiveTasksModal({
             type="button"
             variant="default"
             onClick={onConfirm}
+            disabled={isPending}
             className="shadow-sm min-w-[100px] font-medium"
           >
-            Confirm
+            {isPending ? "Archiving..." : "Confirm"}
           </Button>
         </DialogFooter>
       </DialogContent>

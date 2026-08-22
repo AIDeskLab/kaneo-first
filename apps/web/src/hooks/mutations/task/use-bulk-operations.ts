@@ -1,25 +1,42 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import bulkOperation from "@/fetchers/task/bulk-operation";
-import deleteTask from "@/fetchers/task/delete-task";
+
+const COMMON_QUERY_PREFIXES = [
+  "tasks",
+  "task",
+  "projects",
+  "task-relations",
+  "notifications",
+] as const;
 
 export function useBulkOperations() {
   const queryClientRef = useQueryClient();
 
   const invalidateCommon = () => {
-    queryClientRef.invalidateQueries({ queryKey: ["tasks"] });
-    queryClientRef.invalidateQueries({ queryKey: ["projects"] });
+    queryClientRef.invalidateQueries({
+      predicate: (query) => {
+        const prefix = query.queryKey[0];
+        return (
+          typeof prefix === "string" &&
+          (COMMON_QUERY_PREFIXES as readonly string[]).includes(prefix)
+        );
+      },
+    });
   };
 
   const bulkDelete = useMutation({
     mutationFn: async (taskIds: string[]) => {
-      await Promise.all(taskIds.map((id) => deleteTask(id)));
+      return await bulkOperation({
+        taskIds,
+        operation: "delete",
+      });
     },
     onSuccess: invalidateCommon,
   });
 
   const bulkArchive = useMutation({
     mutationFn: async (taskIds: string[]) => {
-      await bulkOperation({
+      return await bulkOperation({
         taskIds,
         operation: "updateStatus",
         value: "archived",
@@ -36,7 +53,7 @@ export function useBulkOperations() {
       taskIds: string[];
       status: string;
     }) => {
-      await bulkOperation({
+      return await bulkOperation({
         taskIds,
         operation: "updateStatus",
         value: status,
@@ -154,5 +171,6 @@ export function useBulkOperations() {
     bulkPriority: bulkPriority.mutateAsync,
     bulkAddLabel: bulkAddLabel.mutateAsync,
     bulkDueDate: bulkDueDate.mutateAsync,
+    bulkArchivePending: bulkArchive.isPending,
   };
 }
