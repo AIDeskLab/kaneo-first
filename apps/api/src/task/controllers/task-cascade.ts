@@ -15,6 +15,13 @@ import type { DbOrTx } from "./workspace-assignee-lock";
  * lock space. We pass classid=1540 and objid=hashtext(workspaceId) so every
  * relation create/delete and cascade hierarchy resolve in the same workspace
  * serializes on one transaction-scoped lock.
+ *
+ * The lock is intentionally blocking so concurrent hierarchy mutations
+ * serialize (this is what prevents deadlocks and relation cycles). To keep a
+ * stuck/abandoned lock from hanging callers into the Cloudflare 120s proxy
+ * window (HTTP 524), the wait is bounded with a transaction-local
+ * `statement_timeout`; `lock_timeout` is deliberately not used because
+ * PostgreSQL does not apply it to advisory locks.
  */
 export const WORKSPACE_TASK_HIERARCHY_LOCK_NAMESPACE = 1540;
 
@@ -33,9 +40,11 @@ export async function lockWorkspaceTaskHierarchy(
   tx: DbOrTx,
   workspaceId: string,
 ) {
+  await tx.execute(sql`SET LOCAL statement_timeout = '30s'`);
   await tx.execute(
     sql`SELECT pg_advisory_xact_lock(${WORKSPACE_TASK_HIERARCHY_LOCK_NAMESPACE}, hashtext(${workspaceId}))`,
   );
+  await tx.execute(sql`SET LOCAL statement_timeout = DEFAULT`);
 }
 
 /**
