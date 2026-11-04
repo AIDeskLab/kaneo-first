@@ -12,6 +12,10 @@ export function GET() {
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
+  <url>
+    <loc>${SITE}/privacy</loc>
+    <changefreq>yearly</changefreq>
+  </url>
 </urlset>`;
 
   return new Response(xml, {
