@@ -3,10 +3,11 @@ import {
   useNavigate,
   useSearch,
 } from "@tanstack/react-router";
-import { Github, KeyRound, UserCheck } from "lucide-react";
+import { KeyRound, UserCheck } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod/v4";
+import { Github } from "@/components/icons/github";
 import PageTitle from "@/components/page-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

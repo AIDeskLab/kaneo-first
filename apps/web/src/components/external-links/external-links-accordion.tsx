@@ -2,12 +2,12 @@ import {
   ChevronDown,
   ChevronRight,
   FolderGit,
-  Github,
   GitMerge,
   GitPullRequest,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Github } from "@/components/icons/github";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,

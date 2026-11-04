@@ -45,5 +45,32 @@ function KbdGroup({ className, ...props }: React.ComponentProps<"kbd">) {
   );
 }
 
-export { Kbd, KbdGroup };
+function KbdSequence({
+  keys,
+  className,
+  description,
+  separator = "+",
+}: {
+  keys: string[];
+  className?: string;
+  description?: string;
+  separator?: string;
+}) {
+  return (
+    <KbdGroup aria-label={description} className={className}>
+      {keys.map((key, index) => (
+        <span key={key} className="inline-flex items-center gap-1">
+          <Kbd>{key}</Kbd>
+          {separator && index < keys.length - 1 ? (
+            <span className="text-muted-foreground/72 text-xs">
+              {separator}
+            </span>
+          ) : null}
+        </span>
+      ))}
+    </KbdGroup>
+  );
+}
+
+export { Kbd, KbdGroup, KbdSequence };
 export type { KbdProps };
