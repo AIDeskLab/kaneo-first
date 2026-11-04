@@ -1,160 +1,240 @@
 import { eq } from "drizzle-orm";
-import { Hono } from "hono";
+import type { Context, Next } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { describeRoute, resolver, validator } from "hono-openapi";
-import * as v from "valibot";
 import db from "../database";
 import { projectTable, taskRelationTable, taskTable } from "../database/schema";
+import {
+  apiRouter,
+  type BaseVariables,
+  createRoute,
+  errorResponse,
+  jsonResponse,
+} from "../openapi";
+import { assertProjectAccess } from "../project-access/assert-project-access";
 import { requireWorkspacePermission } from "../utils/require-workspace-permission";
 import { validateWorkspaceAccess } from "../utils/validate-workspace-access";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
 import createTaskRelation from "./controllers/create-task-relation";
 import deleteTaskRelation from "./controllers/delete-task-relation";
+import getProjectTaskRelations from "./controllers/get-project-task-relations";
 import getTaskRelations from "./controllers/get-task-relations";
+import {
+  taskRelationListSchema,
+  taskRelationSchema,
+  taskRelationWithTasksListSchema,
+} from "./response";
+import {
+  createTaskRelationBody,
+  projectIdParam,
+  taskIdParam,
+  taskRelationParam,
+} from "./schema";
 
-const taskRelationSchema = v.object({
-  id: v.string(),
-  sourceTaskId: v.string(),
-  targetTaskId: v.string(),
-  relationType: v.string(),
-  createdAt: v.date(),
+async function scopeOfTask(taskId: string) {
+  const [task] = await db
+    .select({
+      workspaceId: projectTable.workspaceId,
+      projectId: projectTable.id,
+    })
+    .from(taskTable)
+    .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
+    .where(eq(taskTable.id, taskId))
+    .limit(1);
+  return task ?? null;
+}
+
+function requireUserId(c: Context) {
+  const userId = c.get("userId");
+  if (!userId) {
+    throw new HTTPException(401, { message: "Unauthorized" });
+  }
+  return userId as string;
+}
+
+// Route middleware runs before the request validators, so these read the raw
+// request rather than c.req.valid(), which is not populated yet.
+async function scopeToSourceTask(c: Context, next: Next) {
+  const userId = requireUserId(c);
+
+  const body = (await c.req.json().catch(() => ({}))) as {
+    sourceTaskId?: unknown;
+  };
+  const sourceTaskId =
+    typeof body?.sourceTaskId === "string" ? body.sourceTaskId : null;
+  if (!sourceTaskId) {
+    throw new HTTPException(400, { message: "sourceTaskId is required" });
+  }
+
+  const scope = await scopeOfTask(sourceTaskId);
+  if (!scope) {
+    throw new HTTPException(404, { message: "Source task not found" });
+  }
+
+  await validateWorkspaceAccess(userId, scope.workspaceId, undefined, {
+    notFoundMessage: "Source task not found",
+  });
+  await assertProjectAccess(userId, scope.projectId);
+  c.set("workspaceId", scope.workspaceId);
+  return next();
+}
+
+async function scopeToRelation(c: Context, next: Next) {
+  const userId = requireUserId(c);
+
+  const id = c.req.param("id");
+  const [rel] = await db
+    .select({ sourceTaskId: taskRelationTable.sourceTaskId })
+    .from(taskRelationTable)
+    .where(eq(taskRelationTable.id, id ?? ""))
+    .limit(1);
+  if (!rel) {
+    throw new HTTPException(404, { message: "Task relation not found" });
+  }
+
+  const scope = await scopeOfTask(rel.sourceTaskId);
+  if (!scope) {
+    throw new HTTPException(404, { message: "Task not found" });
+  }
+
+  await validateWorkspaceAccess(userId, scope.workspaceId, undefined, {
+    notFoundMessage: "Task relation not found",
+  });
+  await assertProjectAccess(userId, scope.projectId);
+  c.set("workspaceId", scope.workspaceId);
+  return next();
+}
+
+const getTaskRelationsRoute = createRoute({
+  method: "get",
+  operationId: "getTaskRelations",
+  path: "/{taskId}",
+  tags: ["Task Relations"],
+  summary: "Get task relations",
+  description:
+    "Get every relation where the task is the source or the target, each with a summary of both linked tasks. Relations pointing outside the caller's workspace are omitted.",
+  middleware: [
+    workspaceAccess.fromTaskId("taskId"),
+    requireWorkspacePermission({ task: ["read"] }),
+  ] as const,
+  request: { params: taskIdParam },
+  responses: {
+    200: jsonResponse(
+      "Task relations with the linked task summaries",
+      taskRelationWithTasksListSchema,
+    ),
+    403: errorResponse("No access to the project, or missing read permission"),
+    404: errorResponse("Task not found"),
+  },
 });
 
-const taskRelation = new Hono<{
-  Variables: {
-    userId: string;
-    workspaceId: string;
-  };
-}>()
-  .get(
-    "/:taskId",
-    describeRoute({
-      operationId: "getTaskRelations",
-      tags: ["Task Relations"],
-      description: "Get all relations for a task",
-      responses: {
-        200: {
-          description: "Task relations with associated task data",
-          content: {
-            "application/json": { schema: resolver(v.any()) },
-          },
-        },
-      },
-    }),
-    validator("param", v.object({ taskId: v.string() })),
-    workspaceAccess.fromTaskId("taskId"),
-    async (c) => {
-      const { taskId } = c.req.valid("param");
-      const relations = await getTaskRelations(taskId, c.get("workspaceId"));
-      return c.json(relations);
-    },
-  )
-  .post(
-    "/",
-    describeRoute({
-      operationId: "createTaskRelation",
-      tags: ["Task Relations"],
-      description: "Create a relation between two tasks",
-      responses: {
-        200: {
-          description: "Task relation created successfully",
-          content: {
-            "application/json": { schema: resolver(taskRelationSchema) },
-          },
-        },
-      },
-    }),
-    validator(
-      "json",
-      v.object({
-        sourceTaskId: v.string(),
-        targetTaskId: v.string(),
-        relationType: v.picklist(["subtask", "blocks", "related"]),
-      }),
+const getProjectTaskRelationsRoute = createRoute({
+  method: "get",
+  operationId: "getProjectTaskRelations",
+  path: "/project/{projectId}",
+  tags: ["Task Relations"],
+  summary: "Get a project's task relations",
+  description:
+    "Get every relation joining two tasks in the project, without the task summaries the per-task endpoint returns. Intended for views that render many tasks at once and already hold them. Relations reaching outside the project are omitted.",
+  middleware: [
+    workspaceAccess.fromProject("projectId"),
+    requireWorkspacePermission({ task: ["read"] }),
+  ] as const,
+  request: { params: projectIdParam },
+  responses: {
+    200: jsonResponse(
+      "Relations between tasks in the project",
+      taskRelationListSchema,
     ),
-    async (c, next) => {
-      const userId = c.get("userId");
-      if (!userId) {
-        throw new HTTPException(401, { message: "Unauthorized" });
-      }
-      const { sourceTaskId } = c.req.valid("json");
-      const [task] = await db
-        .select({ workspaceId: projectTable.workspaceId })
-        .from(taskTable)
-        .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
-        .where(eq(taskTable.id, sourceTaskId))
-        .limit(1);
-      if (!task) {
-        throw new HTTPException(404, { message: "Source task not found" });
-      }
-      await validateWorkspaceAccess(userId, task.workspaceId);
-      c.set("workspaceId", task.workspaceId);
-      return next();
-    },
+    403: errorResponse(
+      "No access to the project, or missing task:read permission",
+    ),
+    404: errorResponse("Project not found"),
+  },
+});
+
+const createTaskRelationRoute = createRoute({
+  method: "post",
+  operationId: "createTaskRelation",
+  path: "/",
+  tags: ["Task Relations"],
+  summary: "Create task relation",
+  description:
+    "Link two tasks. Authorization is scoped to the source task's workspace.",
+  middleware: [
+    scopeToSourceTask,
     requireWorkspacePermission({ task: ["update"] }),
-    async (c) => {
-      const userId = c.get("userId");
-      const { sourceTaskId, targetTaskId, relationType } = c.req.valid("json");
-      const relation = await createTaskRelation({
+  ] as const,
+  request: {
+    body: {
+      required: true,
+      content: { "application/json": { schema: createTaskRelationBody } },
+    },
+  },
+  responses: {
+    200: jsonResponse("The created relation", taskRelationSchema),
+    400: errorResponse("Invalid body"),
+    403: errorResponse(
+      "No access to the project, or missing task:update permission",
+    ),
+    404: errorResponse("Source or target task not found"),
+    409: errorResponse("This relation already exists"),
+  },
+});
+
+const deleteTaskRelationRoute = createRoute({
+  method: "delete",
+  operationId: "deleteTaskRelation",
+  path: "/{id}",
+  tags: ["Task Relations"],
+  summary: "Delete task relation",
+  description: "Remove a link between two tasks. Returns the deleted relation.",
+  middleware: [
+    scopeToRelation,
+    requireWorkspacePermission({ task: ["update"] }),
+  ] as const,
+  request: { params: taskRelationParam },
+  responses: {
+    200: jsonResponse("The deleted relation", taskRelationSchema),
+    403: errorResponse(
+      "No access to the project, or missing task:update permission",
+    ),
+    404: errorResponse("Task relation not found, or its source task is gone"),
+  },
+});
+
+const taskRelation = apiRouter<BaseVariables & { workspaceId: string }>()
+  // Registered before "/{taskId}" so the literal segment is matched first.
+  .openapi(getProjectTaskRelationsRoute, async (c) =>
+    c.json(await getProjectTaskRelations(c.req.valid("param").projectId), 200),
+  )
+  .openapi(getTaskRelationsRoute, async (c) =>
+    c.json(
+      await getTaskRelations(
+        c.req.valid("param").taskId,
+        c.get("workspaceId"),
+        c.get("userId"),
+      ),
+      200,
+    ),
+  )
+  .openapi(createTaskRelationRoute, async (c) => {
+    const { sourceTaskId, targetTaskId, relationType } = c.req.valid("json");
+    return c.json(
+      await createTaskRelation({
         sourceTaskId,
         targetTaskId,
         relationType,
-        userId,
+        userId: c.get("userId"),
         workspaceId: c.get("workspaceId"),
-      });
-      return c.json(relation);
-    },
-  )
-  .delete(
-    "/:id",
-    describeRoute({
-      operationId: "deleteTaskRelation",
-      tags: ["Task Relations"],
-      description: "Delete a task relation",
-      responses: {
-        200: {
-          description: "Task relation deleted successfully",
-          content: {
-            "application/json": { schema: resolver(taskRelationSchema) },
-          },
-        },
-      },
-    }),
-    validator("param", v.object({ id: v.string() })),
-    async (c, next) => {
-      const userId = c.get("userId");
-      if (!userId) {
-        throw new HTTPException(401, { message: "Unauthorized" });
-      }
-      const { id } = c.req.valid("param");
-      const [rel] = await db
-        .select({ sourceTaskId: taskRelationTable.sourceTaskId })
-        .from(taskRelationTable)
-        .where(eq(taskRelationTable.id, id))
-        .limit(1);
-      if (!rel) {
-        throw new HTTPException(404, { message: "Task relation not found" });
-      }
-      const [task] = await db
-        .select({ workspaceId: projectTable.workspaceId })
-        .from(taskTable)
-        .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
-        .where(eq(taskTable.id, rel.sourceTaskId))
-        .limit(1);
-      if (!task) {
-        throw new HTTPException(404, { message: "Task not found" });
-      }
-      await validateWorkspaceAccess(userId, task.workspaceId);
-      c.set("workspaceId", task.workspaceId);
-      return next();
-    },
-    requireWorkspacePermission({ task: ["update"] }),
-    async (c) => {
-      const userId = c.get("userId");
-      const { id } = c.req.valid("param");
-      const relation = await deleteTaskRelation(id, userId);
-      return c.json(relation);
-    },
+      }),
+      200,
+    );
+  })
+  .openapi(deleteTaskRelationRoute, async (c) =>
+    c.json(
+      await deleteTaskRelation(c.req.valid("param").id, c.get("userId")),
+      200,
+    ),
   );
 
 export default taskRelation;

@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { SquarePlusIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -25,7 +26,9 @@ import {
 } from "@/components/ui/popover";
 import icons from "@/constants/project-icons";
 import useCreateProject from "@/hooks/mutations/project/use-create-project";
+import { prefetchBoard } from "@/hooks/queries/task/prefetch-board";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
+import { useCanImport } from "@/hooks/use-can-import";
 import { cn } from "@/lib/cn";
 import generateProjectSlug from "@/lib/generate-project-id";
 import { toast } from "@/lib/toast";
@@ -42,8 +45,10 @@ function CreateProjectModal({ open, onClose }: CreateProjectModalProps) {
   const [selectedIcon, setSelectedIcon] = useState("Layout");
   const [iconPopoverOpen, setIconPopoverOpen] = useState(false);
   const [iconSearch, setIconSearch] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const queryClient = useQueryClient();
   const { data: workspace } = useActiveWorkspace();
+  const { canImport } = useCanImport();
   const { mutateAsync } = useCreateProject({
     name,
     slug,
@@ -70,12 +75,15 @@ function CreateProjectModal({ open, onClose }: CreateProjectModalProps) {
     e.preventDefault();
     if (!name.trim()) return;
 
+    setIsSubmitting(true);
     try {
       const { id } = await mutateAsync();
-      toast.success("Project created successfully");
-      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["projects"] }),
+        prefetchBoard(queryClient, id),
+      ]);
 
-      navigate({
+      await navigate({
         to: "/dashboard/workspace/$workspaceId/project/$projectId/board",
         params: {
           workspaceId: workspace?.id ?? "",
@@ -83,6 +91,7 @@ function CreateProjectModal({ open, onClose }: CreateProjectModalProps) {
         },
       });
 
+      toast.success("Project created successfully", { icon: SquarePlusIcon });
       handleClose();
     } catch (error) {
       toast.error(
@@ -90,6 +99,8 @@ function CreateProjectModal({ open, onClose }: CreateProjectModalProps) {
           ? error.message
           : t("common:modals.createProject.errorToast"),
       );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -150,7 +161,7 @@ function CreateProjectModal({ open, onClose }: CreateProjectModalProps) {
                     value={iconSearch}
                     onChange={(e) => setIconSearch(e.target.value)}
                     placeholder={t("common:modals.createProject.searchIcons")}
-                    className="h-8 text-xs"
+                    className="h-8 text-base sm:text-xs"
                   />
                   <div className="max-h-[280px] overflow-y-auto pr-1">
                     <div className="grid grid-cols-6 gap-1.5">
@@ -207,7 +218,7 @@ function CreateProjectModal({ open, onClose }: CreateProjectModalProps) {
                   onChange={(e) => setSlug(e.target.value)}
                   placeholder="PRO"
                   maxLength={8}
-                  className="w-20 h-8 text-center font-semibold text-sm bg-background border-border rounded-lg transition-colors duration-150"
+                  className="w-20 h-8 text-center font-semibold text-base sm:text-sm bg-background border-border rounded-lg transition-colors duration-150"
                   required
                 />
               </div>
@@ -217,6 +228,18 @@ function CreateProjectModal({ open, onClose }: CreateProjectModalProps) {
                 })}
               </div>
             </div>
+            {canImport && (
+              <p className="text-muted-foreground text-xs">
+                {t("settings:workspaceImport.entry.createProjectPrompt")}{" "}
+                <Link
+                  to="/dashboard/settings/workspace/import"
+                  onClick={handleClose}
+                  className="font-medium text-foreground underline-offset-4 hover:underline"
+                >
+                  {t("settings:workspaceImport.entry.createProjectLink")}
+                </Link>
+              </p>
+            )}
           </div>
 
           <DialogFooter>
@@ -232,6 +255,7 @@ function CreateProjectModal({ open, onClose }: CreateProjectModalProps) {
             <Button
               type="submit"
               disabled={!name.trim() || !slug.trim()}
+              loading={isSubmitting}
               size="sm"
               className="bg-primary hover:bg-primary/90  disabled:opacity-50"
             >

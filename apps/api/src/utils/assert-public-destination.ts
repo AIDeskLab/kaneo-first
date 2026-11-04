@@ -74,6 +74,17 @@ async function copyBoundedResponse(
   });
 }
 
+export function privateDestinationsAllowed(): boolean {
+  return (
+    process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS === "true" ||
+    process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS === "1"
+  );
+}
+
+export function nonRoutableDestinationMessage(label: string): string {
+  return `${label} destination resolves to a non-routable address`;
+}
+
 export function isDisallowedAddress(address: string): boolean {
   // URL.hostname keeps brackets on IPv6 literals, while ipaddr expects the
   // bare address.

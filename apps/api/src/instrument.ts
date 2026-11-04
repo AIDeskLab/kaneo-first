@@ -24,7 +24,6 @@ if (process.env.SENTRY_DSN) {
     environment:
       process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? "production",
     release: process.env.SENTRY_RELEASE ?? readAppVersion(),
-    sendDefaultPii: false,
     tracesSampleRate: Number.isFinite(tracesSampleRate) ? tracesSampleRate : 0,
   });
 }

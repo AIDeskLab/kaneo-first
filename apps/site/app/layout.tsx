@@ -1,6 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { ThemeSync } from "@/components/landing/theme-sync";
+import { landing } from "@/lib/landing";
 import "./globals.css";
+
+const siteTitle = landing.seo.title;
+const siteDescription = landing.seo.description;
 
 export const viewport: Viewport = {
   themeColor: [
@@ -12,18 +17,17 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL("https://kaneo.app"),
   title: {
-    default: "Kaneo - All you need. Nothing you don't.",
+    default: siteTitle,
     template: "%s | Kaneo",
   },
-  description:
-    "All you need. Nothing you don't. Open source project management that works for you, not against you.",
+  description: siteDescription,
   keywords: [
     "kaneo",
     "project management",
-    "open source",
+    "project management software",
     "kanban",
     "task management",
-    "self-hosted",
+    "issue tracking",
     "team collaboration",
   ],
   applicationName: "Kaneo",
@@ -34,9 +38,8 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://kaneo.app",
     siteName: "Kaneo",
-    title: "Kaneo - All you need. Nothing you don't.",
-    description:
-      "Open source project management that works for you, not against you. Self-hosted, simple, and powerful.",
+    title: siteTitle,
+    description: siteDescription,
     images: [
       {
         url: "/images/hero.png",
@@ -48,9 +51,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Kaneo - All you need. Nothing you don't.",
-    description:
-      "Open source project management that works for you, not against you. Self-hosted, simple, and powerful.",
+    title: siteTitle,
+    description: siteDescription,
     images: ["/images/hero.png"],
   },
   robots: {
@@ -89,11 +91,26 @@ const jsonLd = [
     name: "Kaneo",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web, Linux, macOS, Windows",
-    description:
-      "Open source project management that works for you, not against you. Self-hosted, simple, and powerful.",
+    description: siteDescription,
     url: "https://kaneo.app",
     image: "https://kaneo.app/images/hero.png",
     license: "https://github.com/usekaneo/kaneo/blob/main/LICENSE",
+    offers: [
+      {
+        "@type": "Offer",
+        name: "Kaneo Cloud Personal",
+        price: "4",
+        priceCurrency: "USD",
+        url: "https://kaneo.app/pricing",
+      },
+      {
+        "@type": "Offer",
+        name: "Kaneo Cloud Team",
+        price: "5",
+        priceCurrency: "USD",
+        url: "https://kaneo.app/pricing",
+      },
+    ],
   },
 ];
 
@@ -102,33 +119,30 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
+      <head>
         <script
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: This is necessary to apply the user's preferred color scheme before React hydration to prevent a flash of incorrect theme.
+          // eslint-disable-next-line react/no-danger -- Apply the theme before the page paints, including when JavaScript bundles load slowly.
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
+                var stored = null;
                 try {
-                  var media = window.matchMedia('(prefers-color-scheme: dark)');
-                  function applyTheme(isDark) {
-                    document.documentElement.classList.toggle('dark', isDark);
-                    document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
-                  }
-                  applyTheme(media.matches);
-                  if (media.addEventListener) {
-                    media.addEventListener('change', function(e) { applyTheme(e.matches); });
-                  } else if (media.addListener) {
-                    media.addListener(function(e) { applyTheme(e.matches); });
-                  }
+                  stored = localStorage.getItem('kaneo-site-theme');
                 } catch (e) {}
+                var isDark = stored === 'dark' || (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                document.documentElement.classList.toggle('dark', isDark);
+                document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
               })();
             `,
           }}
         />
+      </head>
+      <body>
+        <ThemeSync />
         {children}
         <script
           type="application/ld+json"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD structured data must be inlined as a script tag for search engines to parse.
+          // eslint-disable-next-line react/no-danger -- JSON-LD structured data must be inlined as a script tag for search engines to parse.
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <Script

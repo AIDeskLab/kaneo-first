@@ -1,23 +1,25 @@
-import { and, eq, inArray, max, notInArray } from "drizzle-orm";
+import { confirmedFieldLabels } from "../../plugins/sync/field-labels";
+import { acceptsIssue } from "../../plugins/sync/rules";
+import { canSyncTask } from "../../plugins/sync/eligibility";
+import { sameConfig } from "../../plugins/sync/same-config";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import {
   activityTable,
+  externalLinkTable,
   integrationTable,
   labelTable,
   projectTable,
   taskTable,
 } from "../../database/schema";
 import { publishEvent } from "../../events";
-import {
-  lockWorkspaceLabels,
-  normalizeLabelIdentity,
-} from "../../label/controllers/workspace-label-lock";
 import type { GiteaConfig } from "../../plugins/gitea/config";
-import { extractTaskNumberGitea } from "../../plugins/gitea/utils/branch-matcher";
+import { isKaneoComment } from "../../plugins/gitea/utils/comment-origin";
 import {
   createGiteaClient,
   type GiteaIssue,
+  type GiteaComment,
   type GiteaLabel,
   type GiteaPullRequest,
 } from "../../plugins/gitea/utils/gitea-api";
@@ -25,12 +27,19 @@ import {
   createExternalLink,
   findExternalLink,
 } from "../../plugins/github/services/link-manager";
-import { findTaskByNumber } from "../../plugins/github/services/task-service";
+import { resolvePullRequestTask } from "../../plugins/github/services/resolve-pull-request-task";
 import {
   extractIssuePriority,
   extractIssueStatus,
 } from "../../plugins/github/utils/extract-priority";
 import { formatTaskDescriptionFromIssue } from "../../plugins/github/utils/format";
+import { claimTaskNumber } from "../../task/controllers/claim-task-numbers";
+
+import {
+  type IntegrationDatabase,
+  linkedTaskScope,
+  withIntegrationTask,
+} from "../../plugins/github/services/integration-task-scope";
 
 type ImportResult = {
   imported: number;
@@ -41,69 +50,8 @@ type ImportResult = {
 
 type LabelLike = { name?: string };
 
-type GiteaLabelInput = string | { name?: string; color?: string } | GiteaLabel;
-
-export type GiteaLabelLoader = () => Promise<GiteaLabelInput[]>;
-
-class GiteaLabelLockExpansion extends Error {
-  constructor(readonly expandedNames: string[]) {
-    super("Gitea label lock expansion required");
-    this.name = "GiteaLabelLockExpansion";
-  }
-}
-
 function toPriorityLabels(labels: GiteaLabel[]): LabelLike[] {
   return labels.map((label) => ({ name: label.name }));
-}
-
-function extractNonSystemGiteaLabels(
-  issueLabels: GiteaLabelInput[] | null | undefined,
-): Array<{ name: string; color: string }> {
-  return (issueLabels ?? [])
-    .map((label) => {
-      if (typeof label === "string") {
-        return { name: label, color: "#6B7280" };
-      }
-      return {
-        name: label.name,
-        color: label.color
-          ? `#${String(label.color).replace(/^#/, "")}`
-          : "#6B7280",
-      };
-    })
-    .filter(
-      (label) =>
-        label.name &&
-        !label.name.startsWith("priority:") &&
-        !label.name.startsWith("status:"),
-    ) as Array<{ name: string; color: string }>;
-}
-
-function unionLabelNames(...nameSets: string[][]): string[] {
-  return [...new Set(nameSets.flat())];
-}
-
-function namesMissingFromLockSet(
-  names: string[],
-  lockNames: string[],
-): string[] {
-  const locked = new Set(lockNames.map(normalizeLabelIdentity));
-  return names.filter((name) => !locked.has(normalizeLabelIdentity(name)));
-}
-
-export function createGiteaLabelLoader(
-  client: ReturnType<typeof createGiteaClient>,
-  config: GiteaConfig,
-  issueNumber: number,
-): GiteaLabelLoader {
-  return async () => {
-    const issue = await client.getIssue(
-      config.repositoryOwner,
-      config.repositoryName,
-      issueNumber,
-    );
-    return issue.labels ?? [];
-  };
 }
 
 export async function importGiteaIssues(
@@ -268,101 +216,144 @@ async function importSingleIssue(
     issue.number.toString(),
   );
 
+  if (!existingLink && !acceptsIssue(config, issue.labels)) return "skipped";
+
   const labels = issue.labels ?? [];
   const adaptedLabels = toPriorityLabels(labels);
   const priority = extractIssuePriority(adaptedLabels);
   const status = extractIssueStatus(adaptedLabels);
 
+  const comments = await fetchIssueComments(issue.number, config, client);
+
   if (existingLink) {
-    const updateData: Record<string, unknown> = {
-      title: issue.title,
-      description: formatTaskDescriptionFromIssue(issue.body),
-    };
-
-    if (priority) updateData.priority = priority;
-    if (status) updateData.status = status;
-
-    await db
-      .update(taskTable)
-      .set(updateData)
-      .where(eq(taskTable.id, existingLink.taskId));
-
-    await importLabelsForTask(
-      labels,
+    const result = await withIntegrationTask(
       existingLink.taskId,
-      workspaceId,
-      createGiteaLabelLoader(client, config, issue.number),
-    );
+      { id: integrationId, projectId, project: { workspaceId } },
+      async (database, afterCommit) => {
+        const [linked] = await database
+          .select({ id: externalLinkTable.id })
+          .from(externalLinkTable)
+          .where(
+            and(
+              eq(externalLinkTable.id, existingLink.id),
+              eq(externalLinkTable.taskId, existingLink.taskId),
+              eq(externalLinkTable.integrationId, integrationId),
+            ),
+          )
+          .for("update");
+        if (
+          !linked ||
+          !(await canSyncTask(existingLink.taskId, integrationId, database))
+        )
+          return "skipped" as const;
 
-    await importCommentsForTask(
-      issue.number,
-      existingLink.taskId,
-      config,
-      client,
-    );
+        const updateData: Record<string, unknown> = {
+          title: issue.title,
+          description: formatTaskDescriptionFromIssue(issue.body),
+        };
 
-    return "updated";
+        if (priority) updateData.priority = priority;
+        if (status) updateData.status = status;
+
+        await database
+          .update(taskTable)
+          .set(updateData)
+          .where(linkedTaskScope(existingLink.taskId, projectId));
+
+        await importLabelsForTask(
+          labels,
+          existingLink.taskId,
+          workspaceId,
+          database,
+        );
+        await canSyncTask(existingLink.taskId, integrationId, database);
+
+        await importCommentsForTask(comments, existingLink.taskId, database);
+
+        afterCommit(async () => {
+          for (const type of [
+            "task.updated",
+            "task.labels_updated",
+            "comment.updated",
+          ])
+            await publishEvent(type, {
+              projectId,
+              taskId: existingLink.taskId,
+            });
+        });
+        return "updated" as const;
+      },
+    );
+    return result ?? "skipped";
   }
 
-  const createdTask = await db.transaction(async (tx) => {
-    const [lockedProject] = await tx
-      .select()
-      .from(projectTable)
-      .where(eq(projectTable.id, projectId))
-      .for("update");
+  const createdTask = await withIntegrationTask(
+    null,
+    { id: integrationId, projectId, project: { workspaceId } },
+    async (tx) => {
+      const binding = await tx.query.integrationTable.findFirst({
+        where: eq(integrationTable.id, integrationId),
+      });
+      if (
+        !binding ||
+        !sameConfig(binding.config, JSON.stringify(config)) ||
+        !acceptsIssue(binding.config, issue.labels) ||
+        (await findExternalLink(
+          integrationId,
+          "issue",
+          String(issue.number),
+          tx,
+        ))
+      )
+        return null;
+      const nextNumber = await claimTaskNumber(projectId, tx);
 
-    if (!lockedProject) {
-      throw new Error("Project not found");
-    }
+      const taskValues: typeof taskTable.$inferInsert = {
+        projectId,
+        userId: null,
+        title: issue.title,
+        description: formatTaskDescriptionFromIssue(issue.body),
+        status: status || "to-do",
+        priority: priority ?? "low",
+        number: nextNumber,
+      };
 
-    const [result] = await tx
-      .select({ maxNumber: max(taskTable.number) })
-      .from(taskTable)
-      .where(eq(taskTable.projectId, projectId));
+      const [created] = await tx
+        .insert(taskTable)
+        .values(taskValues)
+        .returning();
 
-    const nextNumber = (result?.maxNumber ?? 0) + 1;
+      if (!created) {
+        throw new Error("Failed to create task");
+      }
 
-    const taskValues: typeof taskTable.$inferInsert = {
-      projectId,
-      userId: null,
-      title: issue.title,
-      description: formatTaskDescriptionFromIssue(issue.body),
-      status: status || "to-do",
-      priority: priority || null,
-      number: nextNumber,
-    };
+      await createExternalLink(
+        {
+          taskId: created.id,
+          integrationId,
+          resourceType: "issue",
+          externalId: issue.number.toString(),
+          url: issue.html_url,
+          title: issue.title,
+          metadata: {
+            state: issue.state,
+            createdFrom: "gitea-import",
+            author: issue.user?.login ?? issue.user?.username,
+            ...confirmedFieldLabels(issue.labels),
+          },
+        },
+        tx,
+      );
 
-    const [created] = await tx.insert(taskTable).values(taskValues).returning();
+      await importLabelsForTask(labels, created.id, workspaceId, tx);
+      await canSyncTask(created.id, integrationId, tx, binding.config);
 
-    if (!created) {
-      throw new Error("Failed to create task");
-    }
+      await importCommentsForTask(comments, created.id, tx);
 
-    return created;
-  });
-
-  await createExternalLink({
-    taskId: createdTask.id,
-    integrationId,
-    resourceType: "issue",
-    externalId: issue.number.toString(),
-    url: issue.html_url,
-    title: issue.title,
-    metadata: {
-      state: issue.state,
-      createdFrom: "gitea-import",
-      author: issue.user?.login ?? issue.user?.username,
+      return created;
     },
-  });
-
-  await importLabelsForTask(
-    labels,
-    createdTask.id,
-    workspaceId,
-    createGiteaLabelLoader(client, config, issue.number),
   );
-
-  await importCommentsForTask(issue.number, createdTask.id, config, client);
+  if (!createdTask) return "skipped";
 
   await publishEvent("task.created", {
     ...createdTask,
@@ -378,135 +369,94 @@ async function importSingleIssue(
   return "imported";
 }
 
-export async function importLabelsForTask(
-  issueLabels: GiteaLabelInput[] | null | undefined,
+async function importLabelsForTask(
+  issueLabels: GiteaIssue["labels"],
   taskId: string,
   workspaceId: string,
-  loader: GiteaLabelLoader,
+  database: IntegrationDatabase = db,
 ): Promise<void> {
-  const snapshotNames = extractNonSystemGiteaLabels(issueLabels).map(
-    (label) => label.name,
-  );
-  let lockNamesSeed = snapshotNames;
-
-  while (true) {
-    try {
-      await db.transaction(async (tx) => {
-        const existingGiteaRows = await tx
-          .select({ name: labelTable.name })
-          .from(labelTable)
-          .where(
-            and(eq(labelTable.taskId, taskId), eq(labelTable.source, "gitea")),
-          );
-        const existingGiteaNames = existingGiteaRows.map((row) => row.name);
-        const lockNames = unionLabelNames(
-          lockNamesSeed,
-          snapshotNames,
-          existingGiteaNames,
-        );
-
-        await lockWorkspaceLabels(tx, workspaceId, lockNames);
-
-        const currentLabels = extractNonSystemGiteaLabels(await loader());
-        const currentNames = currentLabels.map((label) => label.name);
-        const unheldNames = namesMissingFromLockSet(currentNames, lockNames);
-        if (unheldNames.length > 0) {
-          throw new GiteaLabelLockExpansion(
-            unionLabelNames(lockNames, currentNames),
-          );
-        }
-
-        if (currentNames.length > 0) {
-          await tx
-            .delete(labelTable)
-            .where(
-              and(
-                eq(labelTable.taskId, taskId),
-                eq(labelTable.source, "gitea"),
-                notInArray(labelTable.name, currentNames),
-              ),
-            );
-        } else {
-          await tx
-            .delete(labelTable)
-            .where(
-              and(
-                eq(labelTable.taskId, taskId),
-                eq(labelTable.source, "gitea"),
-              ),
-            );
-        }
-
-        const existingLabelsOnTask = await tx
-          .select()
-          .from(labelTable)
-          .where(
-            currentNames.length > 0
-              ? and(
-                  eq(labelTable.taskId, taskId),
-                  inArray(labelTable.name, currentNames),
-                )
-              : eq(labelTable.taskId, taskId),
-          );
-
-        for (const labelData of currentLabels) {
-          const existingLabelOnTask = existingLabelsOnTask.find(
-            (label) => label.name === labelData.name,
-          );
-
-          // A matching pre-existing assignment keeps its original ownership.
-          if (existingLabelOnTask) continue;
-
-          const [existingWorkspaceLabel] = await tx
-            .select()
-            .from(labelTable)
-            .where(
-              and(
-                eq(labelTable.workspaceId, workspaceId),
-                eq(labelTable.name, labelData.name),
-              ),
-            )
-            .limit(1);
-
-          const colorToUse = existingWorkspaceLabel?.color || labelData.color;
-
-          await tx
-            .insert(labelTable)
-            .values({
-              name: labelData.name,
-              color: colorToUse,
-              source: "gitea",
-              taskId,
-              workspaceId,
-            })
-            .onConflictDoNothing({
-              target: [labelTable.taskId, labelTable.name],
-            });
-        }
-      });
-      return;
-    } catch (error) {
-      if (error instanceof GiteaLabelLockExpansion) {
-        lockNamesSeed = error.expandedNames;
-        continue;
+  const nonSystemLabels = (issueLabels ?? [])
+    .map((label) => {
+      if (typeof label === "string") {
+        return { name: label, color: "#6B7280" };
       }
-      throw error;
+      return {
+        name: label.name,
+        color: label.color
+          ? `#${String(label.color).replace(/^#/, "")}`
+          : "#6B7280",
+      };
+    })
+    .filter(
+      (label) =>
+        label.name &&
+        !label.name.startsWith("priority:") &&
+        !label.name.startsWith("status:"),
+    ) as Array<{ name: string; color: string }>;
+
+  const expectedNames = nonSystemLabels.map((label) => label.name);
+
+  if (expectedNames.length > 0) {
+    await database
+      .delete(labelTable)
+      .where(
+        and(
+          eq(labelTable.taskId, taskId),
+          notInArray(labelTable.name, expectedNames),
+        ),
+      );
+  } else {
+    await database.delete(labelTable).where(eq(labelTable.taskId, taskId));
+  }
+
+  const existingLabelsOnTask = await database.query.labelTable.findMany({
+    where:
+      expectedNames.length > 0
+        ? and(
+            eq(labelTable.taskId, taskId),
+            inArray(labelTable.name, expectedNames),
+          )
+        : eq(labelTable.taskId, taskId),
+  });
+
+  for (const labelData of nonSystemLabels) {
+    const existingLabelOnTask = existingLabelsOnTask.find(
+      (label) => label.name === labelData.name,
+    );
+
+    if (existingLabelOnTask) {
+      continue;
     }
+
+    const existingWorkspaceLabel = await database.query.labelTable.findFirst({
+      where: and(
+        eq(labelTable.workspaceId, workspaceId),
+        eq(labelTable.name, labelData.name),
+      ),
+    });
+
+    const colorToUse = existingWorkspaceLabel?.color || labelData.color;
+
+    await database
+      .insert(labelTable)
+      .values({
+        name: labelData.name,
+        color: colorToUse,
+        taskId,
+        workspaceId,
+      })
+      .onConflictDoNothing({
+        target: [labelTable.taskId, labelTable.name],
+      });
   }
 }
 
-async function importCommentsForTask(
+async function fetchIssueComments(
   issueNumber: number,
-  taskId: string,
   config: GiteaConfig,
   client: ReturnType<typeof createGiteaClient>,
-): Promise<void> {
-  const allComments: Array<{
-    id: number;
-    body: string;
-    html_url: string;
-    user?: { login?: string; username?: string; avatar_url?: string } | null;
-  }> = [];
+): Promise<GiteaComment[]> {
+  const allComments: GiteaComment[] = [];
   let page = 1;
 
   while (true) {
@@ -526,13 +476,21 @@ async function importCommentsForTask(
     page++;
   }
 
+  return allComments;
+}
+
+async function importCommentsForTask(
+  allComments: GiteaComment[],
+  taskId: string,
+  database: IntegrationDatabase,
+): Promise<void> {
   for (const comment of allComments) {
     const username = comment.user?.login ?? comment.user?.username ?? "";
-    if (username.endsWith("[bot]")) {
+    if (username.endsWith("[bot]") || isKaneoComment(comment.body)) {
       continue;
     }
 
-    await db
+    await database
       .insert(activityTable)
       .values({
         taskId,
@@ -571,33 +529,22 @@ async function linkPullRequestToTask(
   projectSlug: string,
   config: GiteaConfig,
 ): Promise<void> {
-  const taskNumber = extractTaskNumberGitea(
-    pr.head.ref,
-    pr.title,
-    pr.body ?? undefined,
-    config,
-    projectSlug,
-  );
-
-  if (!taskNumber) {
-    return;
-  }
-
-  const task = await findTaskByNumber(projectId, taskNumber);
-
-  if (!task) {
-    return;
-  }
-
   const existingLink = await findExternalLink(
     integrationId,
     "pull_request",
     pr.number.toString(),
   );
+  if (existingLink) return;
 
-  if (existingLink) {
-    return;
-  }
+  const task = await resolvePullRequestTask({
+    integrationId,
+    projectId,
+    projectSlug,
+    config,
+    repositoryUrl: `${config.baseUrl.replace(/\/$/, "")}/${config.repositoryOwner}/${config.repositoryName}`,
+    pullRequest: pr,
+  });
+  if (!task) return;
 
   await createExternalLink({
     taskId: task.id,
@@ -612,4 +559,5 @@ async function linkPullRequestToTask(
       author: pr.user?.login ?? pr.user?.username,
     },
   });
+  await publishEvent("task.updated", { projectId, taskId: task.id });
 }

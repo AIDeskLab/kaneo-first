@@ -1,6 +1,7 @@
 import { and, count, eq, isNull, min, notInArray } from "drizzle-orm";
 import db from "../../database";
 import { projectTable, taskTable } from "../../database/schema";
+import { projectAccessCondition } from "../../project-access/project-access-condition";
 
 const EXCLUDED_TASK_STATUSES = ["archived", "deleted"];
 
@@ -30,6 +31,7 @@ function createEmptySummary(): ProjectSummary {
 
 async function getProjectSummaries(
   workspaceId: string,
+  userId: string,
   includeArchived: boolean,
 ) {
   const summariesByProject = new Map<string, ProjectSummary>();
@@ -52,7 +54,8 @@ async function getProjectSummaries(
     .where(
       and(projectScope, notInArray(taskTable.status, EXCLUDED_TASK_STATUSES)),
     )
-    .groupBy(taskTable.projectId, taskTable.status);
+    .groupBy(taskTable.projectId, taskTable.status)
+    .having(projectAccessCondition(userId, taskTable.projectId));
 
   for (const row of rows) {
     const summary =
@@ -84,14 +87,17 @@ async function getProjectSummaries(
   return summariesByProject;
 }
 
-async function getProjects(workspaceId: string, includeArchived = false) {
+async function getProjects(
+  workspaceId: string,
+  userId: string,
+  includeArchived = false,
+) {
   const projects = await db.query.projectTable.findMany({
-    where: includeArchived
-      ? eq(projectTable.workspaceId, workspaceId)
-      : and(
-          eq(projectTable.workspaceId, workspaceId),
-          isNull(projectTable.archivedAt),
-        ),
+    where: and(
+      eq(projectTable.workspaceId, workspaceId),
+      includeArchived ? undefined : isNull(projectTable.archivedAt),
+      projectAccessCondition(userId, projectTable.id),
+    ),
     // `id` is the deterministic tie-breaker: without it, rows sharing both a
     // position and a createdAt come back in an unspecified order.
     orderBy: (project, { asc }) => [
@@ -103,6 +109,7 @@ async function getProjects(workspaceId: string, includeArchived = false) {
 
   const summariesByProject = await getProjectSummaries(
     workspaceId,
+    userId,
     includeArchived,
   );
 

@@ -27,6 +27,7 @@ export async function putState(
   key: string,
   payload: unknown,
   expiresAt: Date,
+  _consumeRequestId?: string,
 ): Promise<void> {
   await db.insert(mcpOauthStateTable).values({ kind, key, payload, expiresAt });
 }

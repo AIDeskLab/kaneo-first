@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { and, eq, sql } from "drizzle-orm";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const githubMocks = vi.hoisted(() => ({
   getRepoInstallation: vi.fn(async () => ({ data: { id: 42 } })),

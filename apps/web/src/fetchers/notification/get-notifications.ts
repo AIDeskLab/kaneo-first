@@ -1,11 +1,12 @@
 import { client } from "@kaneo/libs";
 
-async function getNotifications() {
-  const response = await client.notification.$get();
+import { HttpError } from "@/lib/http-error";
+
+async function getNotifications(workspaceId?: string) {
+  const response = await client.notification.$get({ query: { workspaceId } });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error);
+    throw await HttpError.fromResponse(response);
   }
 
   const data = await response.json();

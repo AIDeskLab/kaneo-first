@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { recalculateVisibleSubtaskCounts } from "@/lib/recalculate-visible-subtask-counts";
 import type { ProjectWithTasks } from "@/types/project";
 import type Task from "@/types/task";

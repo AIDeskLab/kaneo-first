@@ -731,6 +731,7 @@ const task = new Hono<{
           surface,
           filename,
           contentType,
+          size,
         });
 
         return c.json(upload);

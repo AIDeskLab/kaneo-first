@@ -234,8 +234,9 @@ function TaskRow({
     >
       <ContextMenu>
         <ContextMenuTrigger asChild>
-          {/* biome-ignore lint/a11y/noStaticElementInteractions: false positive for onClick and onKeyDown */}
           <div
+            role="button"
+            tabIndex={0}
             onClick={handleClick}
             onKeyDown={handleKeyDown}
             className={cn(

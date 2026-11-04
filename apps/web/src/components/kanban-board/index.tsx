@@ -195,12 +195,9 @@ function KanbanBoard({ project, disableDragDrop = false }: KanbanBoardProps) {
 
         <div className="relative min-h-0 flex-1">
           <div className="flex h-full flex-1 gap-4 overflow-x-auto px-4 pb-4 md:px-5">
-            {[...Array(4)].map((_, i) => (
+            {["col-a", "col-b", "col-c", "col-d"].map((columnKey) => (
               <div
-                key={`kanban-column-skeleton-${
-                  // biome-ignore lint/suspicious/noArrayIndexKey: It's a skeleton
-                  i
-                }`}
+                key={`kanban-column-skeleton-${columnKey}`}
                 className="h-full min-w-80 w-full flex-1 rounded-xl border border-border/70 bg-card"
               >
                 <div className="px-4 py-3 flex items-center justify-between">
@@ -209,12 +206,9 @@ function KanbanBoard({ project, disableDragDrop = false }: KanbanBoardProps) {
                 </div>
 
                 <div className="px-2 pb-4 flex flex-col gap-3 flex-1">
-                  {[...Array(3)].map((_, j) => (
+                  {["task-a", "task-b", "task-c"].map((taskKey) => (
                     <div
-                      key={`kanban-task-skeleton-${
-                        // biome-ignore lint/suspicious/noArrayIndexKey: It's a skeleton
-                        j
-                      }`}
+                      key={`kanban-task-skeleton-${columnKey}-${taskKey}`}
                       className="p-4 bg-card rounded-lg border border-border/50 animate-pulse"
                     >
                       <div className="space-y-3">

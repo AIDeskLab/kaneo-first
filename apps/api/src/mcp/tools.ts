@@ -173,6 +173,10 @@ const hexColorSchema = z
     "Expected a hex color like #FF6600",
   );
 
+export function toMcpToolRegistrar(server: McpServer): McpServer {
+  return server;
+}
+
 export function registerMcpTools(
   server: McpServer,
   baseUrl: string,

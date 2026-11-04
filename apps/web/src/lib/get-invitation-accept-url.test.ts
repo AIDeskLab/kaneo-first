@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { getInvitationAcceptUrl } from "./get-invitation-accept-url";
 
 describe("getInvitationAcceptUrl", () => {

@@ -3,6 +3,7 @@ import { Footer } from "@/components/landing/footer";
 import { FounderStatement } from "@/components/landing/founder-statement";
 import { Hero } from "@/components/landing/hero";
 import { Navbar } from "@/components/landing/navbar";
+import { ProductDetails } from "@/components/landing/product-details";
 import { SectionSeparator } from "@/components/landing/section-separator";
 
 export default function HomePage() {
@@ -13,6 +14,9 @@ export default function HomePage() {
         <Hero />
         <SectionSeparator>
           <Features />
+        </SectionSeparator>
+        <SectionSeparator>
+          <ProductDetails />
         </SectionSeparator>
         <SectionSeparator>
           <FounderStatement />

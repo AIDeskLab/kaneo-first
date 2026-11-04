@@ -1,10 +1,23 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { S3Client } from "@aws-sdk/client-s3";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 import {
   applyKeyPrefix,
+  assertProjectBackgroundKeyMatchesContext,
   assertStorageConfigured,
   assertTaskImageKeyMatchesContext,
   buildObjectKey,
   buildObjectKeyPrefix,
+  buildProjectBackgroundObjectKey,
+  buildProjectBackgroundObjectKeyPrefix,
+  copyTaskAssetObject,
+  createProjectBackgroundUploadUrl,
   createTaskImageUploadUrl,
   getFileExtension,
   isImageContentType,
@@ -12,10 +25,107 @@ import {
   parsePositiveInt,
   resolveS3Credentials,
   sanitizePathSegment,
+  validateProjectBackgroundUploadInput,
   validateTaskAssetUploadInput,
+  verifyTaskAssetUpload,
 } from "../../../apps/api/src/storage/s3";
 
 describe("S3 helpers", () => {
+  it("binds project background upload URLs to the declared content length", async () => {
+    process.env.S3_ENDPOINT = "https://storage.example.test";
+    process.env.S3_BUCKET = "kaneo";
+    process.env.S3_ACCESS_KEY_ID = "test-access-key";
+    process.env.S3_SECRET_ACCESS_KEY = "test-secret-key";
+    process.env.S3_REGION = "us-east-1";
+    process.env.S3_FORCE_PATH_STYLE = "true";
+    process.env.S3_KEY_PREFIX = "uploads";
+
+    const upload = await createProjectBackgroundUploadUrl({
+      workspaceId: "workspace-1",
+      projectId: "project-1",
+      contentType: "image/png",
+      size: 12345,
+    });
+
+    expect(upload.key).toBe(
+      `uploads/workspace/workspace-1/project/project-1/backgrounds/background-${upload.version}`,
+    );
+    expect(upload.headers).toEqual({ "Content-Type": "image/png" });
+    expect(
+      new URL(upload.uploadUrl).searchParams.get("X-Amz-SignedHeaders"),
+    ).toContain("content-length");
+  });
+  it("validates project background type and size", () => {
+    process.env.S3_MAX_IMAGE_UPLOAD_BYTES = "1048576";
+
+    expect(() => validateProjectBackgroundUploadInput("", 10)).toThrow(
+      "A valid content type is required.",
+    );
+    expect(() =>
+      validateProjectBackgroundUploadInput("application/pdf", 10),
+    ).toThrow('Unsupported content type "application/pdf"');
+    expect(() => validateProjectBackgroundUploadInput("image/webp", 0)).toThrow(
+      "Upload size must be greater than zero.",
+    );
+    expect(() =>
+      validateProjectBackgroundUploadInput("image/webp", 1048577),
+    ).toThrow("Upload exceeds the maximum upload size of 1MB.");
+    expect(() =>
+      validateProjectBackgroundUploadInput("image/webp", 1048576),
+    ).not.toThrow();
+  });
+  it("only accepts the exact project background key and version", () => {
+    process.env.S3_ENDPOINT = "https://storage.example.test";
+    process.env.S3_BUCKET = "kaneo";
+    process.env.S3_ACCESS_KEY_ID = "test-access-key";
+    process.env.S3_SECRET_ACCESS_KEY = "test-secret-key";
+    process.env.S3_KEY_PREFIX = "staging";
+
+    const context = {
+      workspaceId: "workspace-1",
+      projectId: "project-1",
+      version: "version-1",
+    };
+    const validKey =
+      "staging/workspace/workspace-1/project/project-1/backgrounds/background-version-1";
+
+    expect(assertProjectBackgroundKeyMatchesContext(validKey, context)).toBe(
+      true,
+    );
+    expect(
+      assertProjectBackgroundKeyMatchesContext(
+        validKey.replace("project-1", "project-2"),
+        context,
+      ),
+    ).toBe(false);
+    expect(
+      assertProjectBackgroundKeyMatchesContext(
+        `${validKey}/../../project-2/background`,
+        context,
+      ),
+    ).toBe(false);
+    expect(
+      assertProjectBackgroundKeyMatchesContext(
+        validKey.replace("version-1", "version-2"),
+        context,
+      ),
+    ).toBe(false);
+  });
+  it("builds project background keys inside the project scope", () => {
+    const context = {
+      workspaceId: "Workspace 1",
+      projectId: "Project 2",
+    };
+    const { rawKey, version } = buildProjectBackgroundObjectKey(context);
+
+    expect(buildProjectBackgroundObjectKeyPrefix(context)).toBe(
+      "workspace/workspace-1/project/project-2/backgrounds",
+    );
+    expect(rawKey).toBe(
+      `workspace/workspace-1/project/project-2/backgrounds/background-${version}`,
+    );
+    expect(version).toMatch(/^[a-z0-9]+$/);
+  });
   const originalMaxSize = process.env.S3_MAX_IMAGE_UPLOAD_BYTES;
   const originalEndpoint = process.env.S3_ENDPOINT;
   const originalBucket = process.env.S3_BUCKET;
@@ -218,12 +328,25 @@ describe("S3 helpers", () => {
       "A valid content type is required.",
     );
     expect(() => validateTaskAssetUploadInput("image/png", 0)).toThrow(
-      "Upload size must be greater than zero.",
+      "Upload size must be a positive safe integer.",
     );
     expect(() =>
       validateTaskAssetUploadInput("image/png", 2 * 1024 * 1024),
     ).toThrow("Upload exceeds the maximum upload size of 1MB.");
     expect(() => validateTaskAssetUploadInput("image/png", 512)).not.toThrow();
+  });
+
+  it.each([
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    -1,
+    0.5,
+    Number.MAX_SAFE_INTEGER + 1,
+  ])("rejects invalid byte length %s before signing", (size) => {
+    expect(() => validateTaskAssetUploadInput("image/png", size)).toThrow(
+      "Upload size must be a positive safe integer.",
+    );
   });
 
   it("creates presigned upload URLs without hoisted checksum query params", async () => {
@@ -242,11 +365,120 @@ describe("S3 helpers", () => {
       surface: "description",
       filename: "report.png",
       contentType: "image/png",
+      size: 512,
     });
 
     const searchParams = new URL(upload.uploadUrl).searchParams;
+    expect(searchParams.get("X-Amz-SignedHeaders")?.split(";")).toEqual(
+      expect.arrayContaining(["content-length", "content-type", "host"]),
+    );
+    expect(upload.headers).not.toHaveProperty("Content-Length");
     expect(searchParams.has("x-amz-checksum-crc32")).toBe(false);
     expect(searchParams.has("x-amz-sdk-checksum-algorithm")).toBe(false);
+  });
+
+  it("logs a safe summary when an uploaded object cannot be verified", async () => {
+    process.env.S3_ENDPOINT = "https://storage.example.test";
+    process.env.S3_BUCKET = "kaneo";
+    process.env.S3_ACCESS_KEY_ID = "test-access-key";
+    process.env.S3_SECRET_ACCESS_KEY = "test-secret-key";
+
+    vi.spyOn(S3Client.prototype, "send").mockRejectedValue(
+      Object.assign(
+        new Error("https://storage.example.test/kaneo?X-Amz-Signature=x"),
+        { name: "InternalError", $metadata: { httpStatusCode: 500 } },
+      ) as never,
+    );
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      verifyTaskAssetUpload("workspace/w1/project/p1/task/t1/a.png", {
+        size: 12,
+        contentType: "image/png",
+      }),
+    ).rejects.toThrow("Unable to verify uploaded object.");
+
+    expect(log).toHaveBeenCalledWith("Unable to verify uploaded object:", {
+      name: "InternalError",
+      status: 500,
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("X-Amz-Signature");
+  });
+
+  it("accepts an upload that storage refuses for a moment after the PUT", async () => {
+    process.env.S3_ENDPOINT = "https://storage.example.test";
+    process.env.S3_BUCKET = "kaneo";
+    process.env.S3_ACCESS_KEY_ID = "test-access-key";
+    process.env.S3_SECRET_ACCESS_KEY = "test-secret-key";
+
+    const send = vi
+      .spyOn(S3Client.prototype, "send")
+      .mockRejectedValueOnce(
+        Object.assign(new Error("UnknownError"), {
+          name: "Unknown",
+          $metadata: { httpStatusCode: 403 },
+        }) as never,
+      )
+      .mockResolvedValue({
+        ContentLength: 12,
+        ContentType: "image/png",
+      } as never);
+
+    vi.useFakeTimers();
+    try {
+      const verified = verifyTaskAssetUpload(
+        "workspace/w1/project/p1/task/t1/a.png",
+        { size: 12, contentType: "image/png" },
+      );
+      await vi.runAllTimersAsync();
+
+      await expect(verified).resolves.toEqual({
+        size: 12,
+        contentType: "image/png",
+      });
+      expect(send).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("copies a stored object into the destination task prefix", async () => {
+    process.env.S3_ENDPOINT = "https://storage.example.test";
+    process.env.S3_BUCKET = "kaneo";
+    process.env.S3_ACCESS_KEY_ID = "test-access-key";
+    process.env.S3_SECRET_ACCESS_KEY = "test-secret-key";
+    process.env.S3_KEY_PREFIX = "kaneo-assets";
+
+    const send = vi
+      .spyOn(S3Client.prototype, "send")
+      .mockResolvedValue(undefined as never);
+
+    const key = await copyTaskAssetObject({
+      sourceKey: "workspace/w1/project/p1/task/t1/descriptions/report.png",
+      destination: {
+        workspaceId: "workspace-1",
+        projectId: "project-1",
+        taskId: "task-2",
+        surface: "description",
+        filename: "report.png",
+        contentType: "image/png",
+      },
+    });
+
+    expect(key).toMatch(
+      /^kaneo-assets\/workspace\/workspace-1\/project\/project-1\/task\/task-2\/descriptions\/report-\d+-[a-z0-9]+\.png$/,
+    );
+
+    const command = send.mock.calls[0]?.[0] as {
+      input: Record<string, string>;
+    };
+
+    expect(command.input).toMatchObject({
+      Bucket: "kaneo",
+      CopySource:
+        "kaneo/workspace/w1/project/p1/task/t1/descriptions/report.png",
+      Key: key,
+    });
   });
 
   it("resolveS3Credentials returns explicit credentials when both keys are set", () => {
@@ -359,6 +591,7 @@ describe("S3 credential provider chain (IAM role)", () => {
       surface: "description",
       filename: "report.png",
       contentType: "image/png",
+      size: 512,
     });
 
     const searchParams = new URL(upload.uploadUrl).searchParams;
@@ -371,9 +604,8 @@ describe("S3 credential provider chain (IAM role)", () => {
 
 vi.mock("../../../apps/api/src/database", () => ({ default: {} }));
 
-const { contentReferencesAsset, extractAssetIds } = await import(
-  "../../../apps/api/src/storage/cleanup-assets"
-);
+const { contentReferencesAsset, extractAssetIds } =
+  await import("../../../apps/api/src/storage/cleanup-assets");
 
 describe("extractAssetIds", () => {
   it("extracts asset IDs from content with /api/asset/ URLs", () => {

@@ -1,5 +1,5 @@
 import { and, eq, or } from "drizzle-orm";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 const mocks = vi.hoisted(() => ({
   publishEvent: vi.fn(async () => {}),

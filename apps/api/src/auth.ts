@@ -676,11 +676,7 @@ export const auth = betterAuth({
             (ctx.body?.turnstileToken as string | undefined) ??
             ctx.headers?.get("x-turnstile-token") ??
             null;
-          const remoteIp =
-            ctx.headers?.get("cf-connecting-ip") ??
-            ctx.headers?.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-            null;
-          const verdict = await verifyTurnstile(turnstileToken, remoteIp);
+          const verdict = await verifyTurnstile(turnstileToken);
           if (!verdict.ok) {
             throw new APIError("FORBIDDEN", { message: verdict.reason });
           }

@@ -6,8 +6,16 @@ import { checkProjectWebhookReminders } from "./project-webhook-reminders";
 const jobs: Cron[] = [];
 
 export function initializeScheduler(): void {
-  jobs.push(new Cron("*/5 * * * *", checkDueDateReminders));
-  jobs.push(new Cron("*/5 * * * *", checkProjectWebhookReminders));
+  jobs.push(
+    new Cron("*/5 * * * *", async () => {
+      await checkDueDateReminders();
+    }),
+  );
+  jobs.push(
+    new Cron("*/5 * * * *", async () => {
+      await checkProjectWebhookReminders();
+    }),
+  );
   jobs.push(
     new Cron("*/1 * * * *", async () => {
       try {

@@ -23,7 +23,8 @@ import {
 } from "../../database/schema";
 import { getBoardVisibleSubtaskCounts } from "../utils/subtask-counts";
 
-type GetTasksOptions = {
+export type GetTasksOptions = {
+  publicOnly?: boolean;
   assigneeId?: string;
   dueAfter?: string;
   dueBefore?: string;
@@ -133,6 +134,7 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
     startDate: taskTable.startDate,
     dueDate: taskTable.dueDate,
     position: taskTable.position,
+    recurrence: taskTable.recurrence,
     createdAt: taskTable.createdAt,
     userId: taskTable.userId,
     assigneeName: userTable.name,
@@ -198,7 +200,7 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
     Array<{
       id: string;
       taskId: string;
-      integrationId: string;
+      integrationId: string | null;
       resourceType: string;
       externalId: string;
       url: string;
@@ -304,11 +306,16 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
 
     return {
       ...task,
+      recurrence: task.recurrence ?? null,
       labels: taskLabelsMap.get(task.id) || [],
       externalLinks: taskExternalLinksMap.get(task.id) || [],
       parentId: parentIdMap.get(task.id) ?? null,
       directSubtaskCount,
       completedSubtaskCount,
+      subtaskCounts: {
+        completed: completedSubtaskCount,
+        total: directSubtaskCount,
+      },
     };
   };
 
@@ -340,6 +347,7 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
       description: project.description,
       isPublic: project.isPublic,
       workspaceId: project.workspaceId,
+      backgroundVersion: project.backgroundVersion,
       columns,
       archivedTasks,
       plannedTasks,
@@ -350,12 +358,18 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
           page,
           pageSize,
           totalPages: Math.max(1, Math.ceil(total / pageSize)),
+          relatedPage: 1,
+          relatedPageSize: pageSize,
+          relatedTotalPages: 1,
         }
       : {
           total,
           page: 1,
           pageSize: total,
           totalPages: 1,
+          relatedPage: 1,
+          relatedPageSize: total,
+          relatedTotalPages: 1,
         },
   };
 }

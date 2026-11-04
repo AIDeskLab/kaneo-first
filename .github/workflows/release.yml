@@ -1,106 +1,255 @@
-name: Create Release
+name: Release
 
+# Images are built and pushed under the computed version before the release
+# exists, so a broken image build stops the release instead of leaving a tag, a
+# GitHub Release, a Discord announcement and a Helm chart pointing at nothing.
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Canonical version to release (must match package.json; empty uses current)"
+      release_type:
+        description: "Version bump"
+        required: true
+        default: auto
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+      dry_run:
+        description: "Preview the version and notes without releasing anything"
         required: false
-        type: string
+        default: false
+        type: boolean
 
 concurrency:
-  group: fork-version-main
+  group: release
   cancel-in-progress: false
 
+permissions: {}
+
 jobs:
-  release:
-    runs-on: ubuntu-latest
+  plan:
+    name: Plan
+    timeout-minutes: 15
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
-      contents: write
-      actions: write
-
+      contents: write # semantic-release verifies push permission even on a dry run
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          ref: main
-
       - name: Enforce dispatch from main
         run: |
           if [ "$GITHUB_REF" != "refs/heads/main" ]; then
-            echo "::error::release.yml must be dispatched from main (current ref: $GITHUB_REF)."
+            echo "::error::Release must be dispatched from main (current ref: $GITHUB_REF)."
             exit 1
           fi
+
+      - name: Checkout repository
+        uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 20.20.2
+          node-version: 24.22.2
+          cache: pnpm
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Install changelog tooling
-        run: |
-          bun add -g conventional-changelog-cli
-          bun add -g conventional-changelog-angular
-
-      - name: Validate and resolve canonical version
-        id: version
+      - name: Resolve next version
+        id: plan
         env:
-          REQUESTED_VERSION: ${{ inputs.version }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
         run: |
-          node scripts/versioning.mjs check
-          VERSION=$(node -p "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).version")
-          if [ -n "$REQUESTED_VERSION" ] && [ "$REQUESTED_VERSION" != "$VERSION" ]; then
-            echo "::error::Requested version $REQUESTED_VERSION does not match package.json version $VERSION"
+          set -o pipefail
+          pnpm exec semantic-release --dry-run 2>&1 | tee /tmp/release-plan.log
+
+      - name: Summarise the plan
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          {
+            if [ -n "$VERSION" ]; then
+              echo "## Release plan: v$VERSION"
+            else
+              echo "## No release"
+              echo
+              echo "No releasable commits since the last tag."
+            fi
+            echo
+            echo "<details><summary>semantic-release dry run</summary>"
+            echo
+            echo '```'
+            cat /tmp/release-plan.log
+            echo '```'
+            echo
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  verify-ci:
+    name: Verify CI for release source
+    needs: plan
+    if: ${{ !inputs.dry_run && needs.plan.outputs.version != '' }}
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24.22.2
+          package-manager-cache: false
+      - name: Wait for successful main CI on this exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci/require-ci.mjs
+
+  images:
+    name: Images
+    needs: [plan, verify-ci]
+    if: ${{ !inputs.dry_run && needs.plan.outputs.version != '' }}
+    permissions:
+      contents: read
+      packages: write
+
+    uses: ./.github/workflows/build-images.yml # zizmor: ignore[self-repository] $/-syntax not parsed by pinned actionlint v1.7.12; revisit when supported
+    secrets:
+      GH_PACKAGE_TOKEN: ${{ secrets.GH_PACKAGE_TOKEN }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    with:
+      source_mode: planned
+      version: ${{ needs.plan.outputs.version }}
+      tags: type=raw,value=${{ needs.plan.outputs.version }}
+
+  chart:
+    name: Chart
+    needs: plan
+    if: ${{ !inputs.dry_run && needs.plan.outputs.version != '' }}
+    permissions:
+      contents: read
+
+    uses: ./.github/workflows/helm-validate.yml # zizmor: ignore[self-repository] $/-syntax not parsed by pinned actionlint v1.7.12; revisit when supported
+
+  release:
+    name: Release
+    needs: [plan, images, chart]
+    if: ${{ !inputs.dry_run && needs.plan.outputs.version != '' }}
+    timeout-minutes: 15
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      # The same token the API calls use, so the release commit and tag are not
+      # pushed under a different identity than the one that was verified.
+      - name: Checkout repository
+        uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24.22.2
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # A release created with GITHUB_TOKEN does not trigger other workflows,
+      # which would silence release-notify.yml.
+      - name: Release
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          PLANNED_VERSION: ${{ needs.plan.outputs.version }}
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
+        run: |
+          node scripts/security/verify-release-source.mjs planned "$PLANNED_VERSION"
+          pnpm exec semantic-release
+
+      - name: Verify the released version matches the built images
+        env:
+          PLANNED: ${{ needs.plan.outputs.version }}
+          RELEASED: ${{ steps.release.outputs.version }}
+        run: |
+          if [ "$PLANNED" != "$RELEASED" ]; then
+            echo "::error::Planned v$PLANNED but released v$RELEASED; the images published for this run are tagged v$PLANNED."
             exit 1
           fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Generate changelog
-        run: bunx conventional-changelog -p angular -i CHANGELOG.md -s --release-count 1
+  promote:
+    name: Promote
+    needs: [plan, release]
+    timeout-minutes: 15
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_PACKAGE_TOKEN }}
 
-      - name: Create release commit and tag
+      # Copies the published manifest, so the floating tags are the exact bytes
+      # released. Releases only come from main, so the newest version always
+      # owns its :major and :major.minor tags.
+      - name: Tag images as latest, major and major.minor
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          OWNER: ${{ github.repository_owner }}
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add CHANGELOG.md
-          if ! git diff --cached --quiet; then
-            git commit -m "chore(release): v${VERSION} [skip ci]"
+          if [[ ! "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+$ ]]; then
+            echo "::error::Expected a major.minor.patch version, got '$VERSION'."
+            exit 1
           fi
-          git tag "v${VERSION}"
-          git push origin HEAD:main
-          git push origin "v${VERSION}"
+          major="${BASH_REMATCH[1]}"
+          minor="${major}.${BASH_REMATCH[2]}"
+          for image in kaneo web api; do
+            ref="ghcr.io/${OWNER,,}/${image}"
+            docker buildx imagetools create \
+              --tag "${ref}:latest" \
+              --tag "${ref}:${major}" \
+              --tag "${ref}:${minor}" \
+              "${ref}:${VERSION}"
+          done
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3.0.1
-        with:
-          token: ${{ secrets.RELEASE_TOKEN }}
-          tag_name: v${{ steps.version.outputs.version }}
-          name: Release v${{ steps.version.outputs.version }}
-          generate_release_notes: true
-          draft: false
-          prerelease: true
+  chart-publish:
+    name: Publish chart
+    needs: [plan, promote]
+    permissions:
+      contents: read
+      packages: write
 
-      - name: Trigger Docker Build
-        uses: actions/github-script@v8
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'docker.yml',
-              ref: 'main',
-              inputs: {
-                version: '${{ steps.version.outputs.version }}',
-                latest: 'true'
-              }
-            });
-            console.log('Triggered Docker build for version ${{ steps.version.outputs.version }}');
+    uses: ./.github/workflows/helm-chart.yml # zizmor: ignore[self-repository] $/-syntax not parsed by pinned actionlint v1.7.12; revisit when supported
+    with:
+      version: ${{ needs.plan.outputs.version }}

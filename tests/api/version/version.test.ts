@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test } from "vite-plus/test";
 import { createApp } from "../../../apps/api/src";
 import packageJson from "../../../package.json";
 

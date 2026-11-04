@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import useHierarchyExpansionStore, {
   EMPTY_EXPANDED_IDS,
 } from "./hierarchy-expansion";

@@ -1,87 +1,56 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vite-plus/test";
+import useBacklogBulkSelectionStore from "./backlog-bulk-selection";
 import useBulkSelectionStore from "./bulk-selection";
 
-function resetBulkSelectionStore() {
-  useBulkSelectionStore.setState({
-    selectedTaskIds: new Set(),
-    isSelectMode: false,
-    availableTaskIds: [],
-    focusedTaskId: null,
-  });
-}
+const stores = [
+  ["board and list", useBulkSelectionStore],
+  ["backlog", useBacklogBulkSelectionStore],
+] as const;
 
-describe("useBulkSelectionStore", () => {
+describe.each(stores)("%s range selection", (_name, store) => {
   beforeEach(() => {
-    resetBulkSelectionStore();
+    store.setState(store.getInitialState());
+    store.getState().setAvailableTasks(["a", "b", "c", "d", "e"]);
   });
 
-  afterEach(() => {
-    resetBulkSelectionStore();
+  it("selects an inclusive range in either direction and keeps other selections", () => {
+    store.getState().toggleSelection("a");
+    store.getState().toggleSelection("d");
+    store.getState().selectRange("b");
+    expect([...store.getState().selectedTaskIds]).toEqual(["a", "d", "b", "c"]);
+
+    store.getState().selectRange("e");
+    expect(store.getState().selectedTaskIds).toEqual(
+      new Set(["a", "b", "c", "d", "e"]),
+    );
+    expect(store.getState().selectionAnchorId).toBe("d");
   });
 
-  it("does not notify subscribers when available task ids are unchanged", () => {
-    const listener = vi.fn();
-    const unsubscribe = useBulkSelectionStore.subscribe(listener);
+  it("uses a plain clicked task as the anchor and falls back to the clicked task when the anchor disappears", () => {
+    store.getState().setSelectionAnchor("b");
+    store.getState().selectRange("d");
+    expect(store.getState().selectedTaskIds).toEqual(new Set(["b", "c", "d"]));
 
-    useBulkSelectionStore.getState().setAvailableTasks(["a", "b"]);
-    expect(listener).toHaveBeenCalledTimes(1);
-
-    // Same contents in a new array — must not re-notify, or list/board effects
-    // that sync visibleTaskIds will hit Maximum update depth exceeded.
-    useBulkSelectionStore.getState().setAvailableTasks(["a", "b"]);
-    expect(listener).toHaveBeenCalledTimes(1);
-
-    unsubscribe();
+    store.getState().clearSelection();
+    store.getState().setSelectionAnchor("b");
+    store.getState().setAvailableTasks(["d", "e"]);
+    store.getState().selectRange("e");
+    expect(store.getState().selectedTaskIds).toEqual(new Set(["e"]));
+    expect(store.getState().selectionAnchorId).toBe("e");
   });
 
-  it("does not notify subscribers when clearFocus is a no-op", () => {
-    const listener = vi.fn();
-    const unsubscribe = useBulkSelectionStore.subscribe(listener);
-
-    useBulkSelectionStore.getState().clearFocus();
-    expect(listener).not.toHaveBeenCalled();
-
-    useBulkSelectionStore.getState().setFocusedTask("task-1");
-    expect(listener).toHaveBeenCalledTimes(1);
-
-    useBulkSelectionStore.getState().clearFocus();
-    expect(listener).toHaveBeenCalledTimes(2);
-
-    useBulkSelectionStore.getState().clearFocus();
-    expect(listener).toHaveBeenCalledTimes(2);
-
-    unsubscribe();
+  it("follows the current visible order after filtering or reordering", () => {
+    store.getState().toggleSelection("a");
+    store.getState().setAvailableTasks(["e", "a", "d", "c"]);
+    store.getState().selectRange("c");
+    expect(store.getState().selectedTaskIds).toEqual(new Set(["a", "d", "c"]));
+    expect(store.getState().selectionAnchorId).toBe("a");
   });
 
-  it("clears focus when the focused task leaves the available set", () => {
-    useBulkSelectionStore.getState().setAvailableTasks(["parent", "child"]);
-    useBulkSelectionStore.getState().setFocusedTask("child");
-
-    useBulkSelectionStore.getState().setAvailableTasks(["parent"]);
-
-    expect(useBulkSelectionStore.getState().focusedTaskId).toBeNull();
-    expect(useBulkSelectionStore.getState().availableTaskIds).toEqual([
-      "parent",
-    ]);
-  });
-
-  it("keeps focus when the focused task remains available", () => {
-    useBulkSelectionStore.getState().setAvailableTasks(["parent", "child"]);
-    useBulkSelectionStore.getState().setFocusedTask("child");
-
-    useBulkSelectionStore
-      .getState()
-      .setAvailableTasks(["parent", "child", "other"]);
-
-    expect(useBulkSelectionStore.getState().focusedTaskId).toBe("child");
-  });
-
-  it("starts focusNext from the first available task after a stale focus", () => {
-    useBulkSelectionStore.getState().setAvailableTasks(["a", "b", "c"]);
-    useBulkSelectionStore.getState().setFocusedTask("gone");
-
-    useBulkSelectionStore.getState().focusNext();
-
-    expect(useBulkSelectionStore.getState().focusedTaskId).toBe("a");
+  it("clears the anchor with the selection", () => {
+    store.getState().toggleSelection("b");
+    store.getState().clearSelection();
+    store.getState().selectRange("d");
+    expect(store.getState().selectedTaskIds).toEqual(new Set(["d"]));
   });
 });

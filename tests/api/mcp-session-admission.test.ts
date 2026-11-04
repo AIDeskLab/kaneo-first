@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const endpointMocks = vi.hoisted(() => {
   process.env.KANEO_MCP_MAX_GLOBAL_SESSIONS = "2";

@@ -3,7 +3,6 @@ import * as v from "valibot";
 import db from "../../../database";
 import { taskTable } from "../../../database/schema";
 import { publishEvent } from "../../../events";
-import { createGiteaLabelLoader } from "../../../gitea-integration/controllers/import-gitea-issues";
 import { findExternalLink } from "../../github/services/link-manager";
 import { updateTaskStatus } from "../../github/services/task-service";
 import {
@@ -18,7 +17,25 @@ import {
 import { createGiteaClient } from "../utils/gitea-api";
 import { isSystemLabelName } from "../utils/system-labels";
 import { baseUrlFromRepositoryHtmlUrl } from "../utils/webhook-repo";
-import { reconcileGiteaIssueLabels } from "./reconcile-issue-labels";
+import {
+  type GiteaLabelLoader,
+  reconcileGiteaIssueLabels,
+} from "./reconcile-issue-labels";
+
+function createGiteaLabelLoader(
+  client: ReturnType<typeof createGiteaClient>,
+  config: GiteaConfig,
+  issueNumber: number,
+): GiteaLabelLoader {
+  return async () => {
+    const issue = await client.getIssue(
+      config.repositoryOwner,
+      config.repositoryName,
+      issueNumber,
+    );
+    return issue.labels ?? [];
+  };
+}
 
 type IssueLabeledPayload = {
   action: string;

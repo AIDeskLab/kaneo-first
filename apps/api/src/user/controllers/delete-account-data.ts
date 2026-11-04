@@ -1,0 +1,115 @@
+import { APIError } from "better-auth/api";
+import { and, eq, inArray } from "drizzle-orm";
+import db from "../../database";
+import { revokeWorkspaceConnections } from "../../ws";
+import {
+  userTable,
+  workspaceTable,
+  workspaceUserTable,
+} from "../../database/schema";
+import type { DbOrTx } from "../../project-access/db-or-tx";
+import { instanceAdminRoleSql } from "../../utils/instance-admin-role";
+import {
+  formatBlockedWorkspacesMessage,
+  hasOwnerRole,
+  planAccountDeletion,
+  type WorkspaceMembershipSummary,
+} from "../account-deletion";
+
+async function collectMemberships(
+  userId: string,
+  database: DbOrTx,
+): Promise<WorkspaceMembershipSummary[]> {
+  const memberships = await database
+    .select({
+      workspaceId: workspaceUserTable.workspaceId,
+      role: workspaceUserTable.role,
+    })
+    .from(workspaceUserTable)
+    .where(eq(workspaceUserTable.userId, userId));
+
+  if (memberships.length === 0) {
+    return [];
+  }
+
+  const workspaceIds = memberships.map((membership) => membership.workspaceId);
+
+  const members = await database
+    .select({
+      workspaceId: workspaceUserTable.workspaceId,
+      workspaceName: workspaceTable.name,
+      role: workspaceUserTable.role,
+    })
+    .from(workspaceUserTable)
+    .innerJoin(
+      workspaceTable,
+      eq(workspaceUserTable.workspaceId, workspaceTable.id),
+    )
+    .where(inArray(workspaceUserTable.workspaceId, workspaceIds));
+
+  return memberships.map((membership) => {
+    const workspaceMembers = members.filter(
+      (member) => member.workspaceId === membership.workspaceId,
+    );
+
+    return {
+      workspaceId: membership.workspaceId,
+      workspaceName: workspaceMembers[0]?.workspaceName ?? "workspace",
+      isOwner: hasOwnerRole(membership.role),
+      memberCount: workspaceMembers.length,
+      ownerCount: workspaceMembers.filter((member) => hasOwnerRole(member.role))
+        .length,
+    };
+  });
+}
+
+export async function deleteAccountData(userId: string, database: DbOrTx = db) {
+  const plan = planAccountDeletion(await collectMemberships(userId, database));
+
+  if (plan.blockedWorkspaceNames.length > 0) {
+    throw new APIError("CONFLICT", {
+      code: "SOLE_WORKSPACE_OWNER",
+      message: formatBlockedWorkspacesMessage(plan.blockedWorkspaceNames),
+    });
+  }
+
+  if (plan.workspaceIdsToDelete.length > 0) {
+    const admins = await database
+      .select({ userId: userTable.id })
+      .from(userTable)
+      .where(instanceAdminRoleSql(userTable.role));
+    const recipients = new Set([
+      userId,
+      ...admins.map((admin) => admin.userId),
+    ]);
+    await database
+      .delete(workspaceTable)
+      .where(inArray(workspaceTable.id, plan.workspaceIdsToDelete));
+    for (const workspaceId of plan.workspaceIdsToDelete) {
+      await Promise.all(
+        [...recipients].map((recipient) =>
+          revokeWorkspaceConnections(recipient, workspaceId, { force: true }),
+        ),
+      );
+    }
+  }
+
+  if (plan.workspaceIdsToLeave.length > 0) {
+    await database
+      .delete(workspaceUserTable)
+      .where(
+        and(
+          eq(workspaceUserTable.userId, userId),
+          inArray(workspaceUserTable.workspaceId, plan.workspaceIdsToLeave),
+        ),
+      );
+  }
+
+  for (const workspaceId of plan.workspaceIdsToLeave) {
+    await revokeWorkspaceConnections(userId, workspaceId, { force: true });
+  }
+
+  return plan;
+}
+
+export default deleteAccountData;

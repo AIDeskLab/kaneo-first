@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import db, { getDatabasePool, schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import updateTask from "../../apps/api/src/task/controllers/update-task";

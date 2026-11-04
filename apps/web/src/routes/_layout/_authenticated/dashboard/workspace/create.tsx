@@ -1,6 +1,5 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Building2 } from "lucide-react";
+import { Building2, SquarePlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import PageTitle from "@/components/page-title";
@@ -22,9 +21,9 @@ function RouteComponent() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { mutateAsync, isPending } = useCreateWorkspace();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { mutateAsync } = useCreateWorkspace();
 
   useEffect(() => {
     if (inputRef.current) {
@@ -38,33 +37,35 @@ function RouteComponent() {
     e.preventDefault();
     if (!name.trim()) return;
 
+    setIsSubmitting(true);
     try {
       const createdWorkspace = await mutateAsync({ name, description });
-      toast.success(t("workspace:create.success"));
-      await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
 
       await authClient.organization.setActive({
         organizationId: createdWorkspace.id,
       });
 
-      navigate({
+      await navigate({
         to: "/dashboard/workspace/$workspaceId",
         params: {
           workspaceId: createdWorkspace.id,
         },
         replace: true,
       });
+      toast.success(t("workspace:create.success"), { icon: SquarePlusIcon });
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : t("workspace:create.error"),
       );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <>
       <PageTitle title={t("workspace:create.pageTitle")} />
-      <div className="min-h-screen w-full bg-background flex items-center justify-center p-4 overflow-y-auto">
+      <div className="min-h-svh w-full bg-background flex items-center justify-center p-4 overflow-y-auto">
         <div className="w-full max-w-md">
           <Card className="shadow-sm">
             <CardContent className="p-8">
@@ -128,10 +129,10 @@ function RouteComponent() {
                 <div className="pt-4">
                   <Button
                     type="submit"
-                    disabled={!name.trim() || isPending}
+                    disabled={!name.trim() || isSubmitting}
                     className="w-full h-12 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isPending
+                    {isSubmitting
                       ? t("workspace:create.creating")
                       : t("workspace:create.submit")}
                   </Button>

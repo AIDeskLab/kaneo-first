@@ -1,23 +1,28 @@
 ---
-title: Manage Workspace Labels
+title: Labels
 description: Create, edit, and delete reusable labels at the workspace level
 ---
 
-Labels help your team categorize tasks consistently across all projects. Workspace-level labels are defined once and available everywhere — update the name or color, and it changes everywhere that label is used.
+Labels help your team categorize tasks consistently across all projects. Workspace-level labels are defined once and available everywhere: update the name or color, and it changes everywhere that label is used.
 
 ## Open workspace labels
 
 1. Go to **Settings**.
 2. Open **Workspace -> Labels**.
 
-You'll see a list of all existing workspace labels with their colors and names.
+You'll see the workspace's labels with their colors and names.
+
+<Frame caption="Workspace labels are managed in Settings and shared across projects.">
+  <img className="block dark:hidden" src="/images/product/labels-light.png" alt="Workspace labels are managed in Settings and shared across projects." />
+  <img className="hidden dark:block" src="/images/product/labels-dark.png" alt="Workspace labels are managed in Settings and shared across projects." />
+</Frame>
 
 ## Create a label
 
 1. Click **Create Label**.
 2. Enter a name (e.g. `bug`, `feature`, `api`).
-3. Pick a color from the 9 available options:
-   - Stone, Slate, Lavender, Sage, Forest, Amber, Terracotta, Rose, Crimson
+3. Pick a color from the 13 available options:
+   - Stone, Slate, Lavender, Sage, Forest, Amber, Terracotta, Rose, Crimson, Ocean, Sky, Lagoon, Orchid
 4. Click **Create Label**.
 
 The label is now available for assignment to tasks across all projects in the workspace.
@@ -28,26 +33,28 @@ The label is now available for assignment to tasks across all projects in the wo
 2. Update the name, color, or both.
 3. Click **Save**.
 
-Changes cascade to every task currently using that label — no manual re-assignment needed.
+Changes cascade to every task currently using that label, with no manual re-assignment needed.
 
 ## Delete a label
 
 1. Click the trash icon next to the label.
 2. Confirm deletion in the dialog.
 
-Deleting a workspace label removes it from **all** tasks that use it. This cannot be undone.
+Deleting a workspace label removes its existing task assignments. This cannot be undone. Large deletions take longer; keep the page open until the success message appears.
+
+If the connection fails or you close the page, return to **Workspace → Labels**. An unfinished label shows **Deletion pending**. Use its trash button, then **Resume deletion**, to finish removing the remaining assignments. A pending label cannot be edited or newly assigned from the label picker.
 
 ## Permissions
 
-Managing workspace labels requires the **Manage settings** permission. If you don't see the edit or delete controls, ask a workspace admin to update your role.
+Creating, editing, and deleting labels require the corresponding **Label** permissions. If you don't see the controls, ask a workspace admin to update your role.
 
 ## Best practices
 
 - Use consistent naming: `bug`, `feature`, `chore` for work type; `api`, `web`, `infra` for domain
 - Assign distinct colors to different categories so they're easy to scan on the board
-- Keep the total number of labels manageable — too many labels dilute their usefulness
+- Keep the total number of labels manageable, since too many labels dilute their usefulness
 
 ## Related
 
-- [Collaborate with your team — Standardize labels](/core/functional/collaborate-with-team#3-standardize-labels)
+- [Members and roles](/core/functional/collaborate-with-team)
 - [Create a workspace and project](/core/functional/create-workspace-and-project)

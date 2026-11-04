@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { getConnInfo } from "@hono/node-server/conninfo";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { Hono } from "hono";
@@ -44,14 +43,6 @@ const maxTokenBodySize =
     ? configuredMaxTokenBodySize
     : defaultMaxTokenBodySize;
 
-function connectionSource(c: Parameters<typeof getConnInfo>[0]): string {
-  try {
-    return getConnInfo(c).remote.address || "unknown";
-  } catch {
-    return "unknown";
-  }
-}
-
 function createMcpServerForUser(token: string): McpServer {
   const server = new McpServer({
     name: "kaneo-mcp",
@@ -81,7 +72,7 @@ async function validateBearerToken(
   // Fallback: Hermes and other agents send Kaneo API keys as Bearer.
   // Match REST auth (authenticateApiRequest) via verifyApiKey.
   const apiKeyResult = await verifyApiKey(token);
-  if (apiKeyResult?.valid && apiKeyResult.key?.userId) {
+  if (apiKeyResult?.status === "valid" && apiKeyResult.key.userId) {
     return { userId: apiKeyResult.key.userId, token };
   }
 
@@ -137,8 +128,7 @@ mcp.post(
     onError: (c) => c.json({ error: "request_too_large" }, 413),
   }),
   validator("json", clientRegistrationSchema),
-  async (c) =>
-    c.json(await registerMcpClient(c.req.valid("json"), connectionSource(c))),
+  async (c) => c.json(await registerMcpClient(c.req.valid("json"))),
 );
 
 mcp.get(
@@ -171,10 +161,7 @@ mcp.get(
     },
   }),
   validator("query", authorizationQuerySchema),
-  async (c) =>
-    c.redirect(
-      await beginMcpAuthorization(c.req.valid("query"), connectionSource(c)),
-    ),
+  async (c) => c.redirect(await beginMcpAuthorization(c.req.valid("query"))),
 );
 
 mcp.get(

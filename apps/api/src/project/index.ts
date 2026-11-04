@@ -47,6 +47,7 @@ const project = new Hono<{
       const { includeArchived } = c.req.valid("query");
       const projects = await getProjectsCtrl(
         workspaceId,
+        c.get("userId"),
         includeArchived === "true",
       );
       return c.json(projects);
@@ -81,7 +82,13 @@ const project = new Hono<{
     async (c) => {
       const { name, icon, slug } = c.req.valid("json");
       const workspaceId = c.get("workspaceId");
-      const newProject = await createProjectCtrl(workspaceId, name, icon, slug);
+      const newProject = await createProjectCtrl(
+        workspaceId,
+        name,
+        icon,
+        slug,
+        c.get("userId"),
+      );
       return c.json(newProject);
     },
   )
@@ -146,7 +153,11 @@ const project = new Hono<{
     async (c) => {
       const workspaceId = c.get("workspaceId");
       const { projects } = c.req.valid("json");
-      const reordered = await reorderProjectsCtrl(workspaceId, projects);
+      const reordered = await reorderProjectsCtrl(
+        workspaceId,
+        c.get("userId"),
+        projects,
+      );
       return c.json(reordered);
     },
   )

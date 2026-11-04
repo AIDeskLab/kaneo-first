@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
 import { resetTestDatabase } from "./helpers/database";
 import {

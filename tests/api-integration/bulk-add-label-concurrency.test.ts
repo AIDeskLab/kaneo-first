@@ -1,5 +1,5 @@
 import { and, eq, isNotNull } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import db, { getDatabasePool, schema } from "../../apps/api/src/database";
 import deleteLabel from "../../apps/api/src/label/controllers/delete-label";
 import { normalizeLabelIdentity } from "../../apps/api/src/label/controllers/workspace-label-lock";

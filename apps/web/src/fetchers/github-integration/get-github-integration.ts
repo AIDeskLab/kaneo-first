@@ -1,5 +1,7 @@
 import { client } from "@kaneo/libs";
 
+import { HttpError } from "@/lib/http-error";
+
 async function getGithubIntegration(projectId: string) {
   const response = await client["github-integration"].project[
     ":projectId"
@@ -8,12 +10,15 @@ async function getGithubIntegration(projectId: string) {
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error);
+    throw await HttpError.fromResponse(response);
   }
 
   const data = await response.json();
   return data;
 }
+
+export type GithubIntegration = NonNullable<
+  Awaited<ReturnType<typeof getGithubIntegration>>
+>;
 
 export default getGithubIntegration;
