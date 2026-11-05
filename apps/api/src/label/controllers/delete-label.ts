@@ -1,6 +1,7 @@
 import { and, asc, eq, isNotNull, lte, sql } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
-import db, { getDatabasePool } from "../../database";
+import type { PoolClient } from "pg";
+import db from "../../database";
 import { labelTable, projectTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { removeLabelFromGitea } from "../../plugins/gitea/utils/sync-label-to-gitea";
@@ -13,31 +14,23 @@ import { normalizeLabelIdentity } from "./workspace-label-lock";
 const WORKSPACE_LABEL_LOCK_NAMESPACE = 1533;
 
 async function withWorkspaceLabelLock<T>(
+  client: PoolClient,
   workspaceId: string,
   name: string,
   run: () => Promise<T>,
 ): Promise<T> {
-  const client = await getDatabasePool().connect();
   const key = `${workspaceId}:${normalizeLabelIdentity(name)}`;
-  let locked = false;
+  await client.query("SELECT pg_advisory_lock($1, hashtext($2))", [
+    WORKSPACE_LABEL_LOCK_NAMESPACE,
+    key,
+  ]);
   try {
-    await client.query("SELECT pg_advisory_lock($1, hashtext($2))", [
+    return await run();
+  } finally {
+    await client.query("SELECT pg_advisory_unlock($1, hashtext($2))", [
       WORKSPACE_LABEL_LOCK_NAMESPACE,
       key,
     ]);
-    locked = true;
-    return await run();
-  } finally {
-    try {
-      if (locked) {
-        await client.query("SELECT pg_advisory_unlock($1, hashtext($2))", [
-          WORKSPACE_LABEL_LOCK_NAMESPACE,
-          key,
-        ]);
-      }
-    } finally {
-      client.release();
-    }
   }
 }
 
@@ -94,14 +87,19 @@ async function deleteLabel(
   id: string,
   userId: string,
 ): Promise<Label & { pendingDeletion?: true }> {
-  return withLabelDeletionLock(id, async () => {
+  return withLabelDeletionLock(id, async (client) => {
     const label = await db.query.labelTable.findFirst({
       where: eq(labelTable.id, id),
     });
     if (!label) throw new HTTPException(404, { message: "Label not found" });
     const remove = () => removeLoadedLabel(label, userId);
     if (label.workspaceId) {
-      return withWorkspaceLabelLock(label.workspaceId, label.name, remove);
+      return withWorkspaceLabelLock(
+        client,
+        label.workspaceId,
+        label.name,
+        remove,
+      );
     }
     return remove();
   });

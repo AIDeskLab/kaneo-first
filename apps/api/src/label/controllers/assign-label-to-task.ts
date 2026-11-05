@@ -21,6 +21,7 @@ import {
   syncLabelToGitlab,
 } from "../../plugins/gitlab/utils/sync-label-to-gitlab";
 import { assertProjectAccess } from "../../project-access/assert-project-access";
+import { lockWorkspaceLabels } from "./workspace-label-lock";
 
 type LabelRow = typeof labelTableType.$inferSelect;
 
@@ -75,6 +76,9 @@ async function assignLabelToTask(id: string, taskId: string, userId: string) {
   };
   const { taskLabel, inserted, previousTaskId, previousName } =
     await db.transaction<InsertionResult>(async (tx) => {
+      if (label.workspaceId) {
+        await lockWorkspaceLabels(tx, label.workspaceId, [label.name]);
+      }
       const currentLabel = await tx.query.labelTable.findFirst({
         where: (label, { eq }) => eq(label.id, id),
       });

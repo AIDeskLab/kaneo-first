@@ -22,7 +22,7 @@ function busy() {
 /** Session locks span awaited provider calls without holding a SQL transaction. */
 export async function withLabelDeletionLock<T>(
   id: string,
-  run: () => Promise<T>,
+  run: (client: PoolClient) => Promise<T>,
 ): Promise<T> {
   if (active >= MAX_LABEL_DELETIONS_IN_FLIGHT || !reserveSessionLock())
     throw busy();
@@ -54,7 +54,7 @@ export async function withLabelDeletionLock<T>(
     );
     labelLocked = rows[0]?.acquired === true;
     if (!labelLocked) throw busy();
-    return await run();
+    return await run(client);
   } finally {
     if (client) {
       try {
