@@ -339,7 +339,7 @@
 			"emailNotVerified": "Confirm your email address first. We sent you a new link.",
 			"signedInSuccess": "Signed in successfully",
 			"signingIn": "Signing In...",
-			"signIn": "Sign In"
+			"signIn": "Sign in"
 		},
 		"invitation": {
 			"pageTitleAccept": "Accept Invitation",
