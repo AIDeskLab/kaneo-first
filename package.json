@@ -50,10 +50,10 @@
     "node": "^24.15.0 || >=26.0.0"
   },
   "packageManager": "pnpm@12.15.0",
-  "version": "2.49.0-aidesk.6",
+  "version": "2.49.0-aidesk.7",
   "dependencies": {
     "dotenv-mono": "^1.5.1"
   },
   "upstreamVersion": "2.49.0",
-  "counter": 6
+  "counter": 7
 }
