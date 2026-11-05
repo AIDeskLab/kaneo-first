@@ -91,6 +91,7 @@ it.each(cases)(
       .values({
         projectId: project.id,
         type: provider,
+        githubRepositoryKey: provider === "github" ? "owner/repo" : null,
         config: JSON.stringify({
           baseUrl: "https://git.example",
           accessToken: "test-only",

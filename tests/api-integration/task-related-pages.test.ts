@@ -41,7 +41,12 @@ async function fixture() {
     .returning();
   const [integration] = await db
     .insert(schema.integrationTable)
-    .values({ projectId: project.id, type: "github", config: "{}" })
+    .values({
+      projectId: project.id,
+      type: "github",
+      config: "{}",
+      githubRepositoryKey: "placeholder/related-pages",
+    })
     .returning();
   await db.insert(schema.labelTable).values(
     Array.from({ length: 237 }, (_, i) => ({

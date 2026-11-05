@@ -94,6 +94,7 @@ async function seed(type = "github") {
     .values({
       projectId: project.id,
       type,
+      githubRepositoryKey: type === "github" ? "owner/repo" : null,
       config: JSON.stringify({
         baseUrl: "https://git.example",
         repositoryOwner: "owner",

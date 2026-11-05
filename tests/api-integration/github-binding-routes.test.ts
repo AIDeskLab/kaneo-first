@@ -129,7 +129,7 @@ describe("GitHub binding HTTP and webhook tenant boundaries", () => {
     mockAuthenticatedSession(owners[0].user);
     expect((await connect(owners[0].project.id)).status).toBe(403);
     expect(m.installation).not.toHaveBeenCalled();
-    for (const owner of owners) {
+    for (const [index, owner] of owners.entries()) {
       await db.insert(schema.accountTable).values({
         id: `account-${owner.user.id}`,
         userId: owner.user.id,
@@ -139,16 +139,19 @@ describe("GitHub binding HTTP and webhook tenant boundaries", () => {
         updatedAt: new Date(),
       });
       mockAuthenticatedSession(owner.user);
-      expect((await connect(owner.project.id)).status).toBe(200);
+      // One active GitHub repository binding is global. The second tenant
+      // is rejected instead of opening another link to the same repository.
+      expect((await connect(owner.project.id)).status).toBe(
+        index === 0 ? 200 : 409,
+      );
     }
     const bindings = await db.query.integrationTable.findMany();
-    expect(bindings).toHaveLength(2);
-    for (const binding of bindings)
-      expect(JSON.parse(binding.config)).toMatchObject({
-        repositoryId: 20,
-        installationId: 10,
-        verifiedGithubAccountId: "30",
-      });
+    expect(bindings).toHaveLength(1);
+    expect(JSON.parse(bindings[0]?.config ?? "{}")).toMatchObject({
+      repositoryId: 20,
+      installationId: 10,
+      verifiedGithubAccountId: "30",
+    });
     m.permission.mockResolvedValue({ data: { permission: "read" } });
     const forbidden = await connect(owners[1].project.id);
     expect(forbidden.status).toBe(403);
@@ -178,13 +181,16 @@ describe("GitHub binding HTTP and webhook tenant boundaries", () => {
       },
     ];
     const tenants = [];
-    for (const config of configs) {
+    for (const [index, config] of configs.entries()) {
       const tenant = await fixture();
       tenants.push(tenant);
       await db.insert(schema.integrationTable).values({
         projectId: tenant.project.id,
         type: "github",
         isActive: true,
+        // Installation matching reads config, not this column. Distinct keys
+        // keep the rows active under the global repository-key uniqueness.
+        githubRepositoryKey: `owner/repo-${index}`,
         config: JSON.stringify({
           repositoryOwner: "owner",
           repositoryName: "repo",

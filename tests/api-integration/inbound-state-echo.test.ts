@@ -59,6 +59,7 @@ it.each(
       .values({
         projectId: project.id,
         type: provider,
+        githubRepositoryKey: provider === "github" ? "owner/repo" : null,
         config: JSON.stringify({
           baseUrl: "https://git.example",
           repositoryOwner: "owner",

@@ -56,7 +56,10 @@ async function resetForLegacyJsMigration() {
 
 async function runLegacyGithubBindingRepair() {
   const migration = await readFile(
-    new URL("../../apps/api/drizzle/0040_needy_ultimatum.sql", import.meta.url),
+    new URL(
+      "../../apps/api/drizzle/0073_fork_schema_delta.sql",
+      import.meta.url,
+    ),
     "utf8",
   );
   const statements = migration
@@ -64,9 +67,8 @@ async function runLegacyGithubBindingRepair() {
     .map((statement) => statement.trim())
     .filter(
       (statement) =>
-        statement.length > 0 &&
-        !statement.startsWith("ALTER TABLE") &&
-        !statement.startsWith("CREATE UNIQUE INDEX"),
+        statement.includes("normalize_github_repository_key") ||
+        statement.startsWith('UPDATE "integration"'),
     );
 
   await db.execute(

@@ -55,6 +55,8 @@ it.each(
       .values({
         projectId: project.id,
         type: provider,
+        githubRepositoryKey:
+          provider === "github" ? "placeholder/project-moved" : null,
         isActive: true,
         config: JSON.stringify({
           syncRules: {

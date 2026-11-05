@@ -62,6 +62,7 @@ it("announces committed workspace label edits once per affected board", async ()
       id: "selected-label-integration",
       projectId: first.id,
       type: "github",
+      githubRepositoryKey: "live/selected",
       config: JSON.stringify({
         syncRules: {
           outgoing: { mode: "labels", match: "any", labels: [root.id] },
@@ -199,7 +200,12 @@ it("refreshes sync label choices on deletion without requiring changed task link
       isActive: false,
       config: "{}",
     },
-    { projectId: foreign.id, type: "github", config: "{}" },
+    {
+      projectId: foreign.id,
+      type: "github",
+      config: "{}",
+      githubRepositoryKey: "live/foreign",
+    },
   ]);
 
   await deleteLabel(label.id, user.id);

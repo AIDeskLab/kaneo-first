@@ -89,7 +89,12 @@ describe("bounded task pages", () => {
     const { project, member, tasks, app } = await fixture();
     const [integration] = await db
       .insert(schema.integrationTable)
-      .values({ projectId: project.id, type: "github", config: "{}" })
+      .values({
+        projectId: project.id,
+        type: "github",
+        config: "{}",
+        githubRepositoryKey: "placeholder/pagination",
+      })
       .returning();
     const task = tasks[235];
     await db.insert(schema.labelTable).values({

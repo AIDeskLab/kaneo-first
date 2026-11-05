@@ -71,6 +71,7 @@ async function setup() {
       projectId: project.id,
       type: "github",
       isActive: true,
+      githubRepositoryKey: "example/repo",
       config: JSON.stringify({
         repositoryOwner: "example",
         repositoryName: "repo",

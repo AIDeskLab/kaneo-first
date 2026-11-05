@@ -127,6 +127,7 @@ beforeEach(async () => {
 async function setup(
   provider: "github" | "gitea",
   metadata: Record<string, unknown> = { syncFieldLabels: [...mocks.labels] },
+  repositoryKey = "team/repo",
 ) {
   const { workspace, user } = await createWorkspaceMember();
   const { project } = await createProjectFixture({ workspaceId: workspace.id });
@@ -151,6 +152,7 @@ async function setup(
     .values({
       projectId: project.id,
       type: provider,
+      githubRepositoryKey: provider === "github" ? repositoryKey : null,
       isActive: true,
       config: JSON.stringify(config),
     })
@@ -550,7 +552,7 @@ it("github replays the event's label for a deferred link without a record", asyn
 
 it("github shares one delivery budget across integrations", async () => {
   const first = await setup("github");
-  const second = await setup("github");
+  const second = await setup("github", undefined, "team/repo-2");
   let release!: () => void;
   mocks.readGate = new Promise((resolve) => {
     release = resolve;

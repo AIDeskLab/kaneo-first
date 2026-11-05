@@ -66,7 +66,12 @@ describe("manual external resource links", () => {
     const own = await context();
     const [integration] = await db
       .insert(schema.integrationTable)
-      .values({ projectId: own.project.id, type: "github", config: "{}" })
+      .values({
+        projectId: own.project.id,
+        type: "github",
+        config: "{}",
+        githubRepositoryKey: "placeholder/manual-links",
+      })
       .returning();
     const existing = await link(own.task.id, integration.id, "issue");
     const migration = readFileSync(
@@ -209,7 +214,12 @@ describe("manual external resource links", () => {
     const own = await context();
     const [integration] = await db
       .insert(schema.integrationTable)
-      .values({ projectId: own.project.id, type: "github", config: "{}" })
+      .values({
+        projectId: own.project.id,
+        type: "github",
+        config: "{}",
+        githubRepositoryKey: "placeholder/manual-links",
+      })
       .returning();
     const entries = [
       await link(own.task.id, integration.id),
@@ -309,7 +319,12 @@ describe("manual external resource links", () => {
     const own = await context();
     const [integration] = await db
       .insert(schema.integrationTable)
-      .values({ projectId: own.project.id, type: "github", config: "{}" })
+      .values({
+        projectId: own.project.id,
+        type: "github",
+        config: "{}",
+        githubRepositoryKey: "placeholder/manual-links",
+      })
       .returning();
     const entry = await link(own.task.id, integration.id, "pull_request");
     mockAuthenticatedSession(own.user);

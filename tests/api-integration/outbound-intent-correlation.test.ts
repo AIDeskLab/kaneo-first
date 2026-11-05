@@ -39,7 +39,12 @@ it.each([
       .returning();
     const [integration] = await db
       .insert(schema.integrationTable)
-      .values({ projectId: project.id, type: "github", config: "{}" })
+      .values({
+        projectId: project.id,
+        type: "github",
+        config: "{}",
+        githubRepositoryKey: "placeholder/outbound",
+      })
       .returning();
     const [link] = await db
       .insert(schema.externalLinkTable)
@@ -152,7 +157,12 @@ it("stops correction when a disconnect races the post-response task read", async
     .returning();
   const [integration] = await db
     .insert(schema.integrationTable)
-    .values({ projectId: project.id, type: "github", config: "{}" })
+    .values({
+      projectId: project.id,
+      type: "github",
+      config: "{}",
+      githubRepositoryKey: "placeholder/outbound",
+    })
     .returning();
   const [link] = await db
     .insert(schema.externalLinkTable)
@@ -211,7 +221,12 @@ it.each(
       .returning();
     const [integration] = await db
       .insert(schema.integrationTable)
-      .values({ projectId: project.id, type: "github", config: "{}" })
+      .values({
+        projectId: project.id,
+        type: "github",
+        config: "{}",
+        githubRepositoryKey: "placeholder/outbound",
+      })
       .returning();
     const [link] = await db
       .insert(schema.externalLinkTable)
@@ -322,6 +337,7 @@ it.each(
       .values({
         projectId: project.id,
         type: provider,
+        githubRepositoryKey: provider === "github" ? "owner/old" : null,
         config: JSON.stringify({ repositoryName: "old", accessToken: "fake" }),
       })
       .returning();
@@ -415,6 +431,7 @@ it.each(["github", "gitea"])(
       .values({
         projectId: project.id,
         type: provider,
+        githubRepositoryKey: provider === "github" ? "owner/new" : null,
         config: JSON.stringify({ repositoryName: "new" }),
       })
       .returning();

@@ -44,6 +44,7 @@ async function setup() {
       projectId: project.id,
       type: "github",
       isActive: true,
+      githubRepositoryKey: "owner/repo",
       config: JSON.stringify(config),
     })
     .returning();

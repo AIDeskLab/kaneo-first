@@ -79,6 +79,7 @@ it.each(
       .values({
         projectId: destination.project.id,
         type: provider,
+        githubRepositoryKey: provider === "github" ? "team/repo" : null,
         isActive: true,
         config: JSON.stringify({
           repositoryOwner: "team",

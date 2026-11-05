@@ -88,6 +88,7 @@ it.each(
       .values({
         projectId: project.id,
         type,
+        githubRepositoryKey: type === "github" ? "team/repo" : null,
         isActive: true,
         config: JSON.stringify({
           baseUrl,

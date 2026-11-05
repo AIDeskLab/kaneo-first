@@ -83,6 +83,8 @@ async function createFixture(
     .values({
       projectId: project.id,
       type: provider,
+      githubRepositoryKey:
+        provider === "github" ? `acme/${repo}/${slug}` : null,
       isActive: true,
       config: JSON.stringify({
         repositoryOwner: "acme",

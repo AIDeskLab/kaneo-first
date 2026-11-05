@@ -227,6 +227,7 @@ async function fixture(provider: "github" | "gitea" | "gitlab") {
     .values({
       projectId: project.id,
       type: provider,
+      githubRepositoryKey: provider === "github" ? "team/repo" : null,
       isActive: true,
       config: JSON.stringify(config),
     })

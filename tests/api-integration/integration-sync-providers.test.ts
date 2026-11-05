@@ -192,6 +192,7 @@ async function setup(type: "github" | "gitea" | "gitlab") {
       projectId: project.id,
       isActive: true,
       config: JSON.stringify(config),
+      githubRepositoryKey: type === "github" ? "team/repo" : null,
     })
     .returning();
   await db
