@@ -56,7 +56,7 @@ describe("Gitea label import", () => {
 
     const migration = await readFile(
       new URL(
-        "../../apps/api/drizzle/0038_silky_lethal_legion.sql",
+        "../../apps/api/drizzle/0073_fork_schema_delta.sql",
         import.meta.url,
       ),
       "utf8",
