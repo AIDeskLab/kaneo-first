@@ -67,6 +67,7 @@ import notification from "./notification";
 import notificationPreferences from "./notification-preferences";
 import oauth from "./oauth";
 import { createRoute, errorResponse, jsonResponse, z } from "./openapi";
+import { registerForkRouteDocs } from "./documented-fork-routes";
 import { initializePlugins, integrationPlugins } from "./plugins";
 import { migrateGitHubIntegration } from "./plugins/github/migration";
 import project from "./project";
@@ -976,6 +977,8 @@ export function createApp() {
       };
     }),
   );
+
+  registerForkRouteDocs(api.openAPIRegistry);
 
   app.route("/api", api);
 
