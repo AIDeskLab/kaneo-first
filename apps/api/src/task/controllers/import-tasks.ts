@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { columnTable, projectTable, taskTable } from "../../database/schema";
@@ -9,12 +9,8 @@ import {
   NOT_ASSIGNABLE,
 } from "../../utils/assert-assignable-user";
 import { resolveImportAssignees } from "../resolve-import-assignees";
-import {
-  coercePriority,
-  coerceStatus,
-  getValidTaskStatuses,
-  VIRTUAL_STATUSES,
-} from "../validate-task-fields";
+import { resolveImportTaskStatus } from "../resolve-import-task-status";
+import { coercePriority, VIRTUAL_STATUSES } from "../validate-task-fields";
 import { claimTaskNumber } from "./claim-task-numbers";
 import { nextTaskPosition } from "./next-task-position";
 import { lockWorkspaceAssignees } from "./workspace-assignee-lock";
@@ -44,8 +40,6 @@ async function importTasks(
     });
   }
 
-  const validStatuses = await getValidTaskStatuses(projectId);
-
   const assigneeIds = [
     ...new Set(
       tasksToImport
@@ -71,6 +65,11 @@ async function importTasks(
       projectId,
       tx,
     );
+    const columns = await tx
+      .select({ slug: columnTable.slug, name: columnTable.name })
+      .from(columnTable)
+      .where(eq(columnTable.projectId, projectId))
+      .orderBy(asc(columnTable.position));
 
     for (const taskData of tasksToImport) {
       try {
@@ -84,10 +83,16 @@ async function importTasks(
           });
           continue;
         }
-        const { status, warning: statusWarning } = coerceStatus(
-          taskData.status,
-          validStatuses,
-        );
+        const resolved = resolveImportTaskStatus(taskData.status, columns);
+        if ("error" in resolved) {
+          results.push({
+            success: false,
+            error: resolved.error,
+            task: taskData,
+          });
+          continue;
+        }
+        const { status, warning: statusWarning } = resolved;
         const { priority, warning: priorityWarning } = coercePriority(
           taskData.priority || "low",
         );
