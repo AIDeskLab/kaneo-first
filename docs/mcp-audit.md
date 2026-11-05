@@ -1,5 +1,83 @@
 # MCP server audit
 
+## Status after upstream sync (067ae03)
+
+Re-checked at `f9a1f16f` (`origin/main`), which contains merge `067ae039` (pull request #24, `sync/upstream-20261104`). The sections below this one are the audit written at `e83fe1ec`, before that sync. They are the historical record. This section is the status of those findings on the current tree. Product code was not changed.
+
+The sync replaced the in-memory session map on the request path with upstream's stateless handler, pinned `@modelcontextprotocol/sdk` `1.32.2` and `@modelcontextprotocol/server` `2.4.0`, and folded both MCP surfaces onto `packages/mcp` `registerTools` (`@kaneo/mcp` `0.1.14`). Those package versions match `upstream/main` at the time of this check. There is one registrar. `apps/api/src/mcp/tools.ts` is a thin client around it, not a second tool list.
+
+Checked live, the same way as the original audit. A throwaway Postgres 16 database and an API process from this tree (`tsx` loading `apps/api/src/index.ts`) listened on `127.0.0.1:1347`. Port 1337 was already taken, so this process did not reuse it or the Compose database. `KANEO_API_URL` was `http://127.0.0.1:9` (nothing listening). `KANEO_INTERNAL_API_URL` was `http://127.0.0.1:1347`. Node was v24.22.1. Clients were `@modelcontextprotocol/sdk` `1.32.2` `Client` with `StreamableHTTPClientTransport` and `StdioClientTransport`. No external calls.
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| Finding 1. Stranded sessions, then HTTP 503 | Fixed | `apps/api/src/mcp/index.ts:333-360` accepts only POST and builds a stateless transport (`sessionIdGenerator: undefined`) or `createModernMcpHandler`. The handler does not import `session-admission.ts`. Live: eight SDK clients for one user all listed tools. Every `sessionId` was null. None returned 503. `GET` and `DELETE` `/api/mcp` are 405. A `tools/list` that sent `mcp-session-id: missing-session` was 200, not 404. |
+| Finding 2. Missing `Accept` reported as capacity | Fixed | `index.ts` returns the SDK response. It does not replace an empty `sessionId` with 503. Live, on an empty server: initialize without `Accept` was 406 `Not Acceptable: Client must accept both application/json and text/event-stream`. Invalid JSON was 400 `-32700`. A `text/plain` body was 415. |
+| Finding 3. `whoami` null success and session token | Partially fixed | A live API key on HTTP and on stdio returned `isError: false` and `{ id, name, email, role }` with no `token` and no `session` (`packages/mcp/src/tools/get-current-user.ts:4-21`). `GET /api/auth/get-session` for that key is still HTTP 200 with `session.token`; the tool schema drops it. `Bearer bad` on `/api/mcp` is 401. stdio with `KANEO_API_KEY=bad` was `isError: true` (`/api/user/me: Unauthorized (UNAUTHORIZED)`) in 536ms. stdio with no key still runs the device flow: the client got `MCP error -32001: Request timed out` at 3.5s and stderr asked for device approval (`packages/mcp/src/auth/auth-service.ts:75-123`). `register.test.ts:141-156` still expects a null session to be `isError: false`. HTTP `ApiClient.usingApiKey` is hardcoded `false` (`apps/api/src/mcp/tools.ts:30`), same as upstream, so HTTP `whoami` uses `get-session` rather than `/api/user/me`. |
+| Finding 4. `get_my_tasks` calls `/api/task/tasks/my` | Fixed | The tool is not registered. HTTP and stdio both listed the same 42 names, and `get_my_tasks` was not one of them. Live `GET /api/task/my` was 200 `{ tasks, total }`. Live `GET /api/task/tasks/my` was 404 `Project not found`. The wrong call is gone because the fork tool was dropped with the second registrar. See new issues. |
+| Finding 5. Schemas and the two wrong writes | Partially fixed | `delete_label` calls `DELETE /api/label/:id` (`packages/mcp/src/tools/register.ts:621-654`). Live delete of a workspace label was `isError: false`, and that row was gone. `list_tasks` with no `limit` returned `pagination.pageSize` 50 (`apps/api/src/task/controllers/get-tasks.ts:137-138`); the description already says that. `priority: "critical"` is rejected by the tool and by `POST /api/task/:projectId` (400 `VALIDATION_ERROR`). Still open: `dueDate: "2026-12-01"` is `-32602` on HTTP and stdio (`register.ts:31`), while the same REST body is 200 and stores `2026-12-01T00:00:00.000Z`. `update_project` still sends `{ name, icon, slug, description, isPublic }` (`register.ts:199`); live, a description change cleared `projectGroupId` because `update-project.ts:69` writes `projectGroupId ?? null`. `attach_label_to_task` still inserts a new row (`assign-label-to-task.ts:120-131`). Live attach returned a different id, and detach of the id the agent already had was `Label is not assigned to a task`. `KaneoClient` still retries only a non-key 401 (`packages/mcp/src/kaneo/client.ts:37-47`). No `Retry-After`. |
+| Finding 6. OAuth refresh and metadata URL | Partially fixed | `schemas.ts:30-43` accepts `refresh_token` in `grant_types` on purpose. Live `POST /api/mcp/register` with `["authorization_code", "refresh_token"]` was 200 and the response body was `grant_types: ["authorization_code"]`. `["refresh_token"]` alone was 400. `POST /api/mcp/token` with `grant_type=refresh_token` was 400 `unsupported_grant_type` (`index.ts:258-259`). `exchangeCode` still returns a 30-day access token and no refresh token (`oauth.ts:151-161`). Anonymous `POST /api/mcp` advertised `http://127.0.0.1:9/.well-known/oauth-protected-resource/api/mcp` (`index.ts:315-323`). Expiry sweep compares `expires_at` with `now() AT TIME ZONE 'UTC'` (`oauth-store.ts:19-24`). The column is still `timestamp` without time zone (`schema.ts:1442`). This run did not change the server timezone. |
+| Finding 7. Protocol 2026 and self-fetch | Fixed | `createModernMcpHandler` (`modern.ts:6-28`) served `tools/list` for protocol `2026-07-28` with the per-request envelope: HTTP 200, `Content-Type: application/json`, no session id. Tool calls succeeded while `KANEO_API_URL` pointed at a closed port, so they used `KANEO_INTERNAL_API_URL` (`index.ts:40-44`). A stale session id was not a 404. Residual, same split as upstream: a legacy initialize with `protocolVersion: "2026-07-28"` negotiates `2025-11-25`, `capabilities.tools.listChanged: true`, and `serverInfo.version` `1.0.0` (`legacy-server.ts:10`; the npm package is 0.1.14). A later POST that keeps header `mcp-protocol-version: 2026-07-28` without the modern `_meta` envelope is 400 missing `_meta`, not a tool result. |
+| Finding 8. Tests miss the failures | Partially fixed | `tests/api/mcp-stateless.test.ts` covers a sessionless 2026 `tools/list`, strips `whoami` secrets, and checks bearer auth per POST. `tests/api/mcp-internal-api-url.test.ts` covers the internal fetch host. `packages/mcp/src/tools/register.test.ts` covers API-key `whoami` and the safe session shape. Still open: nothing drives a real SDK client at the route, nothing asserts `GET /api/task/my`, and `register.test.ts:338-352` locks the date-only rejection in. `tests/api/mcp-session-admission.test.ts` still tests the unused map. |
+| Old stage 1. Transport failures vs a full server | Fixed | The 406/400/415 behavior and the eight-client burst above are what that stage asked to prove. `nginx.kaneo.conf:56-67` still proxies `/api/` with `Connection: upgrade` and default buffering. `GET /api/mcp` is 405, so a buffered SSE stream no longer deletes a session and turns the next POST into 404. |
+| Old stage 2. Authentication visible to the host | Partially fixed | Profile `whoami`, no `session` object, explicit `refresh_token` on register, and the host-root `WWW-Authenticate` path are in. The device-flow hang and the fact that refresh is not issued are not. |
+| Old stage 3. One registrar, matching the routes | Partially fixed | Both surfaces call `registerTools`, the lists match, workspace `delete_label` deletes, and `list_tasks` is paged. Dates, `projectGroupId`, the attach/detach id, and `get_my_tasks` are not. |
+| Old stage 4. Bound the Kaneo calls | Partially fixed | Tool fetch uses `KANEO_INTERNAL_API_URL` (default `http://127.0.0.1:1337`). The board page size is 50. Retries, `Retry-After`, and a timeout message that names the path are not. Session counts on `/api/health` do not apply: live `/api/health` is `{ "status": "ok" }` and there is no session table. |
+| Old stage 5. Stateless 2026 handler | Fixed | The split in `index.ts:333-360` is that handler. SDK and `@modelcontextprotocol/server` are pinned at the versions named in the old plan. Two replicas were not run; the live stale session id returning 200 is the property that stage was protecting. |
+
+### New issues from the merge
+
+The fork did not keep a second copy of the tool list, and it did not fork the SDK. `git diff upstream/main -- apps/api/src/mcp packages/mcp/src` is `session-admission.ts` (present only here), the API-key branch in `validateBearerToken` (`index.ts:64-74`; upstream returns null when `getSession` misses), cascade wording on `update_task_status` and `delete_task`, and an em dash in the CLI help.
+
+- `apps/api/src/mcp/session-admission.ts` is unused by the HTTP handler. `shutdownMcpSessions` (`index.ts:365-367`) is empty so `apps/api/src/index.ts` can still call it. The unit test still describes the old cap. A later change could wire the map back in and restore findings 1 and 2.
+- The fork tool `get_my_tasks` (added for `GET /api/task/my`) is not on the shared registrar. HTTP and stdio agree, and both omit it. Docs that said the lists match are true again. The endpoint is not reachable from MCP.
+- HTTP `whoami` depends on Better Auth turning an API key into a session (`enableSessionForAPIKeys`). The tool then drops `session.token`. stdio with a key calls `/api/user/me` instead. Both returned the same profile in this run. A `get-session` body of `null` is still a successful tool result.
+
+## Fix plan
+
+The old stages 1-5 are the historical plan. What is left is below. Each stage stands alone and is sized for its own pull request. Do not revive `session-admission.ts` on the request path.
+
+### Stage 1. Keep a project's group across `update_project`
+
+`update_project` GET-merges and then omits `projectGroupId`. `PUT /api/project/:id` writes `projectGroupId ?? null`, so a description change clears the group. Send the existing `projectGroupId` back, or treat omission as "leave it" in `update-project.ts`.
+
+Test: a project with a group, then `update_project` with only `description`, still has that `projectGroupId`.
+
+### Stage 2. Accept the calendar dates the API already accepts
+
+`isoDateTimeSchema` is `z.string().datetime({ offset: true })`. `validateAndParseDate` accepts `2026-12-01`. Live `create_task` and `list_tasks` returned `-32602`; the same REST create returned 200. Widen the shared schema in `packages/mcp/src/tools/register.ts` to the strings the API parses, including a calendar date. `register.test.ts` currently expects the date-only value to throw. Change that test to expect the value to be forwarded.
+
+### Stage 3. Detach the label id that attach returns
+
+`assign-label-to-task.ts` inserts a task row and leaves the workspace row's `taskId` null. Live attach returned a new id. Detach of the original id was `Label is not assigned to a task`. Say that in the `attach_label_to_task` description, and make `detach_label_from_task` remove the copy attach just created (the returned id, or the workspace id the agent already had).
+
+Test: attach a workspace label, then detach using the id the caller passed in, and the task no longer has that label.
+
+### Stage 4. Expose `GET /api/task/my` as `get_my_tasks`
+
+Register `get_my_tasks` on `registerTools` so HTTP and stdio both get it. The fetch URL is `/api/task/my`, and `/api/task/my?status=archived` when status is set. Accept `archived` and any other non-empty status string. The API ignores unknown statuses.
+
+Test: the mocked fetch URL is `/api/task/my` and `/api/task/my?status=archived`. HTTP and stdio `tools/list` names stay equal, including this tool.
+
+### Stage 5. Do not spend a tool call on the device-code poll
+
+When `KANEO_API_KEY` is unset, stdin is not a TTY, and no cached token exists, `AuthService.getAccessToken` polls until the device code expires. Live `whoami` died with `-32001` at 3.5s while stderr kept the approval prompt. Return an `isError` result that says a token or `KANEO_API_KEY` is required. Do not start the device flow when `KANEO_API_KEY` is set (that part already holds: a bad key failed in 536ms and did not ask for approval). A null `get-session` body should be `isError` too, so a missing user is not a successful `null`.
+
+Test: stdio `whoami` with no key and no credential file is `isError` true and does not call `requestDeviceCode`.
+
+### Stage 6. Retry a short upstream failure, and name a timeout
+
+`KaneoClient` and the HTTP `ApiClient` abort at 10s and retry only one non-key 401. Retry 429 and 502/503/504 a small number of times, honor `Retry-After`, and map an abort to `isError` text that includes the path and `timeout`. Keep using `KANEO_INTERNAL_API_URL` for the fetch. If the error body has no `message` string, keep a field error when the body has one (`issues` or `code`), instead of collapsing to `HTTP <status>`.
+
+Test: a fake Kaneo that returns 429 then 200 is called twice. A hanging server hits the timeout text. With `KANEO_API_URL` on a public host and `KANEO_INTERNAL_API_URL` on loopback, the tool fetch host is the loopback host.
+
+### Stage 7. Remove the unused session map
+
+Delete `apps/api/src/mcp/session-admission.ts` and `tests/api/mcp-session-admission.test.ts`, or replace that test with one that asserts the stateless route never consults the map. Leave `shutdownMcpSessions` as the empty function the process already calls, or inline that. Do not put a process-local session table back in front of `/api/mcp`.
+
+---
+
+## Historical audit (e83fe1ec)
+
 Audit of the MCP surfaces in `AIDeskLab/planed` at `e83fe1ec` (`origin/main`). Product code was not changed. Upstream comparison is `usekaneo/kaneo` `main`, fetched during this audit (`git rev-list --left-right --count origin/main...upstream/main` was `69 1866`). No open pull requests and no in-progress upstream-merge branch were on the fork remote (only `main` and `backup/pre-kdl-111-2026-08-10`).
 
 This is the fork's own tree, not the published `ghcr.io/usekaneo/kaneo` image. `compose.yml` runs that upstream image, so it does not exercise this fork.
@@ -208,60 +286,6 @@ Upstream `packages/mcp` is 0.1.14. `apps/api` depends on `@modelcontextprotocol/
 
 Merging `upstream/main` is not a drop-in for this fork: the fork is 69 commits ahead, and the API router, OpenAPI helper, and auth hooks have diverged. The MCP files above can be ported on their own. A full merge will conflict in `apps/api/src/mcp/index.ts`, `oauth.ts`, `schemas.ts`, `tools.ts`, and `packages/mcp/src/tools/register.ts`.
 
-## Fix plan
+## Historical fix plan
 
-Each stage is shippable on its own. Tests are the ones to add in that stage. Do not start stage 5 by deleting the session map until stage 1's tests exist, or the capacity tests will be rewritten mid-flight.
-
-### Stage 1. Stop reporting transport failures as a full server
-
-- Return the SDK `Response` from `handleRequest` when initialize fails. Reserve a session only after the SDK has produced a session id.
-- On client disconnect, DELETE the session. Lower the damage of the cap: document it, and do not count a session whose transport has already closed.
-- Set `enableJsonResponse: true` or turn off proxy buffering for `/api/mcp` (`proxy_buffering off`, `proxy_read_timeout` above the idle timeout, `Connection` upgrade only when `Upgrade` is set) in `apps/web/nginx.kaneo.conf`.
-- Tests in `tests/api/mcp-session-admission.test.ts`:
-  - POST initialize without `Accept` is 406 and the session map stays empty.
-  - Invalid JSON is 400, not 503.
-  - Five live sessions then a sixth is 503; DELETE of one allows a new initialize.
-  - After the test transport emits `onclose`, `getSession` misses.
-  - `tools/list` with an unknown `mcp-session-id` stays 404 and does not consume a slot.
-
-### Stage 2. Make authentication visible to the host
-
-- `whoami` with an API key reads the user profile (port `/api/user/me` or an equivalent) and returns `{ id, name, email, role }`.
-- `whoami` with a session token returns that same shape and no `session` object.
-- stdio: a 401 from `get-session` or an API-key 401 is an `isError` result that says the credential was rejected. Do not start the device flow when `KANEO_API_KEY` is set. When it is unset, fail the tool quickly if stdin is not a TTY and no cached token exists, instead of polling for the whole device-code lifetime inside the tool call.
-- Registration accepts `refresh_token` in `grant_types` explicitly and still does not issue one until a refresh grant exists. Point `WWW-Authenticate` at `/.well-known/oauth-protected-resource/api/mcp`.
-- Tests:
-  - API key `whoami` snapshot has no `token` property and `isError` is false.
-  - Bearer `bad` on stdio `whoami` is `isError` true and does not call `requestDeviceCode`.
-  - Session `whoami` JSON has no `session` key.
-  - `POST /api/mcp/register` with `grant_types: ["authorization_code", "refresh_token"]` is 200 and the stored client still cannot call the token endpoint with `grant_type=refresh_token` (400 `unsupported_grant_type`) until that grant is implemented.
-  - `WWW-Authenticate` on an anonymous POST contains the host-root well-known path.
-
-### Stage 3. One registrar, matching the routes
-
-- Delete the duplicated tool list. HTTP and stdio both call `packages/mcp` `registerTools`.
-- `get_my_tasks` calls `GET /api/task/my`. Add `archived` to the documented statuses or accept any non-empty slug and let the API filter.
-- Datetime fields accept the strings `validateAndParseDate` accepts, including a calendar date.
-- `update_project` sends the existing `projectGroupId` back, or the API treats omission as "leave it".
-- `delete_label` calls `DELETE /api/label/:id` for workspace labels.
-- `detach_label_from_task` uses the id returned by attach, and the tool description says attach may return a new id.
-- Tests in `packages/mcp/src/tools/register.test.ts` and one HTTP test that mounts the real task router:
-  - `get_my_tasks` fetch URL is `/api/task/my` and `/api/task/my?status=archived`.
-  - `dueDate: "2026-12-01"` passes the tool schema and is forwarded.
-  - `update_project` body includes the previous `projectGroupId`.
-  - `delete_label` on `{ taskId: null }` still calls DELETE.
-  - HTTP and stdio `tools/list` names are equal.
-
-### Stage 4. Bound the Kaneo calls
-
-- Tool `fetch` uses `KANEO_INTERNAL_API_URL` when set, otherwise `http://127.0.0.1:<listen port>`, never the public `KANEO_CLIENT_URL`.
-- Retry 429 and 502/503/504 a small number of times, honoring `Retry-After`, and map abort to `isError` text that includes the path and `timeout`.
-- `list_tasks` defaults `limit` (the API already caps a page at 100) and the description states the `{ data, pagination }` shape.
-- Log admission rejections and upstream non-2xx at info/warn without the bearer. Extend `/api/health` or add `/api/mcp/health` with the session counts and the cap.
-- Tests: a fake Kaneo that returns 429 then 200 is called twice; a hanging server hits the timeout message; `list_tasks` with no limit sends `limit`; with `KANEO_API_URL=https://public.example` and `KANEO_INTERNAL_API_URL=http://127.0.0.1:1337` the tool fetch host is `127.0.0.1`.
-
-### Stage 5. Follow upstream's stateless 2026 handler
-
-After stages 1-4, replace the session map with upstream's split: JSON content-type check, `isLegacyRequest`, `createModernMcpHandler` per request, and a stateless legacy transport. Pin `@modelcontextprotocol/sdk` and add `@modelcontextprotocol/server` at the versions upstream has tested (1.32.2 and 2.4.0 at audit time), rather than another floating `^1.29.0`.
-
-Tests from stage 1 change as follows: two in-process Hono apps behind a round-robin fake proxy both answer `tools/list` for the same initialize (there is no session to lose); `protocolVersion: "2026-07-28"` completes `tools/call`; a second replica does not return 404. Keep the stage 2 and 3 assertions. Add a test that `POST` is the only method the stateless handler accepts, matching upstream, so GET-SSE clients are covered by the JSON response mode instead of a buffered stream.
+The stage list that used to be here was rewritten after merge `067ae03`. The remaining work is the fix plan at the top of this file. The old stages 1 and 5 are done on the request path. Stages 2, 3, and 4 are only partly done. Do not implement the old stage 1 session map.
