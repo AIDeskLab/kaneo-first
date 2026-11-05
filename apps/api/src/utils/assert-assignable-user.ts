@@ -57,6 +57,15 @@ export async function assertAssignableUser(
   projectIds: string | readonly string[],
   database: Pick<typeof db, "select"> = db,
 ): Promise<void> {
+  const [user] = await database
+    .select({ id: schema.userTable.id })
+    .from(schema.userTable)
+    .where(eq(schema.userTable.id, userId))
+    .limit(1);
+  if (!user) {
+    throw new HTTPException(404, { message: "Assignee not found" });
+  }
+
   const assignable = await filterAssignableUsers(
     [userId],
     workspaceId,
