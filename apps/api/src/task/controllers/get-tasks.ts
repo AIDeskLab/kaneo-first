@@ -28,6 +28,7 @@ import {
   projectDescriptionDeferred,
 } from "../description-pages";
 import { publicExternalLink } from "../../project/controllers/public-external-link";
+import { boundedTaskRead } from "../bounded-read";
 import { getSubtaskCounts } from "../get-subtask-counts";
 
 export type GetTasksOptions = {
@@ -37,6 +38,7 @@ export type GetTasksOptions = {
   dueBefore?: string;
   limit?: number;
   page?: number;
+  relatedPage?: number;
   priority?: string;
   sortBy?:
     | "createdAt"
@@ -48,6 +50,8 @@ export type GetTasksOptions = {
   sortOrder?: "asc" | "desc";
   status?: string;
 };
+
+type TaskReadDb = Pick<typeof db, "select" | "execute" | "query">;
 
 const priorityCaseExpr = sql<number>`CASE
   WHEN ${taskTable.priority} = 'urgent' THEN 4
@@ -79,12 +83,13 @@ function buildOrderBy(
   }
 }
 
-async function getTasks(
+async function getTasksPage(
+  database: TaskReadDb,
   projectId: string,
   options: GetTasksOptions = {},
   userId?: string,
 ) {
-  const project = await db.query.projectTable.findFirst({
+  const project = await database.query.projectTable.findFirst({
     where: eq(projectTable.id, projectId),
   });
 
@@ -94,7 +99,7 @@ async function getTasks(
     });
   }
 
-  const [boardProject] = await db
+  const [boardProject] = await database
     .select({
       description: boardProjectDescription,
       descriptionDeferred: projectDescriptionDeferred,
@@ -128,16 +133,20 @@ async function getTasks(
   const whereClause = and(...conditions);
   assertPaginationBound(options.page, 1_000_000);
   assertPaginationBound(options.limit, 100);
+  assertPaginationBound(options.relatedPage, 1_000_000);
   const page = options.page ?? 1;
   const pageSize = options.limit ?? 50;
   const offset = (page - 1) * pageSize;
+  const relatedPage = options.relatedPage ?? 1;
+  const relatedPageSize = 100;
+  const relatedOffset = (relatedPage - 1) * relatedPageSize;
 
   const orderByClause = buildOrderBy(
     options.sortBy ?? "position",
     options.sortOrder ?? "asc",
   );
 
-  const [taskCount] = await db
+  const [taskCount] = await database
     .select({ count: sql<number>`count(*)` })
     .from(taskTable)
     .where(whereClause);
@@ -164,7 +173,7 @@ async function getTasks(
     projectId: taskTable.projectId,
   };
 
-  const query = db
+  const query = database
     .select(taskSelection)
     .from(taskTable)
     .leftJoin(userTable, eq(taskTable.userId, userTable.id))
@@ -173,13 +182,13 @@ async function getTasks(
     .orderBy(orderByClause, asc(taskTable.id));
 
   const paginatedTasks = await query.limit(pageSize).offset(offset);
-  const revision = await projectBoardRevision(projectId);
+  const revision = await projectBoardRevision(database, projectId);
 
   const taskIds = paginatedTasks.map((task) => task.id);
 
   const labelsData =
     taskIds.length > 0
-      ? await db
+      ? await database
           .select({
             id: labelTable.id,
             name: labelTable.name,
@@ -188,14 +197,20 @@ async function getTasks(
           })
           .from(labelTable)
           .where(inArray(labelTable.taskId, taskIds))
+          .orderBy(asc(labelTable.id))
+          .limit(relatedPageSize)
+          .offset(relatedOffset)
       : [];
 
   const externalLinksData =
     taskIds.length > 0
-      ? await db
+      ? await database
           .select()
           .from(externalLinkTable)
           .where(inArray(externalLinkTable.taskId, taskIds))
+          .orderBy(asc(externalLinkTable.id))
+          .limit(relatedPageSize)
+          .offset(relatedOffset)
       : [];
 
   const taskLabelsMap = new Map<
@@ -234,23 +249,64 @@ async function getTasks(
     }
     const parsed = {
       ...externalLink,
-      metadata: externalLink.metadata
-        ? JSON.parse(externalLink.metadata)
-        : null,
+      metadata: parseMetadata(externalLink.metadata),
     };
     taskExternalLinksMap
       .get(externalLink.taskId)
       ?.push(options.publicOnly ? publicExternalLink(parsed) : parsed);
   }
 
-  const projectColumns = await db
+  const projectColumns = await database
     .select()
     .from(columnTable)
     .where(eq(columnTable.projectId, projectId))
-    .orderBy(asc(columnTable.position));
+    .orderBy(asc(columnTable.position), asc(columnTable.id))
+    .limit(relatedPageSize)
+    .offset(relatedOffset);
+  const missingStatuses = [
+    ...new Set(paginatedTasks.map((task) => task.status)),
+  ].filter(
+    (status) =>
+      status !== "planned" &&
+      status !== "archived" &&
+      !projectColumns.some((column) => column.slug === status),
+  );
+  if (missingStatuses.length > 0) {
+    const taskColumns = await database
+      .select()
+      .from(columnTable)
+      .where(
+        and(
+          eq(columnTable.projectId, projectId),
+          inArray(columnTable.slug, missingStatuses),
+        ),
+      )
+      .orderBy(asc(columnTable.position), asc(columnTable.id))
+      .limit(100);
+    projectColumns.push(...taskColumns);
+  }
+  const [labelCountRow] = taskIds.length
+    ? await database
+        .select({ count: sql<number>`count(*)` })
+        .from(labelTable)
+        .where(inArray(labelTable.taskId, taskIds))
+    : [{ count: 0 }];
+  const [linkCountRow] = taskIds.length
+    ? await database
+        .select({ count: sql<number>`count(*)` })
+        .from(externalLinkTable)
+        .where(inArray(externalLinkTable.taskId, taskIds))
+    : [{ count: 0 }];
+  const [columnCountRow] = await database
+    .select({ count: sql<number>`count(*)` })
+    .from(columnTable)
+    .where(eq(columnTable.projectId, projectId));
+  const relatedRevision = options.publicOnly
+    ? await relatedBoardRevision(database, projectId)
+    : undefined;
 
   const subtaskCountMap = await getSubtaskCounts(
-    db,
+    database,
     taskIds,
     project.workspaceId,
     options.publicOnly ?? false,
@@ -259,7 +315,7 @@ async function getTasks(
 
   const subtaskRelations =
     taskIds.length > 0
-      ? await db
+      ? await database
           .select({
             sourceTaskId: taskRelationTable.sourceTaskId,
             targetTaskId: taskRelationTable.targetTaskId,
@@ -346,11 +402,66 @@ async function getTasks(
       pageSize,
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
       revision,
-      relatedPage: 1,
-      relatedPageSize: pageSize,
-      relatedTotalPages: 1,
+      ...(relatedRevision ? { relatedRevision } : {}),
+      relatedPage,
+      relatedPageSize,
+      relatedTotalPages: Math.max(
+        1,
+        Math.ceil(
+          Math.max(
+            Number(columnCountRow?.count ?? 0),
+            Number(labelCountRow?.count ?? 0),
+            Number(linkCountRow?.count ?? 0),
+          ) / relatedPageSize,
+        ),
+      ),
     },
   };
+}
+
+function parseMetadata(raw: string | null): Record<string, unknown> | null {
+  if (!raw) return null;
+  try {
+    const value: unknown = JSON.parse(raw);
+    return value !== null && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function relatedBoardRevision(database: TaskReadDb, projectId: string) {
+  const result = await database.execute<{ revision: string }>(sql`
+    SELECT md5(concat_ws(':',
+      (SELECT count(*)::text || ':' || coalesce(string_agg(
+          label.id || ':' || label.name || ':' || label.color, ',' ORDER BY label.id
+        ), '')
+        FROM label
+        INNER JOIN task ON task.id = label.task_id
+        WHERE task.project_id = ${projectId}),
+      (SELECT count(*)::text || ':' || coalesce(string_agg(
+          external_link.id || ':' || coalesce(external_link.metadata, ''),
+          ',' ORDER BY external_link.id
+        ), '')
+        FROM external_link
+        INNER JOIN task ON task.id = external_link.task_id
+        WHERE task.project_id = ${projectId})
+    )) AS revision
+  `);
+  return result.rows[0]?.revision ?? "0";
+}
+
+function getTasks(
+  projectId: string,
+  options: GetTasksOptions = {},
+  userId?: string,
+) {
+  return boundedTaskRead(
+    (tx) =>
+      getTasksPage(tx as unknown as TaskReadDb, projectId, options, userId),
+    "Task list request took too long; retry later",
+  );
 }
 
 function assertPaginationBound(value: number | undefined, max: number) {
@@ -362,8 +473,8 @@ function assertPaginationBound(value: number | undefined, max: number) {
   }
 }
 
-async function projectBoardRevision(projectId: string) {
-  const result = await db.execute<{ revision: string }>(sql`
+async function projectBoardRevision(database: TaskReadDb, projectId: string) {
+  const result = await database.execute<{ revision: string }>(sql`
     SELECT md5(concat_ws(':',
       (SELECT count(*)::text || ':' || coalesce(max(task.xmin::text), '') || ':' ||
           coalesce(string_agg(

@@ -108,6 +108,16 @@ const task = new Hono<{
           priority: v.optional(v.string()),
           assigneeId: v.optional(v.string()),
           page: v.optional(v.pipe(v.string(), v.transform(Number))),
+          relatedPage: v.optional(
+            v.pipe(
+              v.string(),
+              v.check(
+                (value) =>
+                  /^[1-9]\d*$/.test(value) && Number(value) <= 1_000_000,
+              ),
+              v.transform(Number),
+            ),
+          ),
           limit: v.optional(v.pipe(v.string(), v.transform(Number))),
           sortBy: v.optional(
             v.picklist([
