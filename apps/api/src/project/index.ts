@@ -50,7 +50,7 @@ const project = new Hono<{
     validator(
       "query",
       v.object({
-        workspaceId: v.string(),
+        workspaceId: v.optional(v.string()),
         includeArchived: v.optional(v.string()),
       }),
     ),
