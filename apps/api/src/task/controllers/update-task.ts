@@ -7,6 +7,7 @@ import {
   recordTaskMutation,
 } from "./task-mutation-effects";
 import { publishEvent } from "../../events";
+import { assertAssignableUser } from "../../utils/assert-assignable-user";
 import { BOARD_DESCRIPTION_MAX_BYTES } from "../description-pages";
 import { lockWorkspaceTaskHierarchy } from "./task-cascade";
 import { updateTaskHierarchyStatus } from "./update-task-hierarchy-status";
@@ -105,6 +106,14 @@ async function updateTask(
         throw new HTTPException(409, {
           message: "Task project changed while the task was being updated",
         });
+      }
+      if (requestedAssigneeId && requestedAssigneeId !== lockedTask.userId) {
+        await assertAssignableUser(
+          requestedAssigneeId,
+          project.workspaceId,
+          lockedTask.projectId,
+          tx,
+        );
       }
 
       await recordTaskMutation(

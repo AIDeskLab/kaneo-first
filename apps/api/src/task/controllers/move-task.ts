@@ -10,6 +10,9 @@ import {
   taskTable,
 } from "../../database/schema";
 import { publishEvent } from "../../events";
+import createActivities from "../../activity/controllers/create-activities";
+import { assertProjectAccess } from "../../project-access/assert-project-access";
+import { filterUsersWithProjectAccess } from "../../project-access/filter-users-with-project-access";
 import { claimTaskNumber } from "./claim-task-numbers";
 import { lockWorkspaceTaskHierarchy } from "./task-cascade";
 
@@ -132,6 +135,8 @@ async function moveTask({
     });
   }
 
+  await assertProjectAccess(currentUserId, destinationProjectId);
+
   const {
     movedTask,
     sourceProjectSnapshot,
@@ -246,6 +251,38 @@ async function moveTask({
       });
     }
 
+    let movedTask = updatedTask;
+    const assigneeId = updatedTask.userId;
+    if (
+      assigneeId &&
+      !(
+        await filterUsersWithProjectAccess(
+          [assigneeId],
+          destinationProjectId,
+          tx,
+        )
+      ).has(assigneeId)
+    ) {
+      const [unassignedTask] = await tx
+        .update(taskTable)
+        .set({ userId: null })
+        .where(eq(taskTable.id, taskId))
+        .returning();
+      movedTask = unassignedTask ?? { ...updatedTask, userId: null };
+      await createActivities(
+        [
+          {
+            taskId,
+            type: "unassigned",
+            userId: currentUserId,
+            content: null,
+            eventData: {},
+          },
+        ],
+        tx,
+      );
+    }
+
     await tx
       .delete(externalLinkTable)
       .where(
@@ -268,7 +305,7 @@ async function moveTask({
       .where(eq(assetTable.taskId, taskId));
 
     return {
-      movedTask: updatedTask,
+      movedTask,
       sourceProjectSnapshot: lockedSourceProject,
       destinationProjectSnapshot: lockedDestinationProject,
       oldStatus: lockedTask.status,

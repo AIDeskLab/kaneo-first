@@ -3,6 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { projectTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
+import { assertAssignableUser } from "../../utils/assert-assignable-user";
 import {
   lockWorkspaceAssignees,
   requireWorkspaceAssignees,
@@ -51,6 +52,12 @@ async function updateTaskAssignee({
           nextAssigneeId,
         ])
       ).get(nextAssigneeId);
+      await assertAssignableUser(
+        nextAssigneeId,
+        existingTask.workspaceId,
+        existingTask.task.projectId,
+        tx,
+      );
     }
     const [task] = await tx
       .update(taskTable)
