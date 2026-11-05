@@ -110,8 +110,8 @@ describe.each([
 ] as const)("%s CAPTCHA submission", (_name, route) => {
   it.each([
     ["auth:signUp.continueAsGuest", "anonymous"],
-    ["auth:providers.github", "social"],
-    ["auth:providers.sso", "social"],
+    ["auth:signIn.continueWithGithub", "social"],
+    ["auth:signIn.continueWithOidc", "social"],
   ] as const)(
     "sends the token and requires a fresh one after %s fails",
     async (label, method) => {
@@ -145,7 +145,7 @@ describe("sign-in password form", () => {
       target: { value: "long-test-password" },
     });
     const submit = screen.getByRole("button", {
-      name: "auth:signIn.submitPassword",
+      name: "auth:signInForm.signIn",
     });
     expect(submit).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Solve CAPTCHA" }));

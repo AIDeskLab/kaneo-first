@@ -25,6 +25,9 @@ export type SignInFormValues = {
 type SignInFormProps = {
   onSuccess?: () => void;
   defaultEmail?: string;
+  captchaRequired?: boolean;
+  turnstileToken?: string | null;
+  onCaptchaReset?: () => void;
 };
 
 const signInSchema = z.object({
@@ -32,7 +35,13 @@ const signInSchema = z.object({
   password: z.string(),
 });
 
-export function SignInForm({ onSuccess, defaultEmail }: SignInFormProps) {
+export function SignInForm({
+  onSuccess,
+  defaultEmail,
+  captchaRequired = false,
+  turnstileToken,
+  onCaptchaReset,
+}: SignInFormProps) {
   const { t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const [isPending, setIsPending] = useState(false);
@@ -47,12 +56,18 @@ export function SignInForm({ onSuccess, defaultEmail }: SignInFormProps) {
   const onSubmit = async (data: SignInFormValues) => {
     setIsPending(true);
     try {
-      const result = await authClient.signIn.email({
-        email: data.email,
-        password: data.password,
-      });
+      const result = await authClient.signIn.email(
+        {
+          email: data.email,
+          password: data.password,
+        },
+        turnstileToken
+          ? { headers: { "x-turnstile-token": turnstileToken } }
+          : undefined,
+      );
 
       if (result.error) {
+        onCaptchaReset?.();
         toast.error(result.error.message || t("auth:signInForm.failedSignIn"));
         return;
       }
@@ -105,29 +120,29 @@ export function SignInForm({ onSuccess, defaultEmail }: SignInFormProps) {
                 <FormLabel className="text-sm font-medium">
                   {t("auth:forms.password")}
                 </FormLabel>
-                <FormControl>
-                  <div className="relative">
+                <div className="relative">
+                  <FormControl>
                     <Input
                       placeholder={t("auth:forms.passwordPlaceholder")}
                       type={showPassword ? "text" : "password"}
                       autoComplete="current-password"
                       {...field}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      aria-label={
-                        showPassword
-                          ? t("auth:forms.hidePassword")
-                          : t("auth:forms.showPassword")
-                      }
-                      aria-pressed={showPassword}
-                    >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </FormControl>
+                  </FormControl>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={
+                      showPassword
+                        ? t("auth:forms.hidePassword")
+                        : t("auth:forms.showPassword")
+                    }
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
                 <FormMessage />
               </FormItem>
             )}
@@ -136,7 +151,7 @@ export function SignInForm({ onSuccess, defaultEmail }: SignInFormProps) {
 
         <Button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || (captchaRequired && !turnstileToken)}
           size="sm"
           className="w-full mt-4"
         >

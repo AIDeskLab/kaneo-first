@@ -114,12 +114,18 @@ function SignIn() {
   const handleCustomOAuth = useCallback(async () => {
     setIsCustomOAuthLoading(true);
     try {
-      const result = await authClient.signIn.social({
-        provider: "custom",
-        callbackURL: getCallbackUrl(),
-        errorCallbackURL: `${import.meta.env.VITE_CLIENT_URL}/auth/sign-in`,
-      });
+      const result = await authClient.signIn.social(
+        {
+          provider: "custom",
+          callbackURL: getCallbackUrl(),
+          errorCallbackURL: `${import.meta.env.VITE_CLIENT_URL}/auth/sign-in`,
+        },
+        turnstileToken
+          ? { headers: { "x-turnstile-token": turnstileToken } }
+          : undefined,
+      );
       if (result.error) {
+        setTurnstileToken(null);
         throw new Error(result.error.message);
       }
     } catch (error) {
@@ -130,17 +136,23 @@ function SignIn() {
     } finally {
       setIsCustomOAuthLoading(false);
     }
-  }, [getCallbackUrl, t]);
+  }, [getCallbackUrl, t, turnstileToken]);
 
   const handleSignInGoogle = async () => {
     setIsGoogleLoading(true);
     try {
-      const result = await authClient.signIn.social({
-        provider: "google",
-        callbackURL: getCallbackUrl(),
-        errorCallbackURL: `${import.meta.env.VITE_CLIENT_URL}/auth/sign-in`,
-      });
+      const result = await authClient.signIn.social(
+        {
+          provider: "google",
+          callbackURL: getCallbackUrl(),
+          errorCallbackURL: `${import.meta.env.VITE_CLIENT_URL}/auth/sign-in`,
+        },
+        turnstileToken
+          ? { headers: { "x-turnstile-token": turnstileToken } }
+          : undefined,
+      );
       if (result.error) {
+        setTurnstileToken(null);
         throw new Error(result.error.message);
       }
     } catch (error) {
@@ -155,12 +167,18 @@ function SignIn() {
   const handleSignInGithub = async () => {
     setIsGithubLoading(true);
     try {
-      const result = await authClient.signIn.social({
-        provider: "github",
-        callbackURL: getCallbackUrl(),
-        errorCallbackURL: `${import.meta.env.VITE_CLIENT_URL}/auth/sign-in`,
-      });
+      const result = await authClient.signIn.social(
+        {
+          provider: "github",
+          callbackURL: getCallbackUrl(),
+          errorCallbackURL: `${import.meta.env.VITE_CLIENT_URL}/auth/sign-in`,
+        },
+        turnstileToken
+          ? { headers: { "x-turnstile-token": turnstileToken } }
+          : undefined,
+      );
       if (result.error) {
+        setTurnstileToken(null);
         throw new Error(result.error.message);
       }
     } catch (error) {
@@ -175,12 +193,18 @@ function SignIn() {
   const handleSignInDiscord = async () => {
     setIsDiscordLoading(true);
     try {
-      const result = await authClient.signIn.social({
-        provider: "discord",
-        callbackURL: getCallbackUrl(),
-        errorCallbackURL: `${import.meta.env.VITE_CLIENT_URL}/auth/sign-in`,
-      });
+      const result = await authClient.signIn.social(
+        {
+          provider: "discord",
+          callbackURL: getCallbackUrl(),
+          errorCallbackURL: `${import.meta.env.VITE_CLIENT_URL}/auth/sign-in`,
+        },
+        turnstileToken
+          ? { headers: { "x-turnstile-token": turnstileToken } }
+          : undefined,
+      );
       if (result.error) {
+        setTurnstileToken(null);
         throw new Error(result.error.message);
       }
     } catch (error) {
@@ -207,8 +231,14 @@ function SignIn() {
     if (captchaPending) return;
     setIsGuestLoading(true);
     try {
-      const result = await authClient.signIn.anonymous();
+      const result = await authClient.signIn.anonymous(
+        undefined,
+        turnstileToken
+          ? { headers: { "x-turnstile-token": turnstileToken } }
+          : undefined,
+      );
       if (result.error) {
+        setTurnstileToken(null);
         throw new Error(result.error.message);
       }
       toast.success(t("auth:signIn.guestSuccess"));
@@ -230,6 +260,7 @@ function SignIn() {
 
   useEffect(() => {
     if (
+      !captchaConfigured &&
       config?.customOAuthAutoLogin &&
       config?.hasCustomOAuth &&
       !autoLoginTriggered.current &&
@@ -238,7 +269,7 @@ function SignIn() {
       autoLoginTriggered.current = true;
       handleCustomOAuth();
     }
-  }, [config, handleCustomOAuth, search.error]);
+  }, [captchaConfigured, config, handleCustomOAuth, search.error]);
 
   // Treat "no users yet" as still loading so the skeleton stays visible
   // while the useEffect above redirects to /auth/sign-up. Otherwise the
@@ -247,7 +278,10 @@ function SignIn() {
     isConfigLoading ||
     isInstanceStatusLoading ||
     instanceStatus?.hasUsers === false ||
-    (config?.customOAuthAutoLogin && config?.hasCustomOAuth && !autoLoginFailed)
+    (!captchaConfigured &&
+      config?.customOAuthAutoLogin &&
+      config?.hasCustomOAuth &&
+      !autoLoginFailed)
   ) {
     return (
       <>
@@ -309,7 +343,7 @@ function SignIn() {
                     <Button
                       variant="outline"
                       onClick={handleSignInGoogle}
-                      disabled={isGoogleLoading}
+                      disabled={isGoogleLoading || captchaPending}
                       className={cn(
                         "w-full",
                         lastLoginMethod === "google" && "border-primary/50!",
@@ -344,7 +378,7 @@ function SignIn() {
                     <Button
                       variant="outline"
                       onClick={handleSignInGithub}
-                      disabled={isGithubLoading}
+                      disabled={isGithubLoading || captchaPending}
                       className={cn(
                         "w-full",
                         lastLoginMethod === "github" && "border-primary/50!",
@@ -368,7 +402,7 @@ function SignIn() {
                     <Button
                       variant="outline"
                       onClick={handleSignInDiscord}
-                      disabled={isDiscordLoading}
+                      disabled={isDiscordLoading || captchaPending}
                       className={cn(
                         "w-full",
                         lastLoginMethod === "discord" && "border-primary/50!",
@@ -401,7 +435,7 @@ function SignIn() {
                     <Button
                       variant="outline"
                       onClick={handleCustomOAuth}
-                      disabled={isCustomOAuthLoading}
+                      disabled={isCustomOAuthLoading || captchaPending}
                       className={cn(
                         "w-full",
                         lastLoginMethod === "custom" && "border-primary/50!",
@@ -471,6 +505,9 @@ function SignIn() {
               <SignInForm
                 defaultEmail={defaultEmail}
                 onSuccess={handleSignInSuccess}
+                captchaRequired={captchaConfigured}
+                turnstileToken={turnstileToken}
+                onCaptchaReset={() => setTurnstileToken(null)}
               />
             ))}
           {config?.disableRegistration ||

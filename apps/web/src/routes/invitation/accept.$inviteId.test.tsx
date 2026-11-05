@@ -51,6 +51,7 @@ vi.mock("@/components/page-title", () => ({ default: () => null }));
 vi.mock("@/lib/format", () => ({ formatDateMedium: () => "Jan 1, 2999" }));
 vi.mock("@/lib/toast", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock("react-i18next", () => ({
+  Trans: ({ i18nKey }: { i18nKey: string }) => <span>{i18nKey}</span>,
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 

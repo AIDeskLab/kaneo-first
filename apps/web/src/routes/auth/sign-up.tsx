@@ -15,6 +15,7 @@ import { Turnstile } from "@/components/auth/turnstile";
 import PageTitle from "@/components/page-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { getConfig } from "@/fetchers/config/get-config";
 import useGetConfig from "@/hooks/queries/config/use-get-config";
 import useInstanceStatus from "@/hooks/queries/instance/use-instance-status";
 import { authClient } from "@/lib/auth-client";
@@ -32,6 +33,11 @@ const signUpSearchSchema = z.object({
 export const Route = createFileRoute("/auth/sign-up")({
   component: SignUp,
   validateSearch: signUpSearchSchema,
+  loader: ({ context }) =>
+    context.queryClient
+      .ensureQueryData({ queryKey: ["config"], queryFn: getConfig })
+      .then(() => undefined)
+      .catch(() => undefined),
 });
 
 function SignUp() {
@@ -82,8 +88,14 @@ function SignUp() {
     if (captchaPending) return;
     setIsGuestLoading(true);
     try {
-      const result = await authClient.signIn.anonymous();
+      const result = await authClient.signIn.anonymous(
+        undefined,
+        turnstileToken
+          ? { headers: { "x-turnstile-token": turnstileToken } }
+          : undefined,
+      );
       if (result.error) {
+        setTurnstileToken(null);
         throw new Error(result.error.message);
       }
       toast.success(t("auth:signIn.guestSuccess"));
@@ -157,6 +169,8 @@ function SignUp() {
                 callbackURL={callbackURL}
                 errorCallbackURL={errorCallbackURL}
                 disabled={captchaPending}
+                captchaToken={turnstileToken}
+                onCaptchaReset={() => setTurnstileToken(null)}
               />
             );
             // Hide self-service alternatives (guest + SSO) when registration
