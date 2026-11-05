@@ -10,6 +10,8 @@ import {
   removeLabelFromGitHub,
   syncLabelToGitHub,
 } from "../../plugins/github/utils/sync-label-to-github";
+import { publishEvent } from "../../events";
+import { notifySyncWorkspaceLabelChanged } from "../../plugins/sync/workspace-label-changed";
 import { lockWorkspaceLabels } from "./workspace-label-lock";
 
 type AffectedTaskLabel = {
@@ -211,6 +213,13 @@ async function updateLabel(id: string, name: string, color: string) {
       return updated;
     });
 
+    await publishEvent("project.updated", { projectId: task.projectId });
+    if (oldName !== name) {
+      await publishEvent("task.labels_updated", {
+        projectId: task.projectId,
+        taskId: task.id,
+      });
+    }
     return updatedLabel;
   }
 
@@ -304,6 +313,19 @@ async function updateLabel(id: string, name: string, color: string) {
 
     return updatedDefinition;
   });
+
+  const projects = await db
+    .select({ projectId: projectTable.id })
+    .from(projectTable)
+    .where(eq(projectTable.workspaceId, workspaceId));
+  for (const { projectId } of projects) {
+    await publishEvent("project.updated", { projectId });
+  }
+  if (oldName !== name) {
+    await notifySyncWorkspaceLabelChanged(workspaceId, id, {
+      publishProjectUpdates: false,
+    });
+  }
 
   return updatedLabel;
 }
