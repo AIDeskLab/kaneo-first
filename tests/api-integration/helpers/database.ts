@@ -107,8 +107,33 @@ export async function resetTestDatabase() {
   }
 
   const formattedTableNames = tableNames.map(quoteIdentifier).join(", ");
-
-  await db.execute(
-    sql.raw(`TRUNCATE TABLE ${formattedTableNames} RESTART IDENTITY CASCADE`),
+  const statement = sql.raw(
+    `TRUNCATE TABLE ${formattedTableNames} RESTART IDENTITY CASCADE`,
   );
+
+  // One statement locks every table in list order. A pooled query can still
+  // deadlock with that AccessExclusiveLock (40P01). Postgres aborts one
+  // session; retry the same truncate after the other side finishes.
+  const attempts = 5;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await db.execute(statement);
+      return;
+    } catch (error) {
+      if (!isDeadlockError(error) || attempt === attempts) throw error;
+    }
+  }
+}
+
+function isDeadlockError(error: unknown) {
+  let current: unknown = error;
+  for (
+    let depth = 0;
+    depth < 6 && current && typeof current === "object";
+    depth += 1
+  ) {
+    if ("code" in current && current.code === "40P01") return true;
+    current = "cause" in current ? current.cause : undefined;
+  }
+  return false;
 }
