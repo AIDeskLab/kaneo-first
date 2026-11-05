@@ -3,7 +3,10 @@ import { registerTools } from "./register.js";
 
 type RegisteredTool = {
   name: string;
-  config: { inputSchema?: { parse: (args: unknown) => unknown } };
+  config: {
+    description?: string;
+    inputSchema?: { parse: (args: unknown) => unknown };
+  };
   handler: (args: Record<string, unknown>) => Promise<{
     content: Array<{ type: string; text: string }>;
     isError?: boolean;
@@ -724,5 +727,45 @@ describe("registerTools", () => {
         text: expect.stringContaining('"pendingDeletion": true'),
       }),
     ]);
+  });
+
+  it("describes the id attach_label_to_task returns", () => {
+    const { server, tools } = createServerMock();
+    registerTools(server as never, { client: { json: vi.fn() } as never });
+
+    expect(tools.get("attach_label_to_task")?.config.description).toContain(
+      "returns that id, not the workspace label id",
+    );
+  });
+
+  it("detaches by the returned assignment id", async () => {
+    const { server, tools } = createServerMock();
+    const client = { json: vi.fn().mockResolvedValue({ id: "copy-1" }) };
+    registerTools(server as never, { client: client as never });
+
+    const result = await tools.get("detach_label_from_task")?.handler({
+      labelId: "copy-1",
+    });
+
+    expect(result?.isError).toBe(false);
+    expect(client.json).toHaveBeenCalledWith("/api/label/copy-1/task", {
+      method: "DELETE",
+    });
+  });
+
+  it("detaches a workspace label from the task the caller names", async () => {
+    const { server, tools } = createServerMock();
+    const client = { json: vi.fn().mockResolvedValue({ id: "copy-1" }) };
+    registerTools(server as never, { client: client as never });
+
+    await tools.get("detach_label_from_task")?.handler({
+      labelId: "workspace label",
+      taskId: "task 1",
+    });
+
+    expect(client.json).toHaveBeenCalledWith(
+      "/api/label/workspace%20label/task?taskId=task%201",
+      { method: "DELETE" },
+    );
   });
 });

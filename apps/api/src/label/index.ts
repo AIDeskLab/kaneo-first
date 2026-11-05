@@ -22,6 +22,7 @@ import {
 import {
   attachLabelBody,
   createLabelBody,
+  detachLabelQuery,
   labelParam,
   taskIdParam,
   updateLabelBody,
@@ -146,15 +147,18 @@ const detachLabelFromTaskRoute = createRoute({
   path: "/{id}/task",
   tags: ["Labels"],
   summary: "Detach label from task",
-  description: "Detach a label from its current task",
+  description:
+    "Detach a label from a task. The id may be a task assignment or a workspace label. A workspace label id removes the assignment for taskId, or the only assignment when the label is on one task.",
   middleware: [
     workspaceAccess.fromLabel(),
     requireWorkspacePermission({ label: ["update"] }),
   ] as const,
-  request: { params: labelParam },
+  request: { params: labelParam, query: detachLabelQuery },
   responses: {
     200: jsonResponse("Label detached from task successfully", labelSchema),
-    400: errorResponse("Label is not assigned to a task"),
+    400: errorResponse(
+      "Label is not assigned to a task, or it is assigned to more than one task",
+    ),
     403: errorResponse(
       "No access to the project, or missing label:update permission",
     ),
@@ -250,8 +254,9 @@ const label = apiRouter()
   })
   .openapi(detachLabelFromTaskRoute, async (c) => {
     const { id } = c.req.valid("param");
+    const { taskId } = c.req.valid("query");
     const userId = c.get("userId");
-    return c.json(await unassignLabelFromTask(id, userId), 200);
+    return c.json(await unassignLabelFromTask(id, userId, taskId), 200);
   })
   .openapi(updateLabelRoute, async (c) => {
     const { id } = c.req.valid("param");

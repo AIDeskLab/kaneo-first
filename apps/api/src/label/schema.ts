@@ -19,3 +19,10 @@ export const updateLabelBody = z.object({
 });
 
 export const attachLabelBody = z.object({ taskId: z.string() });
+
+export const detachLabelQuery = z.object({
+  taskId: z.string().trim().min(1).optional().openapi({
+    description:
+      "Task to detach when id is a workspace label. Required when that label is on more than one task.",
+  }),
+});

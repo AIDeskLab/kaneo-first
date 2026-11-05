@@ -547,4 +547,155 @@ describe("API integration: label detach/attach", () => {
       expect(data.userId).toBe(member.user.id);
     }
   });
+
+  it("detaches by the workspace label id passed to attach, and by the returned id", async () => {
+    const member = await createWorkspaceMember();
+    const { project } = await createProjectFixture({
+      workspaceId: member.workspace.id,
+    });
+    const [task] = await seedTask(member.user.id, project.id);
+
+    mockAuthenticatedSession(member.user);
+    const { app } = createApp();
+
+    const createResponse = await app.request("/api/label", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "Bug",
+        color: "#ef4444",
+        workspaceId: member.workspace.id,
+      }),
+    });
+    expect(createResponse.status).toBe(200);
+    const workspaceLabel = (await createResponse.json()) as { id: string };
+
+    const attachResponse = await app.request(
+      `/api/label/${workspaceLabel.id}/task`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ taskId: task.id }),
+      },
+    );
+    expect(attachResponse.status).toBe(200);
+    const attached = (await attachResponse.json()) as { id: string };
+    expect(attached.id).not.toBe(workspaceLabel.id);
+
+    const detachByCallerId = await app.request(
+      `/api/label/${workspaceLabel.id}/task`,
+      { method: "DELETE" },
+    );
+    expect(detachByCallerId.status).toBe(200);
+
+    const afterCallerDetach = await db.query.labelTable.findMany({
+      where: eq(schema.labelTable.taskId, task.id),
+    });
+    expect(afterCallerDetach).toHaveLength(0);
+    const definition = await db.query.labelTable.findFirst({
+      where: eq(schema.labelTable.id, workspaceLabel.id),
+    });
+    expect(definition?.taskId).toBeNull();
+
+    const reattachResponse = await app.request(
+      `/api/label/${workspaceLabel.id}/task`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ taskId: task.id }),
+      },
+    );
+    expect(reattachResponse.status).toBe(200);
+    const reattached = (await reattachResponse.json()) as { id: string };
+
+    const detachByReturnedId = await app.request(
+      `/api/label/${reattached.id}/task`,
+      { method: "DELETE" },
+    );
+    expect(detachByReturnedId.status).toBe(200);
+
+    const afterReturnedDetach = await db.query.labelTable.findMany({
+      where: eq(schema.labelTable.taskId, task.id),
+    });
+    expect(afterReturnedDetach).toHaveLength(0);
+    const definitionAfter = await db.query.labelTable.findFirst({
+      where: eq(schema.labelTable.id, workspaceLabel.id),
+    });
+    expect(definitionAfter?.taskId).toBeNull();
+  });
+
+  it("detaches only the named task when a workspace label is on more than one task", async () => {
+    const member = await createWorkspaceMember();
+    const { project } = await createProjectFixture({
+      workspaceId: member.workspace.id,
+    });
+    const [taskA] = await seedTask(member.user.id, project.id);
+    const [taskB] = await db
+      .insert(schema.taskTable)
+      .values({
+        projectId: project.id,
+        userId: member.user.id,
+        title: "Other",
+        status: "to-do",
+        priority: "medium",
+        number: 2,
+        position: 2,
+      })
+      .returning();
+
+    const [workspaceLabel] = await db
+      .insert(schema.labelTable)
+      .values({
+        name: "Bug",
+        color: "#ef4444",
+        workspaceId: member.workspace.id,
+        taskId: null,
+      })
+      .returning();
+
+    mockAuthenticatedSession(member.user);
+    const { app } = createApp();
+
+    for (const taskId of [taskA.id, taskB.id]) {
+      const attachResponse = await app.request(
+        `/api/label/${workspaceLabel.id}/task`,
+        {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ taskId }),
+        },
+      );
+      expect(attachResponse.status).toBe(200);
+    }
+
+    const ambiguous = await app.request(
+      `/api/label/${workspaceLabel.id}/task`,
+      { method: "DELETE" },
+    );
+    expect(ambiguous.status).toBe(400);
+
+    const stillAssigned = await db.query.labelTable.findMany({
+      where: eq(schema.labelTable.name, "Bug"),
+    });
+    expect(stillAssigned.filter((label) => label.taskId !== null)).toHaveLength(
+      2,
+    );
+
+    const detachA = await app.request(
+      `/api/label/${workspaceLabel.id}/task?taskId=${encodeURIComponent(taskA.id)}`,
+      { method: "DELETE" },
+    );
+    expect(detachA.status).toBe(200);
+
+    const remaining = await db.query.labelTable.findMany({
+      where: eq(schema.labelTable.workspaceId, member.workspace.id),
+    });
+    expect(
+      remaining.find((label) => label.taskId === taskA.id),
+    ).toBeUndefined();
+    expect(remaining.find((label) => label.taskId === taskB.id)).toBeDefined();
+    expect(
+      remaining.find((label) => label.id === workspaceLabel.id)?.taskId,
+    ).toBeNull();
+  });
 });

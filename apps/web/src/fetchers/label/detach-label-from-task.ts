@@ -8,6 +8,7 @@ export type DetachLabelFromTaskRequest = {
 async function detachLabelFromTask({ labelId }: DetachLabelFromTaskRequest) {
   const response = await client.label[":id"].task.$delete({
     param: { id: labelId },
+    query: {},
   });
 
   if (!response.ok) {

@@ -157,6 +157,7 @@ describe("unassignLabelFromTask", () => {
     await unassignLabelFromTask("label-task-1", "user-1");
 
     expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(mockAssertProjectAccess).not.toHaveBeenCalled();
     expect(mockPublishEvent).toHaveBeenCalledWith("task.label_unassigned", {
       label: TASK_LABEL,
       task: TASK,
@@ -165,6 +166,19 @@ describe("unassignLabelFromTask", () => {
       userId: "user-1",
       type: "label_unassigned",
     });
+  });
+
+  it("rejects a task assignment id paired with a different taskId", async () => {
+    mockFindFirst.mockResolvedValue(TASK_LABEL);
+
+    await expect(
+      unassignLabelFromTask("label-task-1", "user-1", "task-2"),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: "Label is not assigned to a task",
+    });
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockSelect).not.toHaveBeenCalled();
   });
 
   it("calls removeLabelFromGitHub with the deleted task's id and name", async () => {
@@ -181,12 +195,89 @@ describe("unassignLabelFromTask", () => {
 
   it("rejects when the label is a workspace definition (taskId is null)", async () => {
     mockFindFirst.mockResolvedValue(WORKSPACE_LABEL);
+    mockSelect.mockReturnValue(makeSelectMock([]));
 
     await expect(
       unassignLabelFromTask("label-ws-1", "user-1"),
     ).rejects.toMatchObject({
       status: 400,
+      message: "Label is not assigned to a task",
     });
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockPublishEvent).not.toHaveBeenCalled();
+  });
+
+  it("removes the only task copy when given the workspace label id", async () => {
+    mockFindFirst.mockResolvedValue(WORKSPACE_LABEL);
+    mockSelect
+      .mockReturnValueOnce(makeSelectMock([TASK_LABEL]))
+      .mockReturnValueOnce(makeSelectMock([TASK]));
+    mockDelete.mockReturnValue(makeDeleteMock(TASK_LABEL));
+    mockRemoveLabelFromGitHub.mockResolvedValue(undefined);
+    mockRemoveLabelFromGitea.mockResolvedValue(undefined);
+
+    const result = await unassignLabelFromTask("label-ws-1", "user-1");
+
+    expect(result).toEqual(TASK_LABEL);
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(mockAssertProjectAccess).toHaveBeenCalledWith("user-1", "proj-1");
+    expect(mockPublishEvent).toHaveBeenCalledWith("task.label_unassigned", {
+      label: TASK_LABEL,
+      task: TASK,
+      projectId: TASK.projectId,
+      taskId: "task-1",
+      userId: "user-1",
+      type: "label_unassigned",
+    });
+    expect(mockRemoveLabelFromGitHub).toHaveBeenCalledWith("task-1", "bug");
+  });
+
+  it("removes the task named by taskId when the workspace label is on several tasks", async () => {
+    const otherCopy = { ...TASK_LABEL, id: "label-task-2", taskId: "task-2" };
+    mockFindFirst.mockResolvedValue(WORKSPACE_LABEL);
+    mockSelect.mockReturnValueOnce(makeSelectMock([otherCopy, TASK_LABEL]));
+
+    await expect(
+      unassignLabelFromTask("label-ws-1", "user-1"),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: "Label is assigned to more than one task",
+    });
+    expect(mockDelete).not.toHaveBeenCalled();
+
+    mockSelect
+      .mockReturnValueOnce(makeSelectMock([TASK_LABEL]))
+      .mockReturnValueOnce(makeSelectMock([TASK]));
+    mockDelete.mockReturnValue(makeDeleteMock(TASK_LABEL));
+    mockRemoveLabelFromGitHub.mockResolvedValue(undefined);
+    mockRemoveLabelFromGitea.mockResolvedValue(undefined);
+
+    const result = await unassignLabelFromTask(
+      "label-ws-1",
+      "user-1",
+      "task-1",
+    );
+
+    expect(result.id).toBe("label-task-1");
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not detach a workspace label from a project the caller cannot access", async () => {
+    mockFindFirst.mockResolvedValue(WORKSPACE_LABEL);
+    mockSelect
+      .mockReturnValueOnce(makeSelectMock([TASK_LABEL]))
+      .mockReturnValueOnce(makeSelectMock([TASK]));
+    mockAssertProjectAccess.mockRejectedValue(
+      Object.assign(new Error("You don't have access to this project"), {
+        status: 403,
+      }),
+    );
+
+    await expect(
+      unassignLabelFromTask("label-ws-1", "user-1"),
+    ).rejects.toMatchObject({ status: 403 });
+
+    expect(mockAssertProjectAccess).toHaveBeenCalledWith("user-1", "proj-1");
     expect(mockDelete).not.toHaveBeenCalled();
     expect(mockPublishEvent).not.toHaveBeenCalled();
   });

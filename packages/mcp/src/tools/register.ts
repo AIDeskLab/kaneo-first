@@ -569,7 +569,8 @@ export function registerTools(
   registerTool(
     "attach_label_to_task",
     {
-      description: "Attach an existing label to a task.",
+      description:
+        "Attach an existing label to a task. Returns the task assignment's id. Attaching a workspace label inserts a new row and returns that id, not the workspace label id. detach_label_from_task accepts the returned id, or the original workspace label id for that task.",
       inputSchema: z.object({
         labelId: nonEmptyString,
         taskId: nonEmptyString,
@@ -587,15 +588,23 @@ export function registerTools(
   registerTool(
     "detach_label_from_task",
     {
-      description: "Detach a label from its current task.",
-      inputSchema: z.object({ labelId: nonEmptyString }),
+      description:
+        "Detach a label from a task. labelId may be the id returned by attach_label_to_task, or the original workspace label id. Pass taskId when that workspace label is on more than one task.",
+      inputSchema: z.object({
+        labelId: nonEmptyString,
+        taskId: optionalNonEmptyString,
+      }),
     },
     async (args) =>
-      run(() =>
-        client.json(`/api/label/${encodeURIComponent(args.labelId)}/task`, {
-          method: "DELETE",
-        }),
-      ),
+      run(() => {
+        const taskQuery = args.taskId
+          ? `?taskId=${encodeURIComponent(args.taskId)}`
+          : "";
+        return client.json(
+          `/api/label/${encodeURIComponent(args.labelId)}/task${taskQuery}`,
+          { method: "DELETE" },
+        );
+      }),
   );
 
   registerTool(
