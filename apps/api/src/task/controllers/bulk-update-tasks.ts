@@ -171,6 +171,7 @@ async function bulkUpdateTasks({
             id: taskTable.id,
             projectId: taskTable.projectId,
             priority: taskTable.priority,
+            title: taskTable.title,
           })
           .from(taskTable)
           .where(inArray(taskTable.id, foundIds))
@@ -205,6 +206,7 @@ async function bulkUpdateTasks({
           userId,
           oldPriority: task.priority,
           newPriority: value,
+          title: task.title,
           type: "priority_changed",
         });
       }
