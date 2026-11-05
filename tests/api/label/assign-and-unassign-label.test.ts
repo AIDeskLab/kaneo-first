@@ -21,6 +21,7 @@ const mockAssertProjectAccess = vi.fn();
 
 function createMockTxContext() {
   return {
+    execute: async () => undefined,
     insert: (...args: unknown[]) => mockInsert(...args),
     delete: (...args: unknown[]) => mockDelete(...args),
     query: {

@@ -17,6 +17,20 @@ vi.mock("../../../../apps/api/src/database", () => ({
 vi.mock("../../../../apps/api/src/plugins/github/utils/github-app", () => ({
   getInstallationOctokit: (...args: unknown[]) =>
     mockGetInstallationOctokit(...args),
+  getVerifiedInstallationOctokit: (...args: unknown[]) =>
+    mockGetInstallationOctokit(...args),
+}));
+
+vi.mock("../../../../apps/api/src/plugins/sync/eligibility", () => ({
+  canSyncTask: async () => true,
+}));
+
+vi.mock("../../../../apps/api/src/plugins/sync/dispatch-issue-write", () => ({
+  dispatchIssueWrite: async (
+    _link: unknown,
+    _expectedConfig: unknown,
+    send: () => Promise<unknown>,
+  ) => ({ value: await send() }),
 }));
 
 vi.mock("../../../../apps/api/src/plugins/github/utils/labels", () => ({

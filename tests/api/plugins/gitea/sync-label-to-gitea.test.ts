@@ -8,6 +8,18 @@ const mockGetIssue = vi.fn();
 const mockAddLabelsToIssue = vi.fn();
 const mockCreateLabel = vi.fn();
 
+vi.mock("../../../../apps/api/src/plugins/sync/eligibility", () => ({
+  canSyncTask: async () => true,
+}));
+
+vi.mock("../../../../apps/api/src/plugins/sync/dispatch-issue-write", () => ({
+  dispatchIssueWrite: async (
+    _link: unknown,
+    _expectedConfig: unknown,
+    send: () => Promise<unknown>,
+  ) => ({ value: await send() }),
+}));
+
 vi.mock("../../../../apps/api/src/database", () => ({
   default: {
     query: {
