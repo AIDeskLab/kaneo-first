@@ -462,6 +462,42 @@ describe("registerTools", () => {
     expect(result?.isError).toBe(false);
   });
 
+  it("rejects a date-only time entry and forwards a zoned timestamp", async () => {
+    const { server, tools } = createServerMock();
+    const client = { json: vi.fn().mockResolvedValue({ id: "entry-1" }) };
+
+    registerTools(server as never, { client: client as never });
+
+    const create = tools.get("create_time_entry");
+    const update = tools.get("update_time_entry");
+    const dateOnly = await create?.handler({
+      taskId: "task-1",
+      startTime: "2026-12-01",
+    });
+    const withoutOffset = await update?.handler({
+      id: "entry-1",
+      startTime: "2026-12-01T09:00:00",
+    });
+
+    expect(dateOnly?.isError).toBe(true);
+    expect(withoutOffset?.isError).toBe(true);
+    expect(client.json).not.toHaveBeenCalled();
+
+    const result = await create?.handler({
+      taskId: "task-1",
+      startTime: "2026-12-01T09:00:00.000Z",
+    });
+
+    expect(client.json).toHaveBeenCalledWith("/api/time-entry", {
+      method: "POST",
+      body: JSON.stringify({
+        taskId: "task-1",
+        startTime: "2026-12-01T09:00:00.000Z",
+      }),
+    });
+    expect(result?.isError).toBe(false);
+  });
+
   it("lists a project's custom field definitions", async () => {
     const { server, tools } = createServerMock();
     const client = { json: vi.fn().mockResolvedValue([]) };
