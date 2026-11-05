@@ -63,19 +63,17 @@ export function ColumnHeader({
       </div>
 
       <div className="flex items-center">
-        {canTask &&
-          !disableCollectionActions &&
-          column.isFinal &&
-          column.tasks.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setIsArchiveModalOpen(true)}
-              className="flex items-center rounded-md px-2 py-1 text-left text-muted-foreground transition-colors hover:bg-accent/50"
-              title={t("tasks:listView.archiveAllTooltip")}
-            >
-              <Archive className="w-4 h-4 text-muted-foreground" />
-            </button>
-          )}
+        {canTask && column.isFinal && column.tasks.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setIsArchiveModalOpen(true)}
+            disabled={disableCollectionActions}
+            className="flex items-center rounded-md px-2 py-1 text-left text-muted-foreground transition-colors hover:bg-accent/50"
+            title={t("tasks:listView.archiveAllTooltip")}
+          >
+            <Archive className="w-4 h-4 text-muted-foreground" />
+          </button>
+        )}
         {canCreate && !disableCollectionActions && (
           <button
             type="button"
@@ -98,7 +96,10 @@ export function ColumnHeader({
       <ArchiveTasksModal
         open={isArchiveModalOpen}
         onClose={() => setIsArchiveModalOpen(false)}
-        onConfirm={handleConfirmArchive}
+        onConfirm={() => {
+          void handleConfirmArchive();
+        }}
+        disabled={disableCollectionActions}
         taskCount={column.tasks.length}
         isPending={bulkArchivePending}
       />

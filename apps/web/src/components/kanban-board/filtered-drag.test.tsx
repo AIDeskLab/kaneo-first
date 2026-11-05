@@ -60,6 +60,9 @@ vi.mock("@/store/background", () => ({
 vi.mock("@/hooks/use-project-background", () => ({
   useProjectBackground: () => null,
 }));
+vi.mock("@/hooks/use-keyboard-shortcuts", () => ({
+  useRegisterShortcuts: () => {},
+}));
 vi.mock("../bulk-selection/bulk-toolbar", () => ({ default: () => null }));
 vi.mock("./column", () => ({
   default: ({

@@ -21,6 +21,7 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => vi.fn(),
 }));
 vi.mock("react-i18next", () => ({
+  initReactI18next: { type: "3rdParty", init: () => undefined },
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 vi.mock("@/hooks/queries/task/use-get-tasks", () => ({
@@ -36,12 +37,49 @@ vi.mock("@/store/project", () => ({
 }));
 vi.mock("@/store/user-preferences", () => ({
   useUserPreferencesStore: (
-    selector: (state: { viewMode: "board" | "list" }) => unknown,
-  ) => selector({ viewMode: "board" }),
+    selector?: (state: {
+      viewMode: "board";
+      hierarchyMode: "flat";
+      setViewMode: () => void;
+      setHierarchyMode: () => void;
+    }) => unknown,
+  ) => {
+    const state = {
+      viewMode: "board" as const,
+      hierarchyMode: "flat" as const,
+      setViewMode: () => undefined,
+      setHierarchyMode: () => undefined,
+    };
+    return typeof selector === "function" ? selector(state) : state;
+  },
 }));
 vi.mock("@/store/background", () => ({
   useBackgroundStore: () => ({ background: null }),
 }));
+vi.mock(
+  "@/hooks/queries/workspace-users/use-get-active-workspace-users",
+  () => ({
+    useGetActiveWorkspaceUsers: () => ({ data: [] }),
+  }),
+);
+vi.mock("@/hooks/queries/label/use-get-labels-by-workspace", () => ({
+  default: () => ({ data: [] }),
+}));
+vi.mock("@/hooks/use-task-filters-with-labels-support", () => ({
+  useTaskFiltersWithLabelsSupport: () => ({
+    filters: {},
+    updateFilter: vi.fn(),
+    updateLabelFilter: vi.fn(),
+    filteredProject: m.project,
+    hasActiveFilters: false,
+    clearFilters: vi.fn(),
+  }),
+}));
+vi.mock("@/hooks/use-keyboard-shortcuts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/hooks/use-keyboard-shortcuts")>()),
+  useRegisterShortcuts: () => {},
+}));
+vi.mock("@/components/board/board-toolbar", () => ({ default: () => null }));
 vi.mock("@/hooks/use-board-sort", () => ({
   useBoardSort: () => ({ sort: { field: "position" }, setSort: vi.fn() }),
 }));
