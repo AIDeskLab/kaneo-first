@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { standardSchemaValidationHook } from "../errors/validation-error";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import * as v from "valibot";
 import db from "../database";
@@ -313,6 +314,7 @@ const task = new Hono<{
           v.array(v.object({ fieldId: v.string(), value: v.string() })),
         ),
       }),
+      standardSchemaValidationHook,
     ),
     workspaceAccess.fromProject("projectId"),
     requireWorkspacePermission({ task: ["create"] }),
