@@ -318,6 +318,29 @@ export function registerTools(
   );
 
   registerTool(
+    "get_my_tasks",
+    {
+      description:
+        "List tasks assigned to the signed-in user across every project they can access. Each task includes its project, column, and labels. Omit status for the full list, or pass a status such as archived or a column slug. The API ignores an unknown status and returns the unfiltered list.",
+      inputSchema: z.object({
+        status: optionalNonEmptyString.describe(
+          "Optional status filter, such as archived or a column slug. Any other non-empty status is accepted; unknown statuses are ignored.",
+        ),
+      }),
+    },
+    async ({ status }) => {
+      const qs = new URLSearchParams();
+      if (status) qs.set("status", status);
+      const query = qs.toString();
+      return run(() =>
+        client.json(`/api/task/my${query ? `?${query}` : ""}`, {
+          method: "GET",
+        }),
+      );
+    },
+  );
+
+  registerTool(
     "create_task",
     {
       description: "Create a task in a project.",

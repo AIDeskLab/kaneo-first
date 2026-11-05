@@ -284,6 +284,19 @@ describe("MCP tool catalog", () => {
     });
   });
 
+  it("loads the signed-in user's tasks from /api/task/my", async () => {
+    await call("get_my_tasks");
+    expect(lastRequest()).toMatchObject({
+      url: "http://api.test/api/task/my",
+      method: "GET",
+    });
+
+    await call("get_my_tasks", { status: "archived" });
+    expect(lastRequest().url).toBe(
+      "http://api.test/api/task/my?status=archived",
+    );
+  });
+
   it("reads task activity and notifications", async () => {
     await call("list_task_activity", { taskId: "t1" });
     expect(lastRequest().url).toBe("http://api.test/api/activity/t1");

@@ -1,7 +1,11 @@
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { isLegacyRequest } from "@modelcontextprotocol/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import mcpRoutes from "../../apps/api/src/mcp";
 import { createModernMcpHandler } from "../../apps/api/src/mcp/modern";
+import { registerTools } from "../../packages/mcp/src/tools/register";
 
 const authMocks = vi.hoisted(() => ({
   getSession: vi.fn(async () => ({ user: { id: "test-user" } })),
@@ -81,6 +85,61 @@ async function rpcBody(response: Response): Promise<RpcBody> {
   return JSON.parse(data ?? text) as RpcBody;
 }
 
+function toolNamesFrom(tools: Array<{ name?: string }>): string[] {
+  return tools.map((tool) => tool.name ?? "").sort();
+}
+
+async function httpToolNames(): Promise<string[]> {
+  const handler = createModernMcpHandler("test-token", "http://api.test");
+  const names: string[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 10; page++) {
+    const response = await handler.fetch(
+      modernRequest("tools/list", page + 1, cursor ? { cursor } : {}),
+    );
+    expect(response.status).toBe(200);
+    const body = await rpcBody(response);
+    const tools = body.result.tools as Array<{ name: string }>;
+    names.push(...toolNamesFrom(tools));
+    const next = (body.result as { nextCursor?: string }).nextCursor;
+    if (!next) break;
+    cursor = next;
+  }
+  return names.sort();
+}
+
+async function stdioToolNames(): Promise<string[]> {
+  const server = new McpServer({ name: "kaneo-mcp", version: "0.0.0-test" });
+  registerTools(server, {
+    client: {
+      json: async () => {
+        throw new Error("tools/list must not call Kaneo");
+      },
+    },
+  });
+  const client = new Client({ name: "tool-list-test", version: "1.0.0" });
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  await Promise.all([
+    client.connect(clientTransport),
+    server.connect(serverTransport),
+  ]);
+  try {
+    const names: string[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < 10; page++) {
+      const listed = await client.listTools(cursor ? { cursor } : undefined);
+      names.push(...toolNamesFrom(listed.tools));
+      if (!listed.nextCursor) break;
+      cursor = listed.nextCursor;
+    }
+    return names.sort();
+  } finally {
+    await client.close();
+    await server.close();
+  }
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
   authMocks.getSession.mockClear();
@@ -103,6 +162,24 @@ describe("MCP 2026-07-28 stateless HTTP", () => {
     expect(firstBody.result.tools).toContainEqual(
       expect.objectContaining({ name: "whoami" }),
     );
+    expect(firstBody.result.tools).toContainEqual(
+      expect.objectContaining({ name: "get_my_tasks" }),
+    );
+  });
+
+  it("lists the same tool names over HTTP and stdio, including get_my_tasks", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new Error("tools/list must not call Kaneo");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const httpNames = await httpToolNames();
+    const stdioNames = await stdioToolNames();
+
+    expect(stdioNames).toEqual(httpNames);
+    expect(new Set(httpNames).size).toBe(httpNames.length);
+    expect(httpNames).toContain("get_my_tasks");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("handles concurrent read-only calls with per-request authentication", async () => {

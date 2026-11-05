@@ -219,6 +219,42 @@ describe("registerTools", () => {
     );
   });
 
+  it("lists the signed-in user's tasks from /api/task/my", async () => {
+    const { server, tools } = createServerMock();
+    const client = {
+      json: vi.fn().mockResolvedValue({ tasks: [], total: 0 }),
+    };
+    registerTools(server as never, { client: client as never });
+
+    const tool = tools.get("get_my_tasks");
+    expect(tool).toBeDefined();
+    expect(tool?.config.description).toMatch(/archived/i);
+
+    const all = await tool?.handler({});
+    const archived = await tool?.handler({ status: "archived" });
+    const custom = await tool?.handler({ status: "custom-column" });
+    const blank = await tool?.handler({ status: "  " });
+
+    expect(client.json).toHaveBeenNthCalledWith(1, "/api/task/my", {
+      method: "GET",
+    });
+    expect(client.json).toHaveBeenNthCalledWith(
+      2,
+      "/api/task/my?status=archived",
+      { method: "GET" },
+    );
+    expect(client.json).toHaveBeenNthCalledWith(
+      3,
+      "/api/task/my?status=custom-column",
+      { method: "GET" },
+    );
+    expect(client.json).toHaveBeenCalledTimes(3);
+    expect(all?.isError).toBe(false);
+    expect(archived?.isError).toBe(false);
+    expect(custom?.isError).toBe(false);
+    expect(blank?.isError).toBe(true);
+  });
+
   it("fetches the current task and sends a full body for update_task", async () => {
     const { server, tools } = createServerMock();
     const client = {
