@@ -1301,6 +1301,12 @@ const task = new Hono<{
     async (c) => {
       const { id } = c.req.valid("param");
       const { recurrence } = c.req.valid("json");
+      if (recurrence) {
+        await requireWorkspacePermission({ task: ["create"] })(
+          c,
+          async () => {},
+        );
+      }
       return c.json(
         await updateTaskRecurrence({
           id,
