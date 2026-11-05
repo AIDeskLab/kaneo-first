@@ -53,53 +53,58 @@ async function importTasks(
     warnings?: string[];
     error?: string;
   }> = [];
-  await db.transaction(async (tx) => {
-    await lockWorkspaceAssignees(tx, project.workspaceId, assigneeIds);
-    const assignees = await resolveImportAssignees(
-      assigneeIds,
-      project.workspaceId,
-      tx,
-    );
-    const assignableIds = await filterUsersWithProjectAccess(
-      assignees.values(),
-      projectId,
-      tx,
-    );
-    const columns = await tx
-      .select({ slug: columnTable.slug, name: columnTable.name })
-      .from(columnTable)
-      .where(eq(columnTable.projectId, projectId))
-      .orderBy(asc(columnTable.position));
+  const { assignees, assignableIds, columns } = await db.transaction(
+    async (tx) => {
+      await lockWorkspaceAssignees(tx, project.workspaceId, assigneeIds);
+      const assignees = await resolveImportAssignees(
+        assigneeIds,
+        project.workspaceId,
+        tx,
+      );
+      const assignableIds = await filterUsersWithProjectAccess(
+        assignees.values(),
+        projectId,
+        tx,
+      );
+      const columns = await tx
+        .select({ slug: columnTable.slug, name: columnTable.name })
+        .from(columnTable)
+        .where(eq(columnTable.projectId, projectId))
+        .orderBy(asc(columnTable.position));
+      return { assignees, assignableIds, columns };
+    },
+  );
 
-    for (const taskData of tasksToImport) {
-      try {
-        const reference = taskData.userId?.trim() || null;
-        const assigneeId = reference ? assignees.get(reference) : null;
-        if (reference && (!assigneeId || !assignableIds.has(assigneeId))) {
-          results.push({
-            success: false,
-            error: assigneeId ? NO_PROJECT_ACCESS : NOT_ASSIGNABLE,
-            task: taskData,
-          });
-          continue;
-        }
-        const resolved = resolveImportTaskStatus(taskData.status, columns);
-        if ("error" in resolved) {
-          results.push({
-            success: false,
-            error: resolved.error,
-            task: taskData,
-          });
-          continue;
-        }
-        const { status, warning: statusWarning } = resolved;
-        const { priority, warning: priorityWarning } = coercePriority(
-          taskData.priority || "low",
-        );
-        const warnings = [statusWarning, priorityWarning].filter(
-          (warning): warning is string => Boolean(warning),
-        );
+  for (const taskData of tasksToImport) {
+    try {
+      const reference = taskData.userId?.trim() || null;
+      const assigneeId = reference ? assignees.get(reference) : null;
+      if (reference && (!assigneeId || !assignableIds.has(assigneeId))) {
+        results.push({
+          success: false,
+          error: assigneeId ? NO_PROJECT_ACCESS : NOT_ASSIGNABLE,
+          task: taskData,
+        });
+        continue;
+      }
+      const resolved = resolveImportTaskStatus(taskData.status, columns);
+      if ("error" in resolved) {
+        results.push({
+          success: false,
+          error: resolved.error,
+          task: taskData,
+        });
+        continue;
+      }
+      const { status, warning: statusWarning } = resolved;
+      const { priority, warning: priorityWarning } = coercePriority(
+        taskData.priority || "low",
+      );
+      const warnings = [statusWarning, priorityWarning].filter(
+        (warning): warning is string => Boolean(warning),
+      );
 
+      const createdTask = await db.transaction(async (tx) => {
         const taskNumber = await claimTaskNumber(projectId, tx);
         // Recheck the snapshot's column and retain it until the insert commits.
         const [column] = await tx
@@ -145,43 +150,46 @@ async function importTasks(
             number: taskNumber,
           })
           .returning();
+        return task;
+      });
 
-        const createdTask = task;
-
-        if (createdTask) {
-          await publishEvent("task.created", {
+      if (createdTask) {
+        await publishEvent(
+          "task.created",
+          {
             ...createdTask,
             taskId: createdTask.id,
             userId: createdTask.userId ?? "",
             currentUserId: currentUserId ?? "",
             type: "create",
             content: "imported the task",
-          });
+          },
+          { waitForHandlers: true },
+        );
 
-          results.push({
-            success: true,
-            task: createdTask,
-            ...(warnings.length > 0 && { warnings }),
-          });
-        } else {
-          results.push({
-            success: false,
-            error: "Failed to create task",
-            task: taskData,
-          });
-        }
-      } catch (error) {
-        if (error instanceof HTTPException) {
-          throw error;
-        }
+        results.push({
+          success: true,
+          task: createdTask,
+          ...(warnings.length > 0 && { warnings }),
+        });
+      } else {
         results.push({
           success: false,
-          error: error instanceof Error ? error.message : "Unknown error",
+          error: "Failed to create task",
           task: taskData,
         });
       }
+    } catch (error) {
+      if (error instanceof HTTPException) {
+        throw error;
+      }
+      results.push({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+        task: taskData,
+      });
     }
-  });
+  }
 
   return {
     importedAt: new Date().toISOString(),
