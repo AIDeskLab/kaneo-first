@@ -389,20 +389,77 @@ describe("registerTools", () => {
     ).toThrow(/hex color/i);
   });
 
-  it("validates task date filters as ISO datetimes with timezone", () => {
+  it("forwards a date-only task date filter", async () => {
     const { server, tools } = createServerMock();
-    const client = { json: vi.fn() };
+    const client = { json: vi.fn().mockResolvedValue({ data: [] }) };
 
     registerTools(server as never, { client: client as never });
 
     const schema = tools.get("list_tasks")?.config.inputSchema;
     expect(schema).toBeDefined();
-    expect(() =>
+    expect(
       schema?.parse({
         projectId: "project-1",
         dueBefore: "2026-04-04",
       }),
+    ).toEqual({
+      projectId: "project-1",
+      dueBefore: "2026-04-04",
+    });
+    expect(
+      schema?.parse({
+        projectId: "project-1",
+        dueBefore: "2026-04-04T00:00:00.000Z",
+      }),
+    ).toEqual({
+      projectId: "project-1",
+      dueBefore: "2026-04-04T00:00:00.000Z",
+    });
+    expect(() =>
+      schema?.parse({
+        projectId: "project-1",
+        dueBefore: "not-a-date",
+      }),
     ).toThrow();
+
+    const result = await tools.get("list_tasks")?.handler({
+      projectId: "project-1",
+      dueBefore: "2026-04-04",
+    });
+
+    expect(client.json).toHaveBeenCalledWith(
+      "/api/task/tasks/project-1?dueBefore=2026-04-04",
+      { method: "GET" },
+    );
+    expect(result?.isError).toBe(false);
+  });
+
+  it("forwards a date-only dueDate on the create task request", async () => {
+    const { server, tools } = createServerMock();
+    const client = { json: vi.fn().mockResolvedValue({ id: "task-1" }) };
+
+    registerTools(server as never, { client: client as never });
+
+    const result = await tools.get("create_task")?.handler({
+      projectId: "project-1",
+      title: "Ship the board",
+      description: "",
+      priority: "medium",
+      status: "to-do",
+      dueDate: "2026-12-01",
+    });
+
+    expect(client.json).toHaveBeenCalledWith("/api/task/project-1", {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Ship the board",
+        description: "",
+        priority: "medium",
+        status: "to-do",
+        dueDate: "2026-12-01",
+      }),
+    });
+    expect(result?.isError).toBe(false);
   });
 
   it("lists a project's custom field definitions", async () => {
