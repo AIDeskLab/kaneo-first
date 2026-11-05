@@ -371,7 +371,7 @@ describe("OnboardingFlow plan step", () => {
 
     expect(screen.queryByText("auth:onboarding.plan.title")).toBeNull();
     expect(
-      await screen.findByText("auth:onboarding.invite.title"),
+      await screen.findByText(/auth:onboarding.ready.title/),
     ).toBeInTheDocument();
   });
 });

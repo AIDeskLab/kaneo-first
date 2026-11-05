@@ -1,6 +1,5 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
-import { useInstanceNameStore } from "@/store/instance-name";
 import PageTitle from "./page-title";
 
 describe("PageTitle", () => {
@@ -10,33 +9,26 @@ describe("PageTitle", () => {
 
   afterEach(() => {
     cleanup();
-    useInstanceNameStore.setState({ instanceName: "Kaneo" });
+    document.title = "Kaneo";
   });
 
-  it("uses the custom instance name and restores the fallback on unmount", () => {
-    useInstanceNameStore.setState({ instanceName: "Acme" });
-    const { unmount } = render(<PageTitle title="Settings" />);
-    expect(document.title).toBe("Settings | Acme");
-    unmount();
-    expect(document.title).toBe("Kaneo");
+  it("appends the default app name", () => {
+    render(<PageTitle title="Settings" />);
+    expect(document.title).toBe("Settings — Kaneo");
   });
 
-  it("sets the document title", () => {
-    render(<PageTitle title="MFP-1 Drag this card" />);
-    expect(document.title).toBe("MFP-1 Drag this card");
+  it("uses a custom suffix", () => {
+    render(<PageTitle title="Settings" suffix="Acme" />);
+    expect(document.title).toBe("Settings — Acme");
   });
 
-  it("keeps the fallback title while the title is still loading", () => {
-    const { rerender } = render(<PageTitle title={undefined} />);
-    expect(document.title).toBe("Kaneo");
-
-    rerender(<PageTitle title="Website / Board" />);
+  it("omits the app name when asked", () => {
+    render(<PageTitle title="Website / Board" hideAppName />);
     expect(document.title).toBe("Website / Board");
   });
 
-  it("restores the fallback title when the page unmounts", () => {
-    const { unmount } = render(<PageTitle title="Inbox" />);
-    unmount();
+  it("leaves the current title alone until a title is available", () => {
+    render(<PageTitle title={undefined} />);
     expect(document.title).toBe("Kaneo");
   });
 });

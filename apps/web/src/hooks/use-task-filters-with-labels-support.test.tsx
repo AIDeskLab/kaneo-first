@@ -157,8 +157,9 @@ describe("useTaskFiltersWithLabelsSupport", () => {
       archivedTasks: [],
     };
 
-    const { result } = renderHook(() =>
-      useTaskFiltersWithLabelsSupport(project, "project-1"),
+    const { result } = renderHook(
+      () => useTaskFiltersWithLabelsSupport(project, "project-1"),
+      { wrapper: createWrapper() },
     );
 
     expect(result.current.hasActiveFilters).toBe(false);

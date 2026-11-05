@@ -163,10 +163,13 @@ export function useTaskFiltersWithLabelsSupport(
 
   const filteredProject = useMemo(() => {
     if (!project) return null;
+    if (!textQuery && countActiveFilters(effectiveFilters) === 0) {
+      return project;
+    }
     return recalculateVisibleSubtaskCounts(
       filterProjectTasks(project, createMatcher()),
     );
-  }, [project, createMatcher]);
+  }, [project, createMatcher, textQuery, effectiveFilters]);
 
   const activeFilterCount = countActiveFilters(effectiveFilters);
   const hasActiveFilters = activeFilterCount > 0;
