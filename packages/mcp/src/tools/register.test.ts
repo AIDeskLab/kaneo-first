@@ -297,6 +297,60 @@ describe("registerTools", () => {
     expect(result?.isError).toBe(false);
   });
 
+  it("keeps projectGroupId when update_project only changes the description", async () => {
+    const { server, tools } = createServerMock();
+    const client = {
+      json: vi
+        .fn()
+        .mockResolvedValueOnce({
+          name: "Roadmap",
+          icon: "Folder",
+          slug: "roadmap",
+          description: "Before",
+          isPublic: false,
+          projectGroupId: "group-1",
+        })
+        .mockResolvedValueOnce({
+          id: "project-1",
+          name: "Roadmap",
+          icon: "Folder",
+          slug: "roadmap",
+          description: "After",
+          isPublic: false,
+          projectGroupId: "group-1",
+        }),
+    };
+
+    registerTools(server as never, { client: client as never });
+
+    const result = await tools.get("update_project")?.handler({
+      id: "project-1",
+      description: "After",
+    });
+
+    expect(client.json).toHaveBeenNthCalledWith(1, "/api/project/project-1", {
+      method: "GET",
+    });
+    const putCall = client.json.mock.calls[1];
+    expect(putCall?.[0]).toBe("/api/project/project-1");
+    const putBody = JSON.parse(
+      String((putCall?.[1] as { body?: string })?.body ?? "{}"),
+    );
+    expect(putBody).toEqual({
+      name: "Roadmap",
+      icon: "Folder",
+      slug: "roadmap",
+      description: "After",
+      isPublic: false,
+      projectGroupId: "group-1",
+    });
+    expect(result?.isError).toBe(false);
+    expect(JSON.parse(result?.content[0]?.text ?? "{}")).toMatchObject({
+      description: "After",
+      projectGroupId: "group-1",
+    });
+  });
+
   it("returns an MCP error result when the client request fails", async () => {
     const { server, tools } = createServerMock();
     const client = {
