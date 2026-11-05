@@ -1,25 +1,28 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { KeyboardShortcutsProvider } from "@/hooks/use-keyboard-shortcuts";
 import {
   act,
   cleanup,
   fireEvent,
   render,
   screen,
-  within,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 import type { DragEndEvent } from "@dnd-kit/core";
 import type { ProjectWithTasks } from "@/types/project";
-import { writeExpandedRows } from "@/lib/expanded-rows-storage";
 import useBulkSelectionStore from "@/store/bulk-selection";
+import useHierarchyExpansionStore from "@/store/hierarchy-expansion";
+import { useUserPreferencesStore } from "@/store/user-preferences";
 import ListView from "./index";
 
 const queryClient = new QueryClient();
 
 function Providers({ children }: { children: ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <KeyboardShortcutsProvider>{children}</KeyboardShortcutsProvider>
+    </QueryClientProvider>
   );
 }
 const m = vi.hoisted(() => ({
@@ -33,6 +36,7 @@ const m = vi.hoisted(() => ({
     taskCount?: number;
   },
   mutate: vi.fn(),
+  bulkArchive: vi.fn(),
   setProject: vi.fn(),
   relations: { data: [] as unknown[], isLoading: false, isError: false },
   refetchRelations: vi.fn(),
@@ -50,6 +54,12 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 vi.mock("@/hooks/mutations/task/use-update-task", () => ({
   useUpdateTask: () => ({ mutate: m.mutate }),
+}));
+vi.mock("@/hooks/mutations/task/use-bulk-operations", () => ({
+  useBulkOperations: () => ({
+    bulkArchive: m.bulkArchive,
+    bulkArchivePending: false,
+  }),
 }));
 vi.mock("@/store/project", () => ({
   default: () => ({ setProject: m.setProject }),
@@ -142,19 +152,19 @@ it("blocks archive-all during pagination or errors, including an already-open co
   );
   expect(m.archive.disabled).toBe(true);
   act(() => m.archive.onConfirm?.());
-  expect(m.mutate).not.toHaveBeenCalled();
+  expect(m.bulkArchive).not.toHaveBeenCalled();
   expect(m.setProject).not.toHaveBeenCalled();
   rerender(<ListView project={complete} />);
   expect(m.archive.taskCount).toBe(2);
   act(() => m.archive.onConfirm?.());
-  expect(m.mutate).toHaveBeenCalledTimes(2);
-  expect(m.setProject).toHaveBeenCalledOnce();
+  expect(m.bulkArchive).toHaveBeenCalledTimes(1);
+  expect(m.bulkArchive).toHaveBeenCalledWith(["a", "b"]);
+  expect(m.setProject).not.toHaveBeenCalled();
 });
 
-// Without relations every task renders as a top-level row, which reads
-// exactly like a project with no subtasks. A failure has to say so, and let
-// the viewer try again.
-it("says when subtasks could not be loaded, and retries on request", () => {
+// Subtasks come from parent links on the tasks themselves. A missing
+// relations response is not a separate failure the list has to announce.
+it("does not announce a relations error for an empty column", () => {
   m.relations = {
     data: undefined as unknown as unknown[],
     isLoading: false,
@@ -170,9 +180,8 @@ it("says when subtasks could not be loaded, and retries on request", () => {
 
   render(<ListView project={project} />, { wrapper: Providers });
 
-  const alert = screen.getByRole("alert");
-  fireEvent.click(within(alert).getByRole("button"));
-  expect(m.refetchRelations).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(m.refetchRelations).not.toHaveBeenCalled();
 });
 
 it("shows no notice when subtasks load", () => {
@@ -192,12 +201,10 @@ it("shows no notice when subtasks load", () => {
 // j and k follow this order. Built from the top-level tasks alone, it jumped
 // past an expanded parent's subtasks to the next top-level row.
 it("orders keyboard navigation by the rows as shown, subtasks included", () => {
-  writeExpandedRows("p", { a: true });
-  m.relations = {
-    data: [{ sourceTaskId: "a", targetTaskId: "c", relationType: "subtask" }],
-    isLoading: false,
-    isError: false,
-  };
+  useUserPreferencesStore.setState({ hierarchyMode: "nested" });
+  useHierarchyExpansionStore.setState({
+    expandedTaskIds: { p: ["a"] },
+  });
   const project = {
     id: "p",
     workspaceId: "w",
@@ -208,8 +215,8 @@ it("orders keyboard navigation by the rows as shown, subtasks included", () => {
         name: "To do",
         tasks: [
           { id: "a", position: 0 },
-          { id: "b", position: 1 },
-          { id: "c", position: 2 },
+          { id: "b", position: 1, parentId: null },
+          { id: "c", position: 2, parentId: "a" },
         ],
       },
     ],
@@ -225,7 +232,8 @@ it("orders keyboard navigation by the rows as shown, subtasks included", () => {
     "c",
     "b",
   ]);
-  localStorage.clear();
+  useUserPreferencesStore.setState({ hierarchyMode: "flat" });
+  useHierarchyExpansionStore.setState({ expandedTaskIds: {} });
 });
 
 it("keeps collapsed lanes per project after the list view unmounts", () => {

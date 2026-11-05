@@ -29,6 +29,7 @@ type ColumnSectionProps = {
   onArchiveClick: (column: ProjectWithTasks["columns"][number]) => void;
   onToggleExpand: (taskId: string) => void;
   isExpanded: (taskId: string) => boolean;
+  disableCollectionActions?: boolean;
   disableDragDrop?: boolean;
 };
 
@@ -46,6 +47,7 @@ export default function ColumnSection({
   onArchiveClick,
   onToggleExpand,
   isExpanded,
+  disableCollectionActions = false,
   disableDragDrop = false,
 }: ColumnSectionProps) {
   const { t } = useTranslation();
@@ -99,6 +101,7 @@ export default function ColumnSection({
         <button
           type="button"
           onClick={() => onToggleSection(column.id)}
+          aria-expanded={Boolean(expandedSections[column.id])}
           className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-foreground transition-colors"
         >
           <ChevronRight
@@ -122,6 +125,7 @@ export default function ColumnSection({
           <button
             type="button"
             onClick={() => onAddTask(column.id)}
+            disabled={disableCollectionActions}
             className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
             title={t("tasks:listView.addTask")}
           >
@@ -132,6 +136,7 @@ export default function ColumnSection({
             <button
               type="button"
               onClick={() => onArchiveClick(column)}
+              disabled={disableCollectionActions}
               className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
               title={t("tasks:listView.archiveAllTooltip")}
             >

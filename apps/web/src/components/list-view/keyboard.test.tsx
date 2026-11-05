@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { KeyboardShortcutsProvider } from "@/hooks/use-keyboard-shortcuts";
 import {
   act,
   cleanup,
@@ -42,13 +43,13 @@ vi.mock("@/hooks/queries/task-relation/use-get-project-task-relations", () => ({
   }),
 }));
 vi.mock("./task-row", () => ({
-  default: ({ task, rowId }: { task: { id: string }; rowId: string }) => (
+  default: ({ task }: { task: { id: string } }) => (
     <button
       type="button"
       data-task-id={task.id}
-      data-task-row-id={rowId}
+      data-task-row-id={task.id}
       onFocus={() =>
-        useBulkSelectionStore.getState().setFocusedTask(task.id, rowId)
+        useBulkSelectionStore.getState().setFocusedTask(task.id, task.id)
       }
     />
   ),
@@ -87,9 +88,11 @@ function mount() {
   } as ProjectWithTasks;
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ShortcutTestWrapper>
-        <ListView project={project} />
-      </ShortcutTestWrapper>
+      <KeyboardShortcutsProvider>
+        <ShortcutTestWrapper>
+          <ListView project={project} />
+        </ShortcutTestWrapper>
+      </KeyboardShortcutsProvider>
     </QueryClientProvider>,
   );
 }
@@ -105,70 +108,60 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-it("visits each rendered occurrence in order without looping", () => {
+it("visits each rendered task in column order and wraps", () => {
   mount();
   const visited: (string | null)[] = [];
   for (let index = 0; index < 6; index++) {
     press("j", "KeyJ");
-    visited.push(useBulkSelectionStore.getState().focusedTaskRowId);
+    visited.push(useBulkSelectionStore.getState().focusedTaskId);
   }
   expect(visited).toEqual([
     "parent",
-    "parent/child",
     "sibling",
     "child",
     "last",
-    "last",
+    "parent",
+    "sibling",
   ]);
 });
 
-it("continues from the lower occurrence when a child is focused directly", () => {
+it("continues from the focused row", () => {
   mount();
   const row = document.querySelector<HTMLElement>(
     '[data-task-row-id="child"]',
   )!;
   act(() => row.focus());
   press("j", "KeyJ");
-  expect(useBulkSelectionStore.getState().focusedTaskRowId).toBe("last");
+  expect(useBulkSelectionStore.getState().focusedTaskId).toBe("last");
   act(() => row.focus());
   press("k", "KeyK");
-  expect(useBulkSelectionStore.getState().focusedTaskRowId).toBe("sibling");
+  expect(useBulkSelectionStore.getState().focusedTaskId).toBe("sibling");
 });
 
-it("navigates to a child's own row when its parent group is collapsed", () => {
+it("skips tasks in a collapsed status group", () => {
   mount();
   fireEvent.click(screen.getByRole("button", { name: /^To do/ }));
   press("j", "KeyJ");
   expect(useBulkSelectionStore.getState().focusedTaskId).toBe("child");
   press("j", "KeyJ");
   expect(useBulkSelectionStore.getState().focusedTaskId).toBe("last");
-  press("t", "KeyT");
-  expect(screen.getByRole("button", { name: /^Doing/ })).toHaveAttribute(
-    "aria-expanded",
-    "false",
-  );
   expect(screen.getByRole("button", { name: /^To do/ })).toHaveAttribute(
     "aria-expanded",
     "false",
   );
+  expect(screen.getByRole("button", { name: /^Doing/ })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
 });
 
-it("reorders a repeated child within its own status group and retains its occurrence", async () => {
+it("does not reorder from alt+arrow; j and k move focus only", () => {
   mount();
   const row = document.querySelector<HTMLElement>(
     '[data-task-row-id="child"]',
   )!;
   act(() => row.focus());
   press("ArrowDown", "ArrowDown", true);
-  expect(
-    mocks.mutate.mock.calls.map(([task]) => ({
-      id: task.id,
-      status: task.status,
-    })),
-  ).toEqual([
-    { id: "last", status: "doing" },
-    { id: "child", status: "doing" },
-  ]);
-  await act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
-  expect(row).toHaveFocus();
+  expect(mocks.mutate).not.toHaveBeenCalled();
+  expect(useBulkSelectionStore.getState().focusedTaskId).toBe("child");
 });

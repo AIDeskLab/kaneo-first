@@ -3,6 +3,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { ProjectWithTasks } from "@/types/project";
+import { useUserPreferencesStore } from "@/store/user-preferences";
+import useHierarchyExpansionStore from "@/store/hierarchy-expansion";
 import ListView from ".";
 
 function Providers({ children }: { children: ReactNode }) {
@@ -50,24 +52,24 @@ vi.mock("../shared/modals/archive-tasks-modal", () => ({
 }));
 vi.mock("./task-row", () => ({
   default: ({
-    rowId,
-    childCount,
+    task,
+    hasChildren,
     isExpanded,
-    onToggleExpanded,
+    onToggleExpand,
   }: {
-    rowId: string;
-    childCount: number;
-    isExpanded: boolean;
-    onToggleExpanded: (rowId: string) => void;
+    task: { id: string };
+    hasChildren?: boolean;
+    isExpanded?: boolean;
+    onToggleExpand?: () => void;
   }) => (
     <div>
-      {rowId}
-      {childCount > 0 && (
+      {task.id}
+      {hasChildren && (
         <button
           type="button"
-          aria-label={`Toggle ${rowId}`}
+          aria-label={`Toggle ${task.id}`}
           aria-expanded={isExpanded}
-          onClick={() => onToggleExpanded(rowId)}
+          onClick={() => onToggleExpand?.()}
         >
           Toggle
         </button>
@@ -86,10 +88,12 @@ const project = {
       name: "To Do",
       isFinal: false,
       icon: null,
-      tasks: ["parent", "child", "grandchild"].map((id) => ({
+      tasks: ["parent", "child", "grandchild"].map((id, index) => ({
         id,
         title: id,
         status: "to-do",
+        parentId:
+          index === 0 ? null : ["parent", "child", "grandchild"][index - 1],
       })),
     },
   ],
@@ -98,13 +102,17 @@ const project = {
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  useUserPreferencesStore.setState({ hierarchyMode: "flat" });
+  useHierarchyExpansionStore.setState({ expandedTaskIds: {} });
 });
 
 describe("ListView focus", () => {
   it("retains the focused toggle when expanding and collapsing parent and nested rows", () => {
+    useUserPreferencesStore.setState({ hierarchyMode: "nested" });
+    useHierarchyExpansionStore.setState({ expandedTaskIds: {} });
     render(<ListView project={project} />, { wrapper: Providers });
 
-    for (const rowId of ["parent", "parent/child"]) {
+    for (const rowId of ["parent", "child"]) {
       const toggle = screen.getByRole("button", { name: `Toggle ${rowId}` });
       toggle.focus();
       fireEvent.click(toggle);
@@ -113,7 +121,7 @@ describe("ListView focus", () => {
       expect(toggle).toHaveAttribute("aria-expanded", "true");
     }
 
-    for (const rowId of ["parent/child", "parent"]) {
+    for (const rowId of ["child", "parent"]) {
       const toggle = screen.getByRole("button", { name: `Toggle ${rowId}` });
       toggle.focus();
       fireEvent.click(toggle);
@@ -124,6 +132,8 @@ describe("ListView focus", () => {
   });
 
   it("retains header focus when collapsing and expanding a status group", () => {
+    useUserPreferencesStore.setState({ hierarchyMode: "nested" });
+    useHierarchyExpansionStore.setState({ expandedTaskIds: {} });
     render(<ListView project={project} />, { wrapper: Providers });
     const header = screen.getByRole("button", { name: /^To Do/ });
     header.focus();

@@ -105,12 +105,18 @@ const useBulkSelectionStore = create<BulkSelectionState>((set, get) => ({
     })),
 
   setAvailableTasks: (taskIds: string[]) =>
-    set((state) => ({
-      availableTaskIds: taskIds,
-      selectionAnchorId: taskIds.includes(state.selectionAnchorId ?? "")
-        ? state.selectionAnchorId
-        : null,
-    })),
+    set((state) => {
+      const sameIds =
+        state.availableTaskIds.length === taskIds.length &&
+        state.availableTaskIds.every((id, index) => id === taskIds[index]);
+      if (sameIds) return state;
+      return {
+        availableTaskIds: taskIds,
+        selectionAnchorId: taskIds.includes(state.selectionAnchorId ?? "")
+          ? state.selectionAnchorId
+          : null,
+      };
+    }),
 
   getSelectedCount: () => {
     const { selectedTaskIds } = get();

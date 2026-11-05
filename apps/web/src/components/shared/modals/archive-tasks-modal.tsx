@@ -15,6 +15,7 @@ type ArchiveTasksModalProps = {
   onConfirm: () => void | Promise<void>;
   taskCount: number;
   isPending: boolean;
+  disabled?: boolean;
 };
 
 export function ArchiveTasksModal({
@@ -23,6 +24,7 @@ export function ArchiveTasksModal({
   onConfirm,
   taskCount,
   isPending,
+  disabled = false,
 }: ArchiveTasksModalProps) {
   const isSingular = taskCount === 1;
   const taskLabel = isSingular ? "completed task" : "completed tasks";
@@ -70,7 +72,7 @@ export function ArchiveTasksModal({
             type="button"
             variant="default"
             onClick={onConfirm}
-            disabled={isPending}
+            disabled={isPending || disabled}
             className="shadow-sm min-w-[100px] font-medium"
           >
             {isPending ? "Archiving..." : "Confirm"}
