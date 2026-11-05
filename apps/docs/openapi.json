@@ -12383,7 +12383,7 @@
           "Labels"
         ],
         "summary": "Detach label from task",
-        "description": "Detach a label from its current task",
+        "description": "Detach a label from a task. The id may be a task assignment or a workspace label. A workspace label id removes the assignment for taskId, or the only assignment when the label is on one task.",
         "parameters": [
           {
             "schema": {
@@ -12392,6 +12392,17 @@
             "required": true,
             "name": "id",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Task to detach when id is a workspace label. Required when that label is on more than one task."
+            },
+            "required": false,
+            "description": "Task to detach when id is a workspace label. Required when that label is on more than one task.",
+            "name": "taskId",
+            "in": "query"
           }
         ],
         "responses": {
@@ -12406,7 +12417,7 @@
             }
           },
           "400": {
-            "description": "Label is not assigned to a task",
+            "description": "Label is not assigned to a task, or it is assigned to more than one task",
             "content": {
               "application/json": {
                 "schema": {
