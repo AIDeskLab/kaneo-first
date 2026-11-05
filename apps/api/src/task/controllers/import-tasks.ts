@@ -7,8 +7,10 @@ import {
   coercePriority,
   coerceStatus,
   getValidTaskStatuses,
+  VIRTUAL_STATUSES,
 } from "../validate-task-fields";
 import { claimTaskNumber } from "./claim-task-numbers";
+import { nextTaskPosition } from "./next-task-position";
 import {
   lockWorkspaceAssignees,
   requireWorkspaceAssignees,
@@ -91,14 +93,34 @@ async function importTasks(
           (warning): warning is string => Boolean(warning),
         );
 
-        const column = await db.query.columnTable.findFirst({
-          where: and(
-            eq(columnTable.projectId, projectId),
-            eq(columnTable.slug, status),
-          ),
-        });
-
         const taskNumber = await claimTaskNumber(projectId, tx);
+        // Recheck the snapshot's column and retain it until the insert commits.
+        const [column] = await tx
+          .select({ id: columnTable.id })
+          .from(columnTable)
+          .where(
+            and(
+              eq(columnTable.projectId, projectId),
+              eq(columnTable.slug, status),
+            ),
+          )
+          .limit(1)
+          .for("key share");
+        const storedStatus =
+          column || VIRTUAL_STATUSES.some((virtual) => virtual === status)
+            ? status
+            : "planned";
+        if (storedStatus !== status) {
+          warnings.push(
+            `Status "${status}" no longer has a column. Mapped to "planned".`,
+          );
+        }
+        const position = await nextTaskPosition(
+          tx,
+          projectId,
+          storedStatus,
+          column?.id ?? null,
+        );
 
         const [task] = await tx
           .insert(taskTable)
@@ -106,8 +128,9 @@ async function importTasks(
             projectId,
             userId: assigneeId,
             title: taskData.title,
-            status,
+            status: storedStatus,
             columnId: column?.id ?? null,
+            position,
             startDate: taskData.startDate ? new Date(taskData.startDate) : null,
             dueDate: taskData.dueDate ? new Date(taskData.dueDate) : null,
             description: taskData.description || "",
