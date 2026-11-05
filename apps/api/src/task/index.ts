@@ -475,7 +475,7 @@ const task = new Hono<{
         priority: v.picklist(VALID_PRIORITIES),
         status: v.string(),
         projectId: v.string(),
-        position: v.number(),
+        position: v.pipe(v.number(), v.minValue(0)),
         userId: v.optional(v.string()),
       }),
     ),

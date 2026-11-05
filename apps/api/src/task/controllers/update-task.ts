@@ -2,9 +2,11 @@ import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { projectTable, taskTable } from "../../database/schema";
-import { recordTaskMutation } from "./task-mutation-effects";
+import {
+  publishTaskMutation,
+  recordTaskMutation,
+} from "./task-mutation-effects";
 import { publishEvent } from "../../events";
-import { deleteOrphanedAssets } from "../../storage/cleanup-assets";
 import { BOARD_DESCRIPTION_MAX_BYTES } from "../description-pages";
 import { lockWorkspaceTaskHierarchy } from "./task-cascade";
 import { updateTaskHierarchyStatus } from "./update-task-hierarchy-status";
@@ -172,6 +174,12 @@ async function updateTask(
     });
   }
 
+  await publishTaskMutation(existingTask, updatedTask, currentUserId, {
+    fields: ["title", "priority", "description", "dueDate"],
+    skipRelationRefresh: true,
+    skipSubtaskParentRefresh: true,
+  });
+
   if ((previousAssigneeId ?? null) !== (normalizedUserId ?? null)) {
     await publishEvent(
       normalizedUserId ? "task.assignee_changed" : "task.unassigned",
@@ -194,12 +202,6 @@ async function updateTask(
     status: updatedTask.status,
     userId: currentUserId,
   });
-
-  if (description !== undefined && existingTask.description !== description) {
-    deleteOrphanedAssets(existingTask.description, description, {
-      taskId: id,
-    }).catch(() => {});
-  }
 
   const descriptionBytes = Buffer.byteLength(
     updatedTask.description ?? "",
