@@ -55,6 +55,7 @@ const project = new Hono<{
       }),
     ),
     workspaceAccess.fromQuery(),
+    requireWorkspacePermission({ project: ["read"] }),
     async (c) => {
       const workspaceId = c.get("workspaceId");
       const { includeArchived } = c.req.valid("query");
@@ -122,6 +123,7 @@ const project = new Hono<{
     }),
     validator("param", v.object({ id: v.string() })),
     workspaceAccess.fromProject(),
+    requireWorkspacePermission({ project: ["read"] }),
     async (c) => {
       const { id } = c.req.valid("param");
       const workspaceId = c.get("workspaceId");

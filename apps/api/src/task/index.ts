@@ -123,6 +123,7 @@ const task = new Hono<{
       ),
     ),
     workspaceAccess.fromProject("projectId"),
+    requireWorkspacePermission({ project: ["read"], task: ["read"] }),
     async (c) => {
       const { projectId } = c.req.valid("param");
       const filters = c.req.valid("query") || {};
@@ -362,6 +363,7 @@ const task = new Hono<{
       }),
     ),
     workspaceAccess.fromQuery(),
+    requireWorkspacePermission({ project: ["read"], task: ["read"] }),
     async (c) => {
       const { workspaceId, countOnly } = c.req.valid("query");
       return c.json(
@@ -582,6 +584,7 @@ const task = new Hono<{
     }),
     validator("param", v.object({ projectId: v.string() })),
     workspaceAccess.fromProject("projectId"),
+    requireWorkspacePermission({ project: ["read"], task: ["read"] }),
     async (c) => {
       const { projectId } = c.req.valid("param");
 
@@ -1081,6 +1084,7 @@ const task = new Hono<{
       }),
     ),
     workspaceAccess.fromProject("projectId"),
+    requireWorkspacePermission({ task: ["read"] }),
     async (c) => {
       const { projectId } = c.req.valid("param");
       const { query, after } = c.req.valid("query");
