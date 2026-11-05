@@ -40,6 +40,7 @@ async function updateTask(
       dueDate: taskTable.dueDate,
       userId: taskTable.userId,
       projectId: taskTable.projectId,
+      position: taskTable.position,
     })
     .from(taskTable)
     .where(eq(taskTable.id, id))
@@ -87,6 +88,7 @@ async function updateTask(
           dueDate: taskTable.dueDate,
           userId: taskTable.userId,
           projectId: taskTable.projectId,
+          position: taskTable.position,
         })
         .from(taskTable)
         .where(eq(taskTable.id, id))
@@ -105,6 +107,14 @@ async function updateTask(
       if (lockedTask.projectId !== projectId) {
         throw new HTTPException(409, {
           message: "Task project changed while the task was being updated",
+        });
+      }
+      if (
+        lockedTask.position !== existingTask.position ||
+        lockedTask.status !== existingTask.status
+      ) {
+        throw new HTTPException(409, {
+          message: "Task order changed; refresh before updating",
         });
       }
       if (requestedAssigneeId && requestedAssigneeId !== lockedTask.userId) {
