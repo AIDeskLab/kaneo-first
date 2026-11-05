@@ -44,7 +44,7 @@ The old stages 1-5 are the historical plan. Fix-plan stages 1-7 are done. Do not
 | 4. Expose `GET /api/task/my` as `get_my_tasks` | Done | #30 |
 | 5. Do not spend a tool call on the device-code poll | Done | #31 |
 | 6. Retry a short upstream failure, and name a timeout | Done | #32 |
-| 7. Remove the unused session map | Done | this pull request |
+| 7. Remove the unused session map | Done | #33 |
 
 ### Stage 1. Keep a project's group across `update_project`
 
