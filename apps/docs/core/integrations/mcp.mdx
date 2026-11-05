@@ -87,6 +87,7 @@ Or set it via environment variable:
 | Variable | Description |
 | --- | --- |
 | `KANEO_API_URL` | Kaneo API base URL. Default: `http://localhost:1337`. A trailing `/api` is accepted and normalized. |
+| `KANEO_API_KEY` | API key from Settings → Account → Developer. When set, stdio uses it as a Bearer token and does not start the device flow. |
 | `KANEO_MCP_CLIENT_ID` | Device auth client ID. Default: `kaneo-mcp`. |
 
 If you override `KANEO_MCP_CLIENT_ID`, make sure it is included in [`DEVICE_AUTH_CLIENT_IDS`](/core/installation/environment-variables).
@@ -100,6 +101,8 @@ On the first tool call that needs Kaneo access, the MCP server:
 3. Opens the browser when possible
 4. Polls until you approve sign-in
 5. Stores credentials in `$XDG_CONFIG_HOME/kaneo-mcp/credentials.json`, or `~/.config/kaneo-mcp/credentials.json` when `XDG_CONFIG_HOME` is unset
+
+This flow runs when stdin is a terminal. A stdio process whose stdin is not a terminal does not request a device code. A usable cached token is reused; otherwise the tool returns an error asking for a token or `KANEO_API_KEY`. Set `KANEO_API_KEY` for clients that launch the server on a pipe.
 
 ## Available tools
 

@@ -101,7 +101,7 @@ The CLI entry points to `./dist/index.js`. Use `npx @kaneo/mcp` or `kaneo-mcp` a
 
 ## Authentication
 
-On the first tool call that needs Kaneo, the server:
+When a tool call needs Kaneo and stdin is a terminal, the server signs in with the device flow unless a cached token is still usable:
 
 1. Requests a device code from `POST /api/auth/device/code`
 2. Prints the verification URL and user code to `stderr`
@@ -109,9 +109,11 @@ On the first tool call that needs Kaneo, the server:
 4. Polls `POST /api/auth/device/token` until approved
 5. Stores the access token at `~/.config/kaneo-mcp/credentials.json` with mode `0600`
 
+If stdin is not a terminal, the server does not request a device code. A usable cached token is reused. Otherwise the tool call returns an error that a token or `KANEO_API_KEY` is required, so a piped stdio client is not left polling until the code expires.
+
 ### Non-interactive (API key)
 
-For headless or sandboxed environments where opening a browser is impractical, set `KANEO_API_KEY` to a key created under Settings → Account → Developer. The server sends it as a Bearer token on every request and skips the device flow entirely, so no token is cached to disk.
+For headless or sandboxed environments where opening a browser is impractical, set `KANEO_API_KEY` to a key created under Settings → Account → Developer. The server sends it as a Bearer token on every request and does not start the device flow, so no token is cached to disk.
 
 ## Tools
 

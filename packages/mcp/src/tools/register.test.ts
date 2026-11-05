@@ -141,7 +141,7 @@ describe("registerTools", () => {
     },
   );
 
-  it("returns null for whoami when there is no session", async () => {
+  it("returns an error for whoami when there is no session", async () => {
     const { server, tools } = createServerMock();
     const client = {
       usingApiKey: false,
@@ -153,8 +153,13 @@ describe("registerTools", () => {
     const result = await tools.get("whoami")?.handler({});
 
     expect(result).toEqual({
-      content: [{ type: "text", text: "null" }],
-      isError: false,
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ error: "No authenticated user" }, null, 2),
+        },
+      ],
+      isError: true,
     });
   });
 

@@ -70,7 +70,8 @@ export class AuthService {
   }
 
   /**
-   * Returns a valid access token, running the device authorization flow if needed.
+   * Returns a valid access token, running the device authorization flow when
+   * stdin is a terminal and no usable cached token or API key is available.
    */
   async getAccessToken(): Promise<string> {
     // Non-interactive auth: a pre-created Kaneo API key (KANEO_API_KEY) is sent
@@ -95,12 +96,19 @@ export class AuthService {
         const validation = await this.validateAccessToken(cached.accessToken);
         // Fail-open for "unknown": validateAccessToken returns "unknown" on transient HTTP/network
         // errors or ambiguous responses. Treating "unknown" like "valid" avoids clearToken() and a full
-        // device re-auth so flaky connectivity does not wipe cached.accessToken; only "invalid" forces
-        // a fresh login. Tests should cover both unknown and invalid paths.
+        // device re-auth so flaky connectivity does not wipe cached.accessToken; only "invalid" clears
+        // the cached token. A fresh device login then runs only when stdin is a TTY.
         if (validation === "valid" || validation === "unknown") {
           return cached.accessToken;
         }
         await this.clearToken();
+      }
+
+      // A piped stdio client is not a TTY. Device polling blocks the tool call
+      // until the code expires, and the client times out first. A usable
+      // cached token is handled above; an API key returns before this.
+      if (process.stdin.isTTY !== true) {
+        throw new Error("A token or KANEO_API_KEY is required.");
       }
 
       const code = await requestDeviceCode(this.baseUrl, this.clientId);

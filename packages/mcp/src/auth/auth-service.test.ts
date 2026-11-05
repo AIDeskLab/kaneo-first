@@ -39,6 +39,26 @@ vi.mock("open", () => ({
   default: openMock,
 }));
 
+const originalStdinIsTTY = Object.getOwnPropertyDescriptor(
+  process.stdin,
+  "isTTY",
+);
+
+function setStdinIsTTY(value: boolean): void {
+  Object.defineProperty(process.stdin, "isTTY", {
+    configurable: true,
+    value,
+  });
+}
+
+function restoreStdinIsTTY(): void {
+  if (originalStdinIsTTY) {
+    Object.defineProperty(process.stdin, "isTTY", originalStdinIsTTY);
+    return;
+  }
+  delete (process.stdin as { isTTY?: boolean }).isTTY;
+}
+
 describe("AuthService", () => {
   const originalFetch = globalThis.fetch;
 
@@ -53,7 +73,20 @@ describe("AuthService", () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    restoreStdinIsTTY();
     vi.restoreAllMocks();
+  });
+
+  it("returns the API key without starting the device flow", async () => {
+    const service = new AuthService({
+      baseUrl: "https://api.example.com",
+      clientId: "kaneo-mcp",
+      apiKey: "kaneo_test_key",
+    });
+
+    await expect(service.getAccessToken()).resolves.toBe("kaneo_test_key");
+    expect(loadCredentialsMock).not.toHaveBeenCalled();
+    expect(requestDeviceCodeMock).not.toHaveBeenCalled();
   });
 
   it("reuses the cached token when validation succeeds", async () => {
@@ -111,6 +144,7 @@ describe("AuthService", () => {
   });
 
   it("clears the cached token and starts device auth after a 401", async () => {
+    setStdinIsTTY(true);
     loadCredentialsMock.mockResolvedValue({
       version: 1,
       baseUrl: "https://api.example.com",
@@ -147,5 +181,70 @@ describe("AuthService", () => {
       clientId: "kaneo-mcp",
       accessToken: "fresh-token",
     });
+  });
+
+  it("does not replace a rejected cached token with the device flow when stdin is not a TTY", async () => {
+    setStdinIsTTY(false);
+    loadCredentialsMock.mockResolvedValue({
+      version: 1,
+      baseUrl: "https://api.example.com",
+      clientId: "kaneo-mcp",
+      accessToken: "expired-token",
+    });
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ message: "Unauthorized" }), {
+        status: 401,
+      }),
+    ) as typeof fetch;
+
+    const service = new AuthService({
+      baseUrl: "https://api.example.com",
+      clientId: "kaneo-mcp",
+    });
+
+    await expect(service.getAccessToken()).rejects.toThrow(
+      "A token or KANEO_API_KEY is required.",
+    );
+    expect(clearCredentialsMock).toHaveBeenCalledTimes(1);
+    expect(requestDeviceCodeMock).not.toHaveBeenCalled();
+  });
+
+  it("does not start the device flow without a TTY or cached token", async () => {
+    setStdinIsTTY(false);
+    loadCredentialsMock.mockResolvedValue(null);
+
+    const service = new AuthService({
+      baseUrl: "https://api.example.com",
+      clientId: "kaneo-mcp",
+    });
+
+    await expect(service.getAccessToken()).rejects.toThrow(
+      "A token or KANEO_API_KEY is required.",
+    );
+    expect(requestDeviceCodeMock).not.toHaveBeenCalled();
+    expect(openMock).not.toHaveBeenCalled();
+  });
+
+  it("starts the device flow on a TTY when no token is cached", async () => {
+    setStdinIsTTY(true);
+    loadCredentialsMock.mockResolvedValue(null);
+    requestDeviceCodeMock.mockResolvedValue({
+      device_code: "device-code",
+      user_code: "ABCD-EFGH",
+      verification_uri: "https://verify.example.com",
+      interval: 5,
+    });
+    pollDeviceAccessTokenMock.mockResolvedValue("tty-token");
+
+    const service = new AuthService({
+      baseUrl: "https://api.example.com",
+      clientId: "kaneo-mcp",
+    });
+
+    await expect(service.getAccessToken()).resolves.toBe("tty-token");
+    expect(requestDeviceCodeMock).toHaveBeenCalledWith(
+      "https://api.example.com",
+      "kaneo-mcp",
+    );
   });
 });
