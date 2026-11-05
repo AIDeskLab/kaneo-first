@@ -24,6 +24,7 @@ import {
 import reorderProjectsCtrl from "./controllers/reorder-projects";
 import unarchiveProjectCtrl from "./controllers/unarchive-project";
 import updateProjectCtrl from "./controllers/update-project";
+import { toPublicProject } from "./response";
 
 const project = new Hono<{
   Variables: {
@@ -62,7 +63,7 @@ const project = new Hono<{
         c.get("userId"),
         includeArchived === "true",
       );
-      return c.json(projects);
+      return c.json(projects.map((item) => toPublicProject(item)));
     },
   )
   .post(
@@ -101,7 +102,7 @@ const project = new Hono<{
         slug,
         c.get("userId"),
       );
-      return c.json(newProject);
+      return c.json(toPublicProject(newProject));
     },
   )
   .get(
@@ -125,7 +126,7 @@ const project = new Hono<{
       const { id } = c.req.valid("param");
       const workspaceId = c.get("workspaceId");
       const projectData = await getProjectCtrl(id, workspaceId);
-      return c.json(projectData);
+      return c.json(toPublicProject(projectData));
     },
   )
   .put(
@@ -170,7 +171,7 @@ const project = new Hono<{
         c.get("userId"),
         projects,
       );
-      return c.json(reordered);
+      return c.json(reordered.map((item) => toPublicProject(item)));
     },
   )
   .put(
@@ -217,7 +218,7 @@ const project = new Hono<{
         workspaceId,
         projectGroupId,
       );
-      return c.json(updatedProject);
+      return c.json(toPublicProject(updatedProject));
     },
   )
   .delete(
@@ -242,7 +243,7 @@ const project = new Hono<{
       const { id } = c.req.valid("param");
       const workspaceId = c.get("workspaceId");
       const deletedProject = await deleteProjectCtrl(id, workspaceId);
-      return c.json(deletedProject);
+      return c.json(toPublicProject(deletedProject));
     },
   )
   .put(
@@ -267,7 +268,7 @@ const project = new Hono<{
       const { id } = c.req.valid("param");
       const workspaceId = c.get("workspaceId");
       const archivedProject = await archiveProjectCtrl(id, workspaceId);
-      return c.json(archivedProject);
+      return c.json(toPublicProject(archivedProject));
     },
   )
   .put(
@@ -292,7 +293,7 @@ const project = new Hono<{
       const { id } = c.req.valid("param");
       const workspaceId = c.get("workspaceId");
       const unarchivedProject = await unarchiveProjectCtrl(id, workspaceId);
-      return c.json(unarchivedProject);
+      return c.json(toPublicProject(unarchivedProject));
     },
   )
   .put(
@@ -340,7 +341,7 @@ const project = new Hono<{
         targetWorkspaceId,
         userId,
       );
-      return c.json(moved);
+      return c.json(toPublicProject(moved));
     },
   )
   .get(

@@ -27,6 +27,7 @@ import {
   descriptionDeferred,
   projectDescriptionDeferred,
 } from "../description-pages";
+import { publicExternalLink } from "../../project/controllers/public-external-link";
 import { getSubtaskCounts } from "../get-subtask-counts";
 
 export type GetTasksOptions = {
@@ -231,12 +232,15 @@ async function getTasks(
     if (!taskExternalLinksMap.has(externalLink.taskId)) {
       taskExternalLinksMap.set(externalLink.taskId, []);
     }
-    taskExternalLinksMap.get(externalLink.taskId)?.push({
+    const parsed = {
       ...externalLink,
       metadata: externalLink.metadata
         ? JSON.parse(externalLink.metadata)
         : null,
-    });
+    };
+    taskExternalLinksMap
+      .get(externalLink.taskId)
+      ?.push(options.publicOnly ? publicExternalLink(parsed) : parsed);
   }
 
   const projectColumns = await db
