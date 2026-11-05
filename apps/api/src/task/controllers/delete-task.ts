@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
-import { projectTable } from "../../database/schema";
+import { projectTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { cleanupAssetKeys } from "../../storage/cleanup-assets";
 import { deleteTaskHierarchy } from "./delete-task-hierarchy";
@@ -23,7 +23,23 @@ async function deleteTask(taskId: string, currentUserId: string) {
   }
 
   const { deletedTasks, deletedRelations, assetKeys } = await db.transaction(
-    async (tx) => deleteTaskHierarchy(tx, project.workspaceId, [taskId]),
+    async (tx) => {
+      const [locked] = await tx
+        .select({ id: taskTable.id, projectId: taskTable.projectId })
+        .from(taskTable)
+        .where(eq(taskTable.id, taskId))
+        .for("update")
+        .limit(1);
+      if (!locked) {
+        throw new HTTPException(404, { message: "Task not found" });
+      }
+      if (locked.projectId !== task.projectId) {
+        throw new HTTPException(409, {
+          message: "Task changed projects; retry the operation",
+        });
+      }
+      return deleteTaskHierarchy(tx, project.workspaceId, [taskId]);
+    },
   );
 
   if (deletedTasks.length === 0) {

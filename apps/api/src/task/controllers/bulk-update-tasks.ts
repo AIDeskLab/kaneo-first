@@ -260,10 +260,29 @@ async function bulkUpdateTasks({
 
     case "delete": {
       const parentProjects = await getSubtaskParentProjects(foundIds);
+      const originalProjects = new Map(
+        tasks.map((task) => [task.id, task.projectId]),
+      );
       const { deletedTasks, deletedRelations, assetKeys } =
-        await db.transaction(async (tx) =>
-          deleteTaskHierarchy(tx, workspaceId, foundIds),
-        );
+        await db.transaction(async (tx) => {
+          const locked = await tx
+            .select({ id: taskTable.id, projectId: taskTable.projectId })
+            .from(taskTable)
+            .where(inArray(taskTable.id, foundIds))
+            .orderBy(asc(taskTable.id))
+            .for("update");
+          if (
+            locked.length !== foundIds.length ||
+            locked.some(
+              (task) => task.projectId !== originalProjects.get(task.id),
+            )
+          ) {
+            throw new HTTPException(409, {
+              message: "Tasks changed projects; retry the operation",
+            });
+          }
+          return deleteTaskHierarchy(tx, workspaceId, foundIds);
+        });
       await publishEvent("subtask-parents.refresh", {
         projects: parentProjects,
       });
