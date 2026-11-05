@@ -1,6 +1,5 @@
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
-import type { McpServer as SdkMcpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { registerMcpTools } from "./tools";
+import { registerMcpTools, toMcpToolRegistrar } from "./tools";
 import { MCP_BODY_BYTES, MCP_MAX_TOOL_INPUT_ELEMENTS } from "./request-bounds";
 
 /** Create a stateless MCP 2026 handler with a fresh server per request. */
@@ -19,7 +18,7 @@ export function createModernMcpHandler(
           maxToolInputElements: MCP_MAX_TOOL_INPUT_ELEMENTS,
         },
       );
-      registerMcpTools(server as unknown as SdkMcpServer, apiUrl, token);
+      registerMcpTools(toMcpToolRegistrar(server), apiUrl, token);
       return server;
     },
     {

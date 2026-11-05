@@ -18,7 +18,10 @@ import {
   validateTaskAssetUploadInput,
 } from "../storage/s3";
 import { normalizeApiServerUrl } from "../utils/openapi-spec";
-import { requireWorkspacePermission } from "../utils/require-workspace-permission";
+import {
+  hasWorkspacePermission,
+  requireWorkspacePermission,
+} from "../utils/require-workspace-permission";
 import {
   validateAndParseDate,
   validateDateRange,
@@ -27,6 +30,20 @@ import { workspaceAccess } from "../utils/workspace-access-middleware";
 import bulkUpdateTasks from "./controllers/bulk-update-tasks";
 import createTask from "./controllers/create-task";
 import deleteTask from "./controllers/delete-task";
+import duplicateTask from "./controllers/duplicate-task";
+import getAssignedTasks from "./controllers/get-assigned-tasks";
+import getTaskByTicketId from "./controllers/get-task-by-ticket-id";
+import reorderTasks from "./controllers/reorder-tasks";
+import {
+  finalizeStagedTaskAsset,
+  stageTaskAssetUpload,
+} from "./controllers/stage-task-asset";
+import updateTaskRecurrence from "./controllers/update-task-recurrence";
+import "./recurrence/subscribe";
+import {
+  getDeferredDescriptionMatches,
+  getDescriptionPage,
+} from "./description-pages";
 import exportTasks from "./controllers/export-tasks";
 import getMyTasks from "./controllers/get-my-tasks";
 import getTask from "./controllers/get-task";
@@ -46,7 +63,16 @@ import updateTaskDueDate from "./controllers/update-task-due-date";
 import updateTaskPriority from "./controllers/update-task-priority";
 import updateTaskStatus from "./controllers/update-task-status";
 import updateTaskTitle from "./controllers/update-task-title";
+import { taskRecurrenceSchema, type TaskRecurrence } from "./recurrence/schema";
 import { VALID_PRIORITIES } from "./validate-task-fields";
+
+function parseTaskRecurrence(value: unknown): TaskRecurrence {
+  const parsed = taskRecurrenceSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new HTTPException(400, { message: "Invalid recurrence" });
+  }
+  return parsed.data;
+}
 
 const task = new Hono<{
   Variables: {
@@ -100,7 +126,7 @@ const task = new Hono<{
       const { projectId } = c.req.valid("param");
       const filters = c.req.valid("query") || {};
 
-      const tasks = await getTasks(projectId, filters);
+      const tasks = await getTasks(projectId, filters, c.get("userId"));
 
       return c.json(tasks);
     },
@@ -219,6 +245,20 @@ const task = new Hono<{
         priority: v.picklist(VALID_PRIORITIES),
         status: v.string(),
         userId: v.optional(v.string()),
+        recurrence: v.optional(
+          v.object({
+            frequency: v.picklist(["daily", "weekly", "monthly", "yearly"]),
+            interval: v.pipe(v.number(), v.minValue(1), v.maxValue(99)),
+            weekdays: v.optional(v.pipe(v.array(v.number()), v.minLength(1))),
+            timeZone: v.string(),
+          }),
+        ),
+        draftAssetIds: v.optional(
+          v.pipe(v.array(v.string()), v.maxLength(100)),
+        ),
+        customFields: v.optional(
+          v.array(v.object({ fieldId: v.string(), value: v.string() })),
+        ),
       }),
     ),
     workspaceAccess.fromProject("projectId"),
@@ -234,6 +274,9 @@ const task = new Hono<{
         priority,
         status,
         userId,
+        recurrence,
+        draftAssetIds,
+        customFields,
       } = c.req.valid("json");
 
       const parsedStartDate =
@@ -257,9 +300,72 @@ const task = new Hono<{
         dueDate: parsedDueDate,
         priority,
         status,
+        recurrence: recurrence ? parseTaskRecurrence(recurrence) : undefined,
+        draftAssetIds,
+        customFields,
       });
 
       return c.json(task);
+    },
+  )
+  .get(
+    "/assigned",
+    describeRoute({
+      operationId: "listAssignedTasks",
+      tags: ["Tasks"],
+      description: "List tasks assigned to the current user in a workspace",
+    }),
+    validator(
+      "query",
+      v.object({
+        workspaceId: v.string(),
+        countOnly: v.optional(v.string()),
+      }),
+    ),
+    workspaceAccess.fromQuery(),
+    async (c) => {
+      const { workspaceId, countOnly } = c.req.valid("query");
+      return c.json(
+        await getAssignedTasks(
+          workspaceId,
+          c.get("userId"),
+          countOnly === "true",
+        ),
+      );
+    },
+  )
+  .get(
+    "/:id/description",
+    describeRoute({
+      operationId: "getTaskDescriptionPage",
+      tags: ["Tasks"],
+      description: "Read one page of a task description",
+    }),
+    validator("param", v.object({ id: v.string() })),
+    workspaceAccess.fromTask(),
+    requireWorkspacePermission({ task: ["read"] }),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const offsetRaw = c.req.query("offset");
+      const version = c.req.query("version");
+      const canonicalOffset =
+        offsetRaw == null ||
+        offsetRaw === "" ||
+        /^(?:0|[1-9]\d*)$/.test(offsetRaw);
+      const offset =
+        offsetRaw == null || offsetRaw === "" ? 0 : Number(offsetRaw);
+      if (
+        !canonicalOffset ||
+        !Number.isInteger(offset) ||
+        offset < 0 ||
+        offset > 2_147_483_647 ||
+        (version !== undefined && !/^[0-9]{1,10}$/.test(version))
+      ) {
+        throw new HTTPException(400, {
+          message: "Invalid description cursor",
+        });
+      }
+      return c.json(await getDescriptionPage(id, { offset, version }));
     },
   )
   .get(
@@ -278,11 +384,18 @@ const task = new Hono<{
       },
     }),
     validator("param", v.object({ id: v.string() })),
+    validator(
+      "query",
+      v.object({
+        view: v.optional(v.picklist(["detail", "board"])),
+      }),
+    ),
     workspaceAccess.fromTask(),
+    requireWorkspacePermission({ task: ["read"] }),
     async (c) => {
       const { id } = c.req.valid("param");
-
-      const task = await getTask(id);
+      const { view } = c.req.valid("query");
+      const task = await getTask(id, view === "board", c.get("userId"));
 
       return c.json(task);
     },
@@ -355,7 +468,7 @@ const task = new Hono<{
       "json",
       v.object({
         title: v.string(),
-        description: v.string(),
+        description: v.optional(v.string()),
         startDate: v.optional(v.string()),
         dueDate: v.optional(v.string()),
         priority: v.picklist(VALID_PRIORITIES),
@@ -911,6 +1024,222 @@ const task = new Hono<{
       });
 
       return c.json(task);
+    },
+  )
+  .get(
+    "/description-matches/:projectId",
+    describeRoute({
+      operationId: "searchTaskDescriptions",
+      tags: ["Tasks"],
+      description: "Find tasks whose description contains a query",
+    }),
+    validator("param", v.object({ projectId: v.string() })),
+    validator(
+      "query",
+      v.object({
+        query: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(256)),
+        after: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(128))),
+      }),
+    ),
+    workspaceAccess.fromProject("projectId"),
+    async (c) => {
+      const { projectId } = c.req.valid("param");
+      const { query, after } = c.req.valid("query");
+      return c.json(
+        await getDeferredDescriptionMatches(projectId, query, after),
+      );
+    },
+  )
+  .post(
+    "/draft-upload/:projectId",
+    describeRoute({
+      operationId: "stageTaskAssetUpload",
+      tags: ["Tasks"],
+      description: "Prepare an upload for a file that is not attached yet",
+    }),
+    validator("param", v.object({ projectId: v.string() })),
+    validator(
+      "json",
+      v.object({
+        filename: v.string(),
+        contentType: v.string(),
+        size: v.number(),
+        surface: v.optional(v.string()),
+      }),
+    ),
+    workspaceAccess.fromProject("projectId"),
+    requireWorkspacePermission({ task: ["create"] }),
+    async (c) => {
+      const { projectId } = c.req.valid("param");
+      const { filename, contentType, size } = c.req.valid("json");
+      return c.json(
+        await stageTaskAssetUpload(projectId, c.get("userId"), {
+          filename,
+          contentType,
+          size,
+        }),
+      );
+    },
+  )
+  .post(
+    "/draft-upload/:projectId/finalize",
+    describeRoute({
+      operationId: "finalizeStagedTaskAsset",
+      tags: ["Tasks"],
+      description: "Finish a staged task file upload",
+    }),
+    validator("param", v.object({ projectId: v.string() })),
+    validator(
+      "json",
+      v.object({
+        filename: v.string(),
+        contentType: v.string(),
+        size: v.number(),
+        key: v.string(),
+        surface: v.optional(v.string()),
+      }),
+    ),
+    workspaceAccess.fromProject("projectId"),
+    requireWorkspacePermission({ task: ["create"] }),
+    async (c) => {
+      const { projectId } = c.req.valid("param");
+      const { filename, contentType, size, key } = c.req.valid("json");
+      const asset = await finalizeStagedTaskAsset(projectId, c.get("userId"), {
+        filename,
+        contentType,
+        size,
+        key,
+      });
+      const base = normalizeApiServerUrl(
+        process.env.KANEO_API_URL || new URL(c.req.url).origin,
+      );
+      return c.json({ id: asset.id, url: `${base}/asset/${asset.id}` });
+    },
+  )
+  .post(
+    "/reorder",
+    describeRoute({
+      operationId: "reorderTasks",
+      tags: ["Tasks"],
+      description: "Reorder tasks within a project",
+    }),
+    validator(
+      "json",
+      v.object({
+        projectId: v.string(),
+        tasks: v.array(
+          v.object({
+            id: v.string(),
+            position: v.number(),
+            status: v.optional(v.string()),
+          }),
+        ),
+        expectedTasks: v.optional(
+          v.array(
+            v.object({
+              id: v.string(),
+              position: v.nullable(v.number()),
+              status: v.string(),
+            }),
+          ),
+        ),
+      }),
+    ),
+    workspaceAccess.fromProject("projectId"),
+    requireWorkspacePermission({ task: ["update"] }),
+    async (c) => {
+      const { projectId, tasks, expectedTasks } = c.req.valid("json");
+      return c.json(
+        await reorderTasks(projectId, tasks, c.get("userId"), expectedTasks),
+      );
+    },
+  )
+  .post(
+    "/duplicate/:id",
+    describeRoute({
+      operationId: "duplicateTask",
+      tags: ["Tasks"],
+      description: "Duplicate a task",
+    }),
+    validator("param", v.object({ id: v.string() })),
+    validator("json", v.object({ title: v.optional(v.string()) })),
+    workspaceAccess.fromTask(),
+    requireWorkspacePermission({ task: ["create"] }),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const { title } = c.req.valid("json");
+      return c.json(
+        await duplicateTask({
+          taskId: id,
+          title,
+          currentUserId: c.get("userId"),
+          canUpdateTasks: await hasWorkspacePermission(c, {
+            task: ["update"],
+          }),
+        }),
+      );
+    },
+  )
+  .get(
+    "/by-ticket-id/:ticketId",
+    describeRoute({
+      operationId: "getTaskByTicketId",
+      tags: ["Tasks"],
+      description: "Resolve a task from its ticket id",
+    }),
+    validator("param", v.object({ ticketId: v.string() })),
+    validator(
+      "query",
+      v.object({
+        workspaceSlug: v.optional(v.string()),
+        workspaceId: v.optional(v.string()),
+        projectId: v.optional(v.string()),
+      }),
+    ),
+    async (c) => {
+      const { ticketId } = c.req.valid("param");
+      return c.json(
+        await getTaskByTicketId(
+          ticketId,
+          c.get("userId"),
+          c.req.valid("query"),
+        ),
+      );
+    },
+  )
+  .put(
+    "/recurrence/:id",
+    describeRoute({
+      operationId: "updateTaskRecurrence",
+      tags: ["Tasks"],
+      description: "Update a task recurrence rule",
+    }),
+    validator("param", v.object({ id: v.string() })),
+    validator(
+      "json",
+      v.object({
+        recurrence: v.nullable(
+          v.object({
+            frequency: v.picklist(["daily", "weekly", "monthly", "yearly"]),
+            interval: v.pipe(v.number(), v.minValue(1), v.maxValue(99)),
+            weekdays: v.optional(v.pipe(v.array(v.number()), v.minLength(1))),
+            timeZone: v.string(),
+          }),
+        ),
+      }),
+    ),
+    workspaceAccess.fromTask(),
+    requireWorkspacePermission({ task: ["update"] }),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const { recurrence } = c.req.valid("json");
+      return c.json(
+        await updateTaskRecurrence({
+          id,
+          recurrence: recurrence ? parseTaskRecurrence(recurrence) : null,
+          currentUserId: c.get("userId"),
+        }),
+      );
     },
   );
 

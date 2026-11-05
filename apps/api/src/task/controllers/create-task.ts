@@ -1,14 +1,56 @@
-import { and, eq, max } from "drizzle-orm";
+import { extractAssetIds } from "../../storage/cleanup-assets";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
-import { columnTable, projectTable, taskTable } from "../../database/schema";
-import { publishEvent } from "../../events";
-import { assertValidTaskStatus } from "../validate-task-fields";
-import { claimTaskNumber } from "./claim-task-numbers";
 import {
-  lockWorkspaceAssignees,
-  requireWorkspaceAssignees,
-} from "./workspace-assignee-lock";
+  assetTable,
+  columnTable,
+  customFieldDefinitionTable,
+  customFieldValueTable,
+  taskTable,
+  projectTable,
+  userTable,
+} from "../../database/schema";
+import {
+  findNewHiddenPicks,
+  isChoiceType,
+  readHiddenOptions,
+  readOptions,
+} from "../../custom-field/choice-options";
+import { publishEvent } from "../../events";
+import {
+  assertAssignableUser,
+  getProjectWorkspaceId,
+} from "../../utils/assert-assignable-user";
+import type { TaskRecurrence } from "../recurrence/schema";
+import {
+  assertRequiredCustomFields,
+  assertValidTaskStatus,
+  isCustomFieldValueEmpty,
+} from "../validate-task-fields";
+import { claimTaskNumber } from "./claim-task-numbers";
+import { nextTaskPosition } from "./next-task-position";
+
+type CustomFieldInput = {
+  fieldId: string;
+  value: string;
+};
+
+function deduplicateCustomFields(
+  customFields?: CustomFieldInput[],
+): CustomFieldInput[] | undefined {
+  if (!customFields) {
+    return undefined;
+  }
+
+  const fieldsById = new Map<string, CustomFieldInput>();
+
+  for (const customField of customFields) {
+    fieldsById.set(customField.fieldId, customField);
+  }
+
+  return Array.from(fieldsById.values());
+}
 
 async function createTask({
   projectId,
@@ -20,6 +62,9 @@ async function createTask({
   dueDate,
   description,
   priority,
+  recurrence,
+  customFields,
+  draftAssetIds,
 }: {
   projectId: string;
   currentUserId: string;
@@ -30,19 +75,78 @@ async function createTask({
   dueDate?: Date;
   description?: string;
   priority?: string;
+  recurrence?: TaskRecurrence;
+  customFields?: CustomFieldInput[];
+  draftAssetIds?: string[];
 }) {
   const resolvedStatus = status || "to-do";
   const resolvedPriority = priority || "no-priority";
+  const normalizedCustomFields = deduplicateCustomFields(customFields);
 
   const normalizedUserId = userId?.trim() || undefined;
 
   await assertValidTaskStatus(resolvedStatus, projectId);
 
-  const project = await db.query.projectTable.findFirst({
-    columns: { workspaceId: true },
-    where: eq(projectTable.id, projectId),
-  });
-  if (!project) throw new HTTPException(404, { message: "Project not found" });
+  const allFields = await db
+    .select()
+    .from(customFieldDefinitionTable)
+    .where(eq(customFieldDefinitionTable.projectId, projectId));
+
+  for (const input of normalizedCustomFields ?? []) {
+    const field = allFields.find((candidate) => candidate.id === input.fieldId);
+    if (!field || !isChoiceType(field.type)) continue;
+    const hidden = readHiddenOptions(
+      field.hiddenOptions,
+      readOptions(field.options),
+    );
+    if (findNewHiddenPicks(input.value, null, field.type, hidden).length > 0) {
+      throw new HTTPException(400, {
+        message: `Custom field "${field.name}" has a hidden option selected.`,
+      });
+    }
+  }
+
+  const mergedCustomFields: CustomFieldInput[] = normalizedCustomFields ?? [];
+  const providedFieldIds = new Set(mergedCustomFields.map((f) => f.fieldId));
+
+  for (const field of allFields) {
+    if (
+      !providedFieldIds.has(field.id) &&
+      field.required &&
+      field.defaultValue != null &&
+      !isCustomFieldValueEmpty(
+        field.defaultValue,
+        field.type as
+          | "number"
+          | "boolean"
+          | "date"
+          | "dropdown"
+          | "multiselect",
+      )
+    ) {
+      mergedCustomFields.push({
+        fieldId: field.id,
+        value: field.defaultValue,
+      });
+    }
+  }
+
+  await assertRequiredCustomFields(projectId, mergedCustomFields);
+
+  let assignee: { name: string } | undefined;
+
+  if (normalizedUserId) {
+    await assertAssignableUser(
+      normalizedUserId,
+      await getProjectWorkspaceId(projectId),
+      projectId,
+    );
+
+    [assignee] = await db
+      .select({ name: userTable.name })
+      .from(userTable)
+      .where(eq(userTable.id, normalizedUserId));
+  }
 
   const column = await db.query.columnTable.findFirst({
     where: and(
@@ -50,32 +154,20 @@ async function createTask({
       eq(columnTable.slug, resolvedStatus),
     ),
   });
+  // A rule would never fire on a task that starts out completed.
+  if (recurrence && column?.isFinal)
+    throw new HTTPException(400, {
+      message: "Create the task in an open column to make it repeat",
+    });
 
-  const [maxPositionResult] = await db
-    .select({ maxPosition: max(taskTable.position) })
-    .from(taskTable)
-    .where(
-      and(
-        eq(taskTable.projectId, projectId),
-        column?.id
-          ? eq(taskTable.columnId, column.id)
-          : eq(taskTable.status, resolvedStatus),
-      ),
-    );
-
-  const nextPosition = (maxPositionResult?.maxPosition ?? 0) + 1;
-
-  let assigneeName: string | undefined;
   const createdTask = await db.transaction(async (tx) => {
-    if (normalizedUserId) {
-      await lockWorkspaceAssignees(tx, project.workspaceId, [normalizedUserId]);
-      assigneeName = (
-        await requireWorkspaceAssignees(tx, project.workspaceId, [
-          normalizedUserId,
-        ])
-      ).get(normalizedUserId);
-    }
     const taskNumber = await claimTaskNumber(projectId, tx);
+    const nextPosition = await nextTaskPosition(
+      tx,
+      projectId,
+      resolvedStatus,
+      column?.id ?? null,
+    );
 
     const [task] = await tx
       .insert(taskTable)
@@ -89,10 +181,59 @@ async function createTask({
         dueDate: dueDate || null,
         description: description || "",
         priority: resolvedPriority,
+        recurrence: recurrence ?? null,
         number: taskNumber,
         position: nextPosition,
       })
       .returning();
+
+    if (task && draftAssetIds?.length) {
+      const referenced = extractAssetIds(description);
+      const ids = [...new Set(draftAssetIds)].filter((id) =>
+        referenced.has(id),
+      );
+      if (ids.length) {
+        // claimTaskNumber already holds the project row lock in this transaction.
+        const project = await tx.query.projectTable.findFirst({
+          columns: { workspaceId: true },
+          where: eq(projectTable.id, projectId),
+        });
+        if (!project)
+          throw new HTTPException(404, { message: "Project not found" });
+        const claimed = await tx
+          .update(assetTable)
+          .set({
+            taskId: task.id,
+            surface: "description",
+            workspaceId: project.workspaceId,
+          })
+          .where(
+            and(
+              inArray(assetTable.id, ids),
+              eq(assetTable.projectId, projectId),
+              eq(assetTable.createdBy, currentUserId),
+              eq(assetTable.surface, "draft"),
+              isNull(assetTable.taskId),
+            ),
+          )
+          .returning({ id: assetTable.id });
+        if (claimed.length !== ids.length)
+          throw new HTTPException(400, {
+            message:
+              "Some staged uploads are unavailable or belong to another owner/project",
+          });
+      }
+    }
+
+    if (task && mergedCustomFields.length) {
+      await tx.insert(customFieldValueTable).values(
+        mergedCustomFields.map(({ fieldId, value }) => ({
+          taskId: task.id,
+          fieldId,
+          value: value.trim(),
+        })),
+      );
+    }
 
     return task;
   });
@@ -114,7 +255,7 @@ async function createTask({
 
   return {
     ...createdTask,
-    assigneeName,
+    assigneeName: assignee?.name,
   };
 }
 

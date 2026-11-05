@@ -34,6 +34,11 @@ import {
 } from "../../plugins/github/utils/extract-priority";
 import { formatTaskDescriptionFromIssue } from "../../plugins/github/utils/format";
 import { claimTaskNumber } from "../../task/controllers/claim-task-numbers";
+import {
+  type GiteaLabelInput,
+  type GiteaLabelLoader,
+  reconcileGiteaIssueLabels,
+} from "../../plugins/gitea/webhooks/reconcile-issue-labels";
 
 import {
   type IntegrationDatabase,
@@ -260,7 +265,7 @@ async function importSingleIssue(
           .set(updateData)
           .where(linkedTaskScope(existingLink.taskId, projectId));
 
-        await importLabelsForTask(
+        await replaceTaskLabels(
           labels,
           existingLink.taskId,
           workspaceId,
@@ -345,7 +350,7 @@ async function importSingleIssue(
         tx,
       );
 
-      await importLabelsForTask(labels, created.id, workspaceId, tx);
+      await replaceTaskLabels(labels, created.id, workspaceId, tx);
       await canSyncTask(created.id, integrationId, tx, binding.config);
 
       await importCommentsForTask(comments, created.id, tx);
@@ -369,7 +374,7 @@ async function importSingleIssue(
   return "imported";
 }
 
-async function importLabelsForTask(
+async function replaceTaskLabels(
   issueLabels: GiteaIssue["labels"],
   taskId: string,
   workspaceId: string,
@@ -560,4 +565,16 @@ async function linkPullRequestToTask(
     },
   });
   await publishEvent("task.updated", { projectId, taskId: task.id });
+}
+
+export async function importLabelsForTask(
+  issueLabels: GiteaLabelInput[] | null | undefined,
+  taskId: string,
+  workspaceId: string,
+  loader: GiteaLabelLoader,
+): Promise<void> {
+  const snapshotNames = (issueLabels ?? [])
+    .map((label) => (typeof label === "string" ? label : label.name))
+    .filter((name): name is string => Boolean(name));
+  await reconcileGiteaIssueLabels(taskId, workspaceId, snapshotNames, loader);
 }

@@ -144,6 +144,11 @@ async function updateLabel(id: string, name: string, color: string) {
       if (!current?.taskId) {
         throw new HTTPException(404, { message: "Label not found" });
       }
+      if (current.deletionStartedAt) {
+        throw new HTTPException(409, {
+          message: "This label is being deleted; resume its deletion instead",
+        });
+      }
 
       if (current.name !== oldName) {
         throw new HTTPException(404, { message: "Label not found" });
@@ -236,6 +241,11 @@ async function updateLabel(id: string, name: string, color: string) {
     });
     if (!current) {
       throw new HTTPException(404, { message: "Label not found" });
+    }
+    if (current.deletionStartedAt) {
+      throw new HTTPException(409, {
+        message: "This label is being deleted; resume its deletion instead",
+      });
     }
 
     if (current.name !== oldName) {

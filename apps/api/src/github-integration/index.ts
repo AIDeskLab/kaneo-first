@@ -310,6 +310,7 @@ const githubIntegration = apiRouter<BaseVariables & { workspaceId: string }>()
     const { repositoryOwner, repositoryName } = c.req.valid("json");
 
     const integration = await createGithubIntegration({
+      userId: c.get("userId"),
       projectId,
       repositoryOwner,
       repositoryName,

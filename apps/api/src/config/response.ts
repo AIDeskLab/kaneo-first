@@ -44,5 +44,9 @@ export const configSchema = z
         "Account page of the custom OAuth/OIDC provider, where people change managed profile fields. Null when not configured.",
     }),
     billingEnabled: z.boolean(),
+    clientUrl: z.string().openapi({
+      description:
+        "Public web app origin, without a trailing slash, used to build invitation links.",
+    }),
   })
   .openapi("Config");

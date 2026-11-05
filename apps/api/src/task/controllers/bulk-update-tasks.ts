@@ -1,10 +1,12 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import {
   labelTable,
   projectTable,
+  taskReminderSentTable,
   taskTable,
+  userTable,
   workspaceUserTable,
 } from "../../database/schema";
 import { publishEvent } from "../../events";
@@ -20,6 +22,7 @@ import {
 import { cleanupAssetKeys } from "../../storage/cleanup-assets";
 import { validateDateRange } from "../../utils/validate-dates";
 import { assertValidPriority } from "../validate-task-fields";
+import { getSubtaskParentProjects } from "../get-subtask-parent-projects";
 import { deleteTaskHierarchy } from "./delete-task-hierarchy";
 import { updateTaskHierarchyStatus } from "./update-task-hierarchy-status";
 import {
@@ -55,6 +58,7 @@ async function bulkUpdateTasks({
       userId: taskTable.userId,
       startDate: taskTable.startDate,
       dueDate: taskTable.dueDate,
+      priority: taskTable.priority,
       workspaceId: projectTable.workspaceId,
     })
     .from(taskTable)
@@ -127,6 +131,9 @@ async function bulkUpdateTasks({
       );
 
       updatedCount = changedTasks.length;
+      await publishEvent("subtask-parents.refresh", {
+        projects: await getSubtaskParentProjects(foundIds),
+      });
 
       for (const changed of changedTasks) {
         await publishEvent("task.status_changed", {
@@ -138,6 +145,7 @@ async function bulkUpdateTasks({
           title: changed.title,
           assigneeId: changed.assigneeId,
           type: "status_changed",
+          skipSubtaskParentRefresh: true,
         });
       }
 
@@ -156,18 +164,45 @@ async function bulkUpdateTasks({
       }
       assertValidPriority(value);
 
-      const result = await db
-        .update(taskTable)
-        .set({ priority: value })
-        .where(inArray(taskTable.id, foundIds));
+      const before = await db.transaction(async (tx) => {
+        const locked = await tx
+          .select({
+            id: taskTable.id,
+            projectId: taskTable.projectId,
+            priority: taskTable.priority,
+          })
+          .from(taskTable)
+          .where(inArray(taskTable.id, foundIds))
+          .orderBy(asc(taskTable.id))
+          .for("update");
+        const originalProjects = new Map(
+          tasks.map((task) => [task.id, task.projectId]),
+        );
+        if (
+          locked.length !== foundIds.length ||
+          locked.some(
+            (task) => task.projectId !== originalProjects.get(task.id),
+          )
+        ) {
+          throw new HTTPException(409, {
+            message: "Tasks changed projects; retry the operation",
+          });
+        }
+        await tx
+          .update(taskTable)
+          .set({ priority: value })
+          .where(inArray(taskTable.id, foundIds));
+        return locked;
+      });
 
-      updatedCount = result.rowCount ?? foundIds.length;
+      updatedCount = before.length;
 
-      for (const task of tasks) {
+      for (const task of before) {
         await publishEvent("task.priority_changed", {
           taskId: task.id,
           projectId: task.projectId,
           userId,
+          oldPriority: task.priority,
           newPriority: value,
           type: "priority_changed",
         });
@@ -177,6 +212,12 @@ async function bulkUpdateTasks({
 
     case "updateAssignee": {
       const nextAssigneeId = value?.trim() || null;
+      if (nextAssigneeId) {
+        await db.query.userTable.findFirst({
+          columns: { name: true },
+          where: eq(userTable.id, nextAssigneeId),
+        });
+      }
       const firstProjectId = tasks[0]?.projectId;
       if (!firstProjectId) {
         throw new HTTPException(400, {
@@ -218,10 +259,14 @@ async function bulkUpdateTasks({
     }
 
     case "delete": {
+      const parentProjects = await getSubtaskParentProjects(foundIds);
       const { deletedTasks, deletedRelations, assetKeys } =
         await db.transaction(async (tx) =>
           deleteTaskHierarchy(tx, workspaceId, foundIds),
         );
+      await publishEvent("subtask-parents.refresh", {
+        projects: parentProjects,
+      });
 
       // Unique affected tasks after hierarchy expand + overlapping-root dedupe.
       updatedCount = deletedTasks.length;
@@ -428,14 +473,50 @@ async function bulkUpdateTasks({
         validateDateRange(task.startDate ?? undefined, parsedDate ?? undefined);
       }
 
-      const result = await db
-        .update(taskTable)
-        .set({ dueDate: parsedDate })
-        .where(inArray(taskTable.id, foundIds));
+      const before = await db.transaction(async (tx) => {
+        const locked = await tx
+          .select({
+            id: taskTable.id,
+            projectId: taskTable.projectId,
+            title: taskTable.title,
+            dueDate: taskTable.dueDate,
+          })
+          .from(taskTable)
+          .where(inArray(taskTable.id, foundIds))
+          .orderBy(asc(taskTable.id))
+          .for("update");
+        const originalProjects = new Map(
+          tasks.map((task) => [task.id, task.projectId]),
+        );
+        if (
+          locked.length !== foundIds.length ||
+          locked.some(
+            (task) => task.projectId !== originalProjects.get(task.id),
+          )
+        ) {
+          throw new HTTPException(409, {
+            message: "Tasks changed projects; retry the operation",
+          });
+        }
+        const changedIds = locked
+          .filter((task) => task.dueDate?.getTime() !== parsedDate?.getTime())
+          .map((task) => task.id);
+        if (changedIds.length > 0) {
+          await tx
+            .delete(taskReminderSentTable)
+            .where(inArray(taskReminderSentTable.taskId, changedIds));
+        }
+        await tx
+          .update(taskTable)
+          .set({ dueDate: parsedDate })
+          .where(inArray(taskTable.id, foundIds));
+        return locked;
+      });
 
-      updatedCount = result.rowCount ?? foundIds.length;
+      updatedCount = before.length;
 
-      for (const task of tasks) {
+      for (const task of before) {
+        if (task.dueDate?.getTime() === parsedDate?.getTime()) continue;
         await publishEvent("task.due_date_changed", {
           taskId: task.id,
           projectId: task.projectId,

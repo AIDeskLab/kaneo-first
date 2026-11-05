@@ -81,7 +81,9 @@ export async function giteaFetch<T>(
   const root = normalizeGiteaBaseUrl(baseUrl);
   const url = `${root}/api/v1${path.startsWith("/") ? path : `/${path}`}`;
 
-  await assertPublicDestination(root, "Gitea");
+  // Gitea carries a saved access token. The webhook private-destination
+  // switch must not let that token reach a loopback or link-local host.
+  await assertPublicDestination(root, "Gitea", { allowPrivate: false });
 
   const controller = new AbortController();
   let timedOut = false;

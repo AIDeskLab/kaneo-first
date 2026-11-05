@@ -1,4 +1,4 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import {
@@ -33,6 +33,23 @@ async function createTaskRelation({
 
   const { relation, sourceProjectId, targetProjectId } = await db.transaction(
     async (tx) => {
+      // Serialize with a project move that holds FOR UPDATE. The move must see
+      // this relation, or this request must see the moved workspace.
+      await tx
+        .select({ id: projectTable.id })
+        .from(projectTable)
+        .where(
+          inArray(
+            projectTable.id,
+            tx
+              .select({ projectId: taskTable.projectId })
+              .from(taskTable)
+              .where(inArray(taskTable.id, [sourceTaskId, targetTaskId])),
+          ),
+        )
+        .orderBy(projectTable.id)
+        .for("share");
+
       await lockWorkspaceTaskHierarchy(tx, workspaceId);
 
       const [sourceTask] = await tx

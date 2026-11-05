@@ -63,8 +63,16 @@ export function nativeAuthApiKey(ctx: AuthContext) {
 }
 
 export async function assertNativeAuthApiKeyAllowed(ctx: AuthContext) {
-  const credential = ctx.headers?.get("x-api-key");
+  const headerKey = ctx.headers?.get("x-api-key");
+  const bearerMatch = ctx.headers
+    ?.get("authorization")
+    ?.match(/^bearer\s+(\S+)$/i);
+  const credential = headerKey ?? bearerMatch?.[1];
   if (!credential) return;
+  if (!headerKey) {
+    const preview = await verifyApiKey(credential, { consume: false });
+    if (!preview) return;
+  }
   const operation = ctx.path?.startsWith("/organization/")
     ? ctx.path.slice("/organization/".length)
     : undefined;

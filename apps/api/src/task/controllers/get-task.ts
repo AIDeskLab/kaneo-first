@@ -12,7 +12,43 @@ import {
   taskRelationTable,
 } from "../../database/schema";
 
-async function getTask(taskId: string, board = false, userId?: string) {
+type LoadedTask = {
+  id: string;
+  title: string;
+  number: number | null;
+  description: string | null;
+  descriptionDeferred?: boolean;
+  status: string;
+  columnId: string | null;
+  priority: string | null;
+  startDate: Date | null;
+  dueDate: Date | null;
+  recurrence: {
+    frequency: "daily" | "weekly" | "monthly" | "yearly";
+    interval: number;
+    weekdays?: number[];
+    timeZone: string;
+  } | null;
+  position: number | null;
+  createdAt: Date;
+  userId: string | null;
+  assigneeName: string | null;
+  assigneeId: string | null;
+  projectId: string;
+  workspaceId: string | null;
+  subtaskCounts: { completed: number; total: number };
+  parentSubtaskCounts: {
+    taskId: string;
+    completed: number;
+    total: number;
+  }[];
+};
+
+async function getTask(
+  taskId: string,
+  board = false,
+  userId?: string,
+): Promise<LoadedTask> {
   const task = await db
     .select({
       id: taskTable.id,
@@ -49,9 +85,24 @@ async function getTask(taskId: string, board = false, userId?: string) {
     });
   }
 
-  if (!board) return task[0];
+  const emptyCounts = { completed: 0, total: 0 };
+  if (!board) {
+    return {
+      ...task[0],
+      workspaceId: task[0].workspaceId ?? null,
+      subtaskCounts: emptyCounts,
+      parentSubtaskCounts: [],
+    } as LoadedTask;
+  }
   const { workspaceId, ...result } = task[0];
-  if (!workspaceId) return result;
+  if (!workspaceId) {
+    return {
+      ...result,
+      workspaceId: null,
+      subtaskCounts: emptyCounts,
+      parentSubtaskCounts: [],
+    } as LoadedTask;
+  }
   const parent = alias(taskTable, "parent");
   const parents = await db
     .selectDistinct({ id: parent.id })
@@ -75,12 +126,12 @@ async function getTask(taskId: string, board = false, userId?: string) {
   );
   return {
     ...result,
-    subtaskCounts: counts.get(taskId) ?? { completed: 0, total: 0 },
+    subtaskCounts: counts.get(taskId) ?? emptyCounts,
     parentSubtaskCounts: parents.map(({ id }) => ({
       taskId: id,
-      ...(counts.get(id) ?? { completed: 0, total: 0 }),
+      ...(counts.get(id) ?? emptyCounts),
     })),
-  };
+  } as LoadedTask;
 }
 
 export default getTask;

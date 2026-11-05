@@ -137,7 +137,7 @@ export const boardColumnSchema = z
     name: z.string(),
     icon: z.string().nullable(),
     isFinal: z.boolean(),
-    position: z.number().optional(),
+    position: z.number(),
     tasks: z.array(boardTaskSchema),
   })
   .openapi("BoardColumn");

@@ -21,7 +21,13 @@ import {
   taskTable,
   userTable,
 } from "../../database/schema";
-import { getBoardVisibleSubtaskCounts } from "../utils/subtask-counts";
+import {
+  boardDescription,
+  boardProjectDescription,
+  descriptionDeferred,
+  projectDescriptionDeferred,
+} from "../description-pages";
+import { getSubtaskCounts } from "../get-subtask-counts";
 
 export type GetTasksOptions = {
   publicOnly?: boolean;
@@ -72,7 +78,11 @@ function buildOrderBy(
   }
 }
 
-async function getTasks(projectId: string, options: GetTasksOptions = {}) {
+async function getTasks(
+  projectId: string,
+  options: GetTasksOptions = {},
+  userId?: string,
+) {
   const project = await db.query.projectTable.findFirst({
     where: eq(projectTable.id, projectId),
   });
@@ -82,6 +92,15 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
       message: "Project not found",
     });
   }
+
+  const [boardProject] = await db
+    .select({
+      description: boardProjectDescription,
+      descriptionDeferred: projectDescriptionDeferred,
+    })
+    .from(projectTable)
+    .where(eq(projectTable.id, projectId))
+    .limit(1);
 
   const conditions = [eq(taskTable.projectId, projectId)];
 
@@ -106,10 +125,10 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
   }
 
   const whereClause = and(...conditions);
-  const usePagination = options.page != null || options.limit != null;
-  const page = options.page && options.page > 0 ? options.page : 1;
-  const pageSize =
-    options.limit && options.limit > 0 ? Math.min(options.limit, 100) : 50;
+  assertPaginationBound(options.page, 1_000_000);
+  assertPaginationBound(options.limit, 100);
+  const page = options.page ?? 1;
+  const pageSize = options.limit ?? 50;
   const offset = (page - 1) * pageSize;
 
   const orderByClause = buildOrderBy(
@@ -128,7 +147,8 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
     id: taskTable.id,
     title: taskTable.title,
     number: taskTable.number,
-    description: taskTable.description,
+    description: boardDescription,
+    descriptionDeferred,
     status: taskTable.status,
     priority: taskTable.priority,
     startDate: taskTable.startDate,
@@ -149,11 +169,10 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
     .leftJoin(userTable, eq(taskTable.userId, userTable.id))
     .leftJoin(projectTable, eq(taskTable.projectId, projectTable.id))
     .where(whereClause)
-    .orderBy(orderByClause);
+    .orderBy(orderByClause, asc(taskTable.id));
 
-  const paginatedTasks = usePagination
-    ? await query.limit(pageSize).offset(offset)
-    : await query;
+  const paginatedTasks = await query.limit(pageSize).offset(offset);
+  const revision = await projectBoardRevision(projectId);
 
   const taskIds = paginatedTasks.map((task) => task.id);
 
@@ -226,13 +245,13 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
     .where(eq(columnTable.projectId, projectId))
     .orderBy(asc(columnTable.position));
 
-  const finalColumnSlugs = new Set(
-    projectColumns
-      .filter((column) => column.isFinal)
-      .map((column) => column.slug),
+  const subtaskCountMap = await getSubtaskCounts(
+    db,
+    taskIds,
+    project.workspaceId,
+    options.publicOnly ?? false,
+    options.publicOnly ? undefined : userId,
   );
-
-  const boardColumnSlugs = new Set(projectColumns.map((column) => column.slug));
 
   const subtaskRelations =
     taskIds.length > 0
@@ -263,46 +282,12 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
     childrenMap.set(relation.sourceTaskId, children);
   }
 
-  const taskStatusMap = new Map(
-    paginatedTasks.map((task) => [task.id, task.status]),
-  );
-
-  const missingChildIds = [
-    ...new Set(
-      [...childrenMap.values()]
-        .flat()
-        .filter((childId) => !taskStatusMap.has(childId)),
-    ),
-  ];
-
-  if (missingChildIds.length > 0) {
-    const missingStatuses = await db
-      .select({
-        id: taskTable.id,
-        status: taskTable.status,
-      })
-      .from(taskTable)
-      .where(
-        and(
-          eq(taskTable.projectId, projectId),
-          inArray(taskTable.id, missingChildIds),
-        ),
-      );
-
-    for (const child of missingStatuses) {
-      taskStatusMap.set(child.id, child.status);
-    }
-  }
-
   const enrichTask = (task: (typeof paginatedTasks)[number]) => {
-    const { directSubtaskCount, completedSubtaskCount } =
-      getBoardVisibleSubtaskCounts(
-        task.id,
-        childrenMap,
-        taskStatusMap,
-        boardColumnSlugs,
-        finalColumnSlugs,
-      );
+    const counts = subtaskCountMap.get(task.id) ?? {
+      completed: 0,
+      total: 0,
+    };
+    const children = childrenMap.get(task.id) ?? [];
 
     return {
       ...task,
@@ -310,12 +295,9 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
       labels: taskLabelsMap.get(task.id) || [],
       externalLinks: taskExternalLinksMap.get(task.id) || [],
       parentId: parentIdMap.get(task.id) ?? null,
-      directSubtaskCount,
-      completedSubtaskCount,
-      subtaskCounts: {
-        completed: completedSubtaskCount,
-        total: directSubtaskCount,
-      },
+      directSubtaskCount: children.length,
+      completedSubtaskCount: counts.completed,
+      subtaskCounts: counts,
     };
   };
 
@@ -325,6 +307,7 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
     name: column.name,
     icon: column.icon,
     isFinal: column.isFinal,
+    position: column.position,
     tasks: paginatedTasks
       .filter((task) => task.status === column.slug)
       .map(enrichTask),
@@ -344,7 +327,8 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
       name: project.name,
       slug: project.slug,
       icon: project.icon,
-      description: project.description,
+      description: boardProject?.description ?? null,
+      descriptionDeferred: boardProject?.descriptionDeferred ?? false,
       isPublic: project.isPublic,
       workspaceId: project.workspaceId,
       backgroundVersion: project.backgroundVersion,
@@ -352,26 +336,69 @@ async function getTasks(projectId: string, options: GetTasksOptions = {}) {
       archivedTasks,
       plannedTasks,
     },
-    pagination: usePagination
-      ? {
-          total,
-          page,
-          pageSize,
-          totalPages: Math.max(1, Math.ceil(total / pageSize)),
-          relatedPage: 1,
-          relatedPageSize: pageSize,
-          relatedTotalPages: 1,
-        }
-      : {
-          total,
-          page: 1,
-          pageSize: total,
-          totalPages: 1,
-          relatedPage: 1,
-          relatedPageSize: total,
-          relatedTotalPages: 1,
-        },
+    pagination: {
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      revision,
+      relatedPage: 1,
+      relatedPageSize: pageSize,
+      relatedTotalPages: 1,
+    },
   };
+}
+
+function assertPaginationBound(value: number | undefined, max: number) {
+  if (value == null) return;
+  if (!Number.isInteger(value) || value < 1 || value > max) {
+    throw new HTTPException(400, {
+      message: `Invalid task pagination or filters`,
+    });
+  }
+}
+
+async function projectBoardRevision(projectId: string) {
+  const result = await db.execute<{ revision: string }>(sql`
+    SELECT md5(concat_ws(':',
+      (SELECT count(*)::text || ':' || coalesce(max(task.xmin::text), '') || ':' ||
+          coalesce(string_agg(
+            coalesce(assignee.name, '') || ':' || coalesce(assignee.image, ''),
+            ',' ORDER BY task.id
+          ), '')
+        FROM task
+        LEFT JOIN "user" assignee ON assignee.id = task.assignee_id
+        WHERE task.project_id = ${projectId}),
+      (SELECT count(*)::text || ':' || coalesce(max(label.xmin::text), '') || ':' ||
+          coalesce(string_agg(label.name || ':' || label.color, ',' ORDER BY label.id), '')
+        FROM label
+        INNER JOIN task ON task.id = label.task_id
+        WHERE task.project_id = ${projectId}),
+      (SELECT count(*)::text || ':' || coalesce(max(external_link.xmin::text), '')
+        FROM external_link
+        INNER JOIN task ON task.id = external_link.task_id
+        WHERE task.project_id = ${projectId}),
+      (SELECT count(*)::text || ':' || coalesce(max("column".xmin::text), '')
+        FROM "column" WHERE project_id = ${projectId}),
+      (SELECT coalesce(name, '') || ':' || coalesce(is_public::text, '') || ':' || coalesce(xmin::text, '')
+        FROM project WHERE id = ${projectId}),
+      (SELECT coalesce(string_agg(
+          child.id || ':' || child.status || ':' || coalesce(child.xmin::text, ''),
+          ',' ORDER BY relation.id
+        ), '')
+        FROM task_relation relation
+        INNER JOIN task parent ON parent.id = relation.source_task_id
+        INNER JOIN task child ON child.id = relation.target_task_id
+        INNER JOIN project child_project ON child_project.id = child.project_id
+        WHERE parent.project_id = ${projectId}
+          AND relation.relation_type = 'subtask'
+          AND child_project.is_public = true
+          AND child_project.workspace_id = (
+            SELECT workspace_id FROM project WHERE id = ${projectId}
+          ))
+    )) AS revision
+  `);
+  return result.rows[0]?.revision ?? "0";
 }
 
 export default getTasks;

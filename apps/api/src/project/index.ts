@@ -1,14 +1,26 @@
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import * as v from "valibot";
 import { projectSchema } from "../schemas";
-import { requireWorkspacePermission } from "../utils/require-workspace-permission";
+import {
+  hasWorkspacePermission,
+  requireWorkspacePermission,
+} from "../utils/require-workspace-permission";
+import { validateWorkspaceAccess } from "../utils/validate-workspace-access";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
 import archiveProjectCtrl from "./controllers/archive-project";
 import createProjectCtrl from "./controllers/create-project";
 import deleteProjectCtrl from "./controllers/delete-project";
 import getProjectCtrl from "./controllers/get-project";
 import getProjectsCtrl from "./controllers/get-projects";
+import moveProjectCtrl from "./controllers/move-project";
+import {
+  finalizeProjectBackground,
+  getProjectBackground,
+  prepareProjectBackgroundUpload,
+  removeProjectBackground,
+} from "./controllers/project-background";
 import reorderProjectsCtrl from "./controllers/reorder-projects";
 import unarchiveProjectCtrl from "./controllers/unarchive-project";
 import updateProjectCtrl from "./controllers/update-project";
@@ -281,6 +293,135 @@ const project = new Hono<{
       const workspaceId = c.get("workspaceId");
       const unarchivedProject = await unarchiveProjectCtrl(id, workspaceId);
       return c.json(unarchivedProject);
+    },
+  )
+  .put(
+    "/:id/move",
+    describeRoute({
+      operationId: "moveProject",
+      tags: ["Projects"],
+      description:
+        "Move a project and its tasks to another workspace. Remove cross-project task relationships first.",
+      responses: {
+        200: {
+          description: "Project moved",
+          content: {
+            "application/json": { schema: resolver(projectSchema) },
+          },
+        },
+      },
+    }),
+    validator("param", v.object({ id: v.string() })),
+    validator("json", v.object({ workspaceId: v.string() })),
+    workspaceAccess.fromProject(),
+    requireWorkspacePermission({ project: ["update", "delete"] }),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const { workspaceId: targetWorkspaceId } = c.req.valid("json");
+      const sourceWorkspaceId = c.get("workspaceId");
+      const userId = c.get("userId");
+      await validateWorkspaceAccess(userId, targetWorkspaceId, undefined, {
+        notFoundMessage: "Destination workspace not found",
+      });
+      if (
+        !(await hasWorkspacePermission(
+          c,
+          { project: ["create"], workspace: ["manage_settings"] },
+          targetWorkspaceId,
+        ))
+      ) {
+        throw new HTTPException(403, {
+          message: "Insufficient permissions in the target workspace",
+        });
+      }
+      const moved = await moveProjectCtrl(
+        id,
+        sourceWorkspaceId,
+        targetWorkspaceId,
+        userId,
+      );
+      return c.json(moved);
+    },
+  )
+  .get(
+    "/:id/background",
+    describeRoute({
+      operationId: "getProjectBackground",
+      tags: ["Projects"],
+      description: "Download the current project board background image.",
+    }),
+    validator("param", v.object({ id: v.string() })),
+    workspaceAccess.fromProject(),
+    requireWorkspacePermission({ project: ["read"] }),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      return getProjectBackground(id, c.req.header("If-None-Match"));
+    },
+  )
+  .put(
+    "/:id/background-upload",
+    describeRoute({
+      operationId: "uploadProjectBackground",
+      tags: ["Projects"],
+      description: "Create a presigned background image upload URL.",
+    }),
+    validator("param", v.object({ id: v.string() })),
+    validator("json", v.object({ contentType: v.string(), size: v.number() })),
+    workspaceAccess.fromProject(),
+    requireWorkspacePermission({ project: ["update"] }),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const { contentType, size } = c.req.valid("json");
+      return c.json(
+        await prepareProjectBackgroundUpload(id, contentType, size),
+      );
+    },
+  )
+  .post(
+    "/:id/background-upload/finalize",
+    describeRoute({
+      operationId: "finalizeProjectBackgroundUpload",
+      tags: ["Projects"],
+      description: "Save an uploaded image as the project board background.",
+    }),
+    validator("param", v.object({ id: v.string() })),
+    validator(
+      "json",
+      v.object({
+        key: v.string(),
+        contentType: v.string(),
+        version: v.string(),
+        size: v.number(),
+      }),
+    ),
+    workspaceAccess.fromProject(),
+    requireWorkspacePermission({ project: ["update"] }),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const body = c.req.valid("json");
+      return c.json(
+        await finalizeProjectBackground({
+          id,
+          ...body,
+          apiBaseUrl: process.env.KANEO_API_URL || new URL(c.req.url).origin,
+        }),
+      );
+    },
+  )
+  .delete(
+    "/:id/background",
+    describeRoute({
+      operationId: "deleteProjectBackground",
+      tags: ["Projects"],
+      description: "Remove the current project board background image.",
+    }),
+    validator("param", v.object({ id: v.string() })),
+    workspaceAccess.fromProject(),
+    requireWorkspacePermission({ project: ["update"] }),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      await removeProjectBackground(id);
+      return c.body(null, 204);
     },
   );
 

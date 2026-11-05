@@ -169,7 +169,7 @@ export const finalizeImageUploadBody = z.object({
 });
 
 export const descriptionPageQuery = z.object({
-  offset: pagingNumber(0, 2_000_000_000, 0),
+  offset: pagingNumber(0, 2_147_483_647, 0),
   version: z
     .string()
     .regex(/^[0-9]{1,10}$/)

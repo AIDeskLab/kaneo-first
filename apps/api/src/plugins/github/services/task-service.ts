@@ -6,6 +6,10 @@ import {
   integrationTable,
   taskTable,
 } from "../../../database/schema";
+import {
+  githubRepositoryKeyFromConfig,
+  normalizeGitHubRepositoryKey,
+} from "../../../github-integration/github-repository-key";
 import { type GitHubConfig, hasVerifiedGitHubBinding } from "../config";
 import { extractTaskLinks } from "../utils/task-references";
 
@@ -154,7 +158,48 @@ export type GitHubWebhookSource = {
   repository: { id: number };
 };
 
-export async function findAllIntegrationsByRepo(source: GitHubWebhookSource) {
+async function findAllIntegrationsByRepositoryKey(owner: string, repo: string) {
+  const repositoryKey = normalizeGitHubRepositoryKey(owner, repo);
+  if (!repositoryKey) return [];
+
+  const integrations = await db.query.integrationTable.findMany({
+    where: and(
+      eq(integrationTable.type, "github"),
+      eq(integrationTable.isActive, true),
+      eq(integrationTable.githubRepositoryKey, repositoryKey),
+    ),
+    with: { project: true },
+  });
+
+  const verified = integrations.filter((integration) => {
+    try {
+      const config = JSON.parse(integration.config);
+      return githubRepositoryKeyFromConfig(config) === repositoryKey;
+    } catch {
+      return false;
+    }
+  });
+  return verified.length === 1 ? verified : [];
+}
+
+export async function findAllIntegrationsByRepo(
+  source: GitHubWebhookSource,
+): Promise<Awaited<ReturnType<typeof findByGitHubInstallation>>>;
+export async function findAllIntegrationsByRepo(
+  owner: string,
+  repo: string,
+): Promise<Awaited<ReturnType<typeof findByGitHubInstallation>>>;
+export async function findAllIntegrationsByRepo(
+  ownerOrSource: string | GitHubWebhookSource,
+  repo?: string,
+) {
+  if (typeof ownerOrSource === "string") {
+    return findAllIntegrationsByRepositoryKey(ownerOrSource, repo ?? "");
+  }
+  return findByGitHubInstallation(ownerOrSource);
+}
+
+async function findByGitHubInstallation(source: GitHubWebhookSource) {
   const installationId = source.installation?.id;
   const repositoryId = source.repository.id;
   if (

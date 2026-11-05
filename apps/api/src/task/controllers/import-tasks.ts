@@ -56,10 +56,30 @@ async function importTasks(
   }> = [];
   await db.transaction(async (tx) => {
     await lockWorkspaceAssignees(tx, project.workspaceId, assigneeIds);
-    await requireWorkspaceAssignees(tx, project.workspaceId, assigneeIds);
 
     for (const taskData of tasksToImport) {
       try {
+        const assigneeId = taskData.userId?.trim() || null;
+        if (assigneeId) {
+          try {
+            await requireWorkspaceAssignees(tx, project.workspaceId, [
+              assigneeId,
+            ]);
+          } catch (error) {
+            if (error instanceof HTTPException) {
+              results.push({
+                success: false,
+                error:
+                  error.status === 404
+                    ? "Assignee not found"
+                    : "Assignee is not a member of this workspace",
+                task: taskData,
+              });
+              continue;
+            }
+            throw error;
+          }
+        }
         const { status, warning: statusWarning } = coerceStatus(
           taskData.status,
           validStatuses,
@@ -84,7 +104,7 @@ async function importTasks(
           .insert(taskTable)
           .values({
             projectId,
-            userId: taskData.userId?.trim() || null,
+            userId: assigneeId,
             title: taskData.title,
             status,
             columnId: column?.id ?? null,
