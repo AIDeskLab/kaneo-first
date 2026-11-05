@@ -6,6 +6,7 @@ import {
   taskTable,
 } from "../../database/schema";
 import { enqueueAssetCleanupKeys } from "../../storage/asset-cleanup-outbox";
+import { queueStorageCleanup } from "../../storage/cleanup-queue";
 import { resolveTaskHierarchy } from "./task-cascade";
 import type { DbOrTx } from "./workspace-assignee-lock";
 
@@ -155,6 +156,7 @@ export async function deleteTaskHierarchy(
     tx as Parameters<typeof enqueueAssetCleanupKeys>[0],
     assetKeys,
   );
+  await queueStorageCleanup(tx, assetKeys);
 
   await tx.delete(taskTable).where(inArray(taskTable.id, lockIds));
 

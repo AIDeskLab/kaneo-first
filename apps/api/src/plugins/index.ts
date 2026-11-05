@@ -2,19 +2,29 @@ import { discordPlugin } from "./discord";
 import { genericWebhookPlugin } from "./generic-webhook";
 import { giteaPlugin } from "./gitea";
 import { githubPlugin, initializeGitHubPlugin } from "./github";
+import { gitlabPlugin } from "./gitlab";
+import { mattermostPlugin } from "./mattermost";
 import { initializeEventSubscriptions, registerPlugin } from "./registry";
 import { slackPlugin } from "./slack";
 import { telegramPlugin } from "./telegram";
 
+export const integrationPlugins = [
+  githubPlugin,
+  giteaPlugin,
+  gitlabPlugin,
+  slackPlugin,
+  mattermostPlugin,
+  discordPlugin,
+  genericWebhookPlugin,
+  telegramPlugin,
+];
+
 export function initializePlugins() {
   console.log("Initializing plugins...");
 
-  registerPlugin(githubPlugin);
-  registerPlugin(giteaPlugin);
-  registerPlugin(slackPlugin);
-  registerPlugin(discordPlugin);
-  registerPlugin(genericWebhookPlugin);
-  registerPlugin(telegramPlugin);
+  for (const plugin of integrationPlugins) {
+    registerPlugin(plugin);
+  }
   initializeGitHubPlugin();
   initializeEventSubscriptions();
 

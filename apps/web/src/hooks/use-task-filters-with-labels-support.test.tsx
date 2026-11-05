@@ -1,6 +1,29 @@
-import { renderHook, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { useTaskFiltersWithLabelsSupport } from "./use-task-filters-with-labels-support";
+
+const IGNORE_STATUS = ["status"] as const;
+
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+}
+
+function createWrapper() {
+  const queryClient = createTestQueryClient();
+
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  };
+}
 
 describe("useTaskFiltersWithLabelsSupport", () => {
   const storageKey = "kaneo:board-filters:project-1";
@@ -36,6 +59,7 @@ describe("useTaskFiltersWithLabelsSupport", () => {
           name: "Todo",
           icon: null,
           isFinal: false,
+          position: 0,
           tasks: [
             {
               id: "task-1",
@@ -90,8 +114,11 @@ describe("useTaskFiltersWithLabelsSupport", () => {
       archivedTasks: [],
     };
 
-    const { result } = renderHook(() =>
-      useTaskFiltersWithLabelsSupport(project, "project-1"),
+    const { result } = renderHook(
+      () => useTaskFiltersWithLabelsSupport(project, "project-1"),
+      {
+        wrapper: createWrapper(),
+      },
     );
 
     await waitFor(() => {
@@ -122,6 +149,7 @@ describe("useTaskFiltersWithLabelsSupport", () => {
           name: "Todo",
           icon: null,
           isFinal: false,
+          position: 0,
           tasks: [],
         },
       ],
@@ -129,8 +157,9 @@ describe("useTaskFiltersWithLabelsSupport", () => {
       archivedTasks: [],
     };
 
-    const { result } = renderHook(() =>
-      useTaskFiltersWithLabelsSupport(project, "project-1"),
+    const { result } = renderHook(
+      () => useTaskFiltersWithLabelsSupport(project, "project-1"),
+      { wrapper: createWrapper() },
     );
 
     expect(result.current.hasActiveFilters).toBe(false);
@@ -157,6 +186,7 @@ describe("useTaskFiltersWithLabelsSupport", () => {
             name: "Todo",
             icon: null,
             isFinal: false,
+            position: 0,
             tasks: [
               {
                 id: "task-123",
@@ -205,8 +235,11 @@ describe("useTaskFiltersWithLabelsSupport", () => {
         archivedTasks: [],
       };
 
-      const { result } = renderHook(() =>
-        useTaskFiltersWithLabelsSupport(project, "project-1", textQuery),
+      const { result } = renderHook(
+        () => useTaskFiltersWithLabelsSupport(project, "project-1", textQuery),
+        {
+          wrapper: createWrapper(),
+        },
       );
 
       expect(result.current.filteredProject?.columns[0]?.tasks).toEqual([
@@ -214,4 +247,51 @@ describe("useTaskFiltersWithLabelsSupport", () => {
       ]);
     },
   );
+
+  it("keeps an ignored status filter stored but out of the backlog", () => {
+    window.localStorage.setItem(
+      storageKey,
+      JSON.stringify({ status: ["done"], priority: ["high"] }),
+    );
+    const planned = {
+      id: "planned-1",
+      title: "Planned work",
+      number: 7,
+      description: null,
+      status: "planned",
+      priority: "high",
+      dueDate: null,
+      userId: null,
+      labels: [],
+    };
+    const project = {
+      id: "project-1",
+      slug: "PROJ",
+      columns: [],
+      plannedTasks: [planned],
+      archivedTasks: [],
+    } as unknown as Parameters<typeof useTaskFiltersWithLabelsSupport>[0];
+
+    const { result } = renderHook(
+      () =>
+        useTaskFiltersWithLabelsSupport(
+          project,
+          "project-1",
+          "",
+          undefined,
+          IGNORE_STATUS,
+        ),
+      { wrapper: createWrapper() },
+    );
+
+    expect(result.current.filters.status).toBeNull();
+    expect(result.current.activeFilterCount).toBe(1);
+    expect(result.current.filteredProject?.plannedTasks).toHaveLength(1);
+
+    act(() => result.current.clearFilters());
+
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}")).toEqual(
+      expect.objectContaining({ status: ["done"], priority: null }),
+    );
+  });
 });

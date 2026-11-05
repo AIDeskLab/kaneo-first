@@ -1,11 +1,12 @@
 import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
-import { projectTable } from "../../database/schema";
+import { projectTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { cleanupAssetKeys } from "../../storage/cleanup-assets";
 import { deleteTaskHierarchy } from "./delete-task-hierarchy";
 import getTask from "./get-task";
+import { lockWorkspaceTaskHierarchy } from "./task-cascade";
 
 async function deleteTask(taskId: string, currentUserId: string) {
   const task = await getTask(taskId);
@@ -23,7 +24,26 @@ async function deleteTask(taskId: string, currentUserId: string) {
   }
 
   const { deletedTasks, deletedRelations, assetKeys } = await db.transaction(
-    async (tx) => deleteTaskHierarchy(tx, project.workspaceId, [taskId]),
+    async (tx) => {
+      // Same order as updateTask: advisory lock, then row locks. Locking the
+      // row first deadlocks with a full update waiting on this advisory lock.
+      await lockWorkspaceTaskHierarchy(tx, project.workspaceId);
+      const [locked] = await tx
+        .select({ id: taskTable.id, projectId: taskTable.projectId })
+        .from(taskTable)
+        .where(eq(taskTable.id, taskId))
+        .for("update")
+        .limit(1);
+      if (!locked) {
+        throw new HTTPException(404, { message: "Task not found" });
+      }
+      if (locked.projectId !== task.projectId) {
+        throw new HTTPException(409, {
+          message: "Task changed projects; retry the operation",
+        });
+      }
+      return deleteTaskHierarchy(tx, project.workspaceId, [taskId]);
+    },
   );
 
   if (deletedTasks.length === 0) {

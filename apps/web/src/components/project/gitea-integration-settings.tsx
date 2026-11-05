@@ -155,7 +155,7 @@ export function GiteaIntegrationSettings({ projectId }: { projectId: string }) {
     setVerificationResult(null);
     setShowWebhookSecret(false);
   }, [
-    form.reset,
+    form,
     integration?.baseUrl,
     integration?.repositoryOwner,
     integration?.repositoryName,
@@ -276,9 +276,9 @@ export function GiteaIntegrationSettings({ projectId }: { projectId: string }) {
     repositoryOwner,
     repositoryName,
     accessToken,
+    form,
     form.formState.isValid,
     runVerify,
-    form.getValues,
   ]);
 
   const onSubmit = async (data: GiteaIntegrationFormValues) => {

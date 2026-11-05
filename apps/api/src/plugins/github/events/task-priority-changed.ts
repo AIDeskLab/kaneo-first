@@ -1,19 +1,35 @@
+import { syncTaskFieldLabels } from "../../sync/sync-task-field-labels";
+import { canSyncTask } from "../../sync/eligibility";
 import type { PluginContext, TaskPriorityChangedEvent } from "../../types";
-import type { GitHubConfig } from "../config";
+import { type GitHubConfig, hasVerifiedGitHubBinding } from "../config";
 import { findExternalLinksByTask } from "../services/link-manager";
-import { getGithubApp, getInstallationIdForRepo } from "../utils/github-app";
+import {
+  getGithubApp,
+  getVerifiedInstallationOctokit,
+} from "../utils/github-app";
 import { addLabelsToIssue, removeLabel } from "../utils/labels";
 
 export async function handleTaskPriorityChanged(
   event: TaskPriorityChangedEvent,
   context: PluginContext,
 ): Promise<void> {
+  if (
+    !(await canSyncTask(
+      event.taskId,
+      context.integrationId,
+      undefined,
+      JSON.stringify(context.config),
+    ))
+  )
+    return;
+
   const githubApp = getGithubApp();
   if (!githubApp) {
     return;
   }
 
   const config = context.config as GitHubConfig;
+  if (!hasVerifiedGitHubBinding(config)) return;
   const { repositoryOwner, repositoryName } = config;
 
   try {
@@ -27,37 +43,37 @@ export async function handleTaskPriorityChanged(
     if (!issueLink) {
       return;
     }
-
-    let installationId = config.installationId;
-    if (!installationId) {
-      installationId = await getInstallationIdForRepo(
-        repositoryOwner,
-        repositoryName,
-      );
-    }
-
-    const octokit = await githubApp.getInstallationOctokit(installationId);
+    const octokit = await getVerifiedInstallationOctokit(config);
     const issueNumber = Number.parseInt(issueLink.externalId, 10);
 
-    if (event.oldPriority && event.oldPriority !== "no-priority") {
-      await removeLabel(
-        octokit,
-        repositoryOwner,
-        repositoryName,
-        issueNumber,
-        `priority:${event.oldPriority}`,
-      );
-    }
-
-    if (event.newPriority && event.newPriority !== "no-priority") {
-      await addLabelsToIssue(
-        octokit,
-        repositoryOwner,
-        repositoryName,
-        issueNumber,
-        [`priority:${event.newPriority}`],
-      );
-    }
+    await syncTaskFieldLabels(
+      event.taskId,
+      context,
+      issueLink,
+      "github",
+      "priority",
+      async ({ add, remove }, write) => {
+        for (const name of remove)
+          await removeLabel(
+            octokit,
+            repositoryOwner,
+            repositoryName,
+            issueNumber,
+            name,
+            write,
+          );
+        if (add.length)
+          await addLabelsToIssue(
+            octokit,
+            repositoryOwner,
+            repositoryName,
+            issueNumber,
+            add,
+            true,
+            write,
+          );
+      },
+    );
   } catch (error) {
     console.error("Failed to update GitHub issue priority:", error);
   }

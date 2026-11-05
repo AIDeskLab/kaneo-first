@@ -1,14 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createId } from "@paralleldrive/cuid2";
+import { and, eq, gt } from "drizzle-orm";
 import db from "../database";
-import { sessionTable } from "../database/schema";
-import {
-  consumeFixedWindowRateLimits,
-  consumeState,
-  getState,
-  putAuthorizationRequestWithCaps,
-  putStateWithCap,
-} from "./oauth-store";
+import { sessionTable, userTable } from "../database/schema";
+import { notBannedCondition } from "../utils/user-ban";
+import { consumeState, getState, putState } from "./oauth-store";
 
 type RegisteredClient = {
   clientId: string;
@@ -20,6 +16,7 @@ type RegisteredClient = {
 type AuthCode = {
   clientId: string;
   userId: string;
+  sessionId: string;
   codeChallenge: string;
   redirectUri: string;
 };
@@ -35,56 +32,6 @@ export type AuthorizationRequest = {
 const clientTtlMs = 30 * 24 * 60 * 60 * 1000;
 const codeTtlMs = 5 * 60 * 1000;
 const requestTtlMs = 10 * 60 * 1000;
-// Same bound the in-memory store enforced; authorize is reachable without a session.
-const maxAuthorizationRequests = 10_000;
-const maxAuthorizationRequestsPerClient = 100;
-const maxRegisteredClients = 10_000;
-// Codes are short-lived, but the cap also bounds live, abandoned grants.
-const maxAuthorizationCodes = 10_000;
-const clientRegistrationWindowMs = 60_000;
-
-const clientRegistrationGlobalLimit = 600;
-const authorizationSourceLimit = 120;
-const authorizationClientLimit = 300;
-const authorizationGlobalLimit = 3_000;
-
-export async function consumeClientRegistrationRateLimits(source: string) {
-  return consumeFixedWindowRateLimits([
-    {
-      key: `client-registration:source:${source}`,
-      maxRequests: 20,
-      windowMs: clientRegistrationWindowMs,
-    },
-    {
-      key: "client-registration:global",
-      maxRequests: clientRegistrationGlobalLimit,
-      windowMs: clientRegistrationWindowMs,
-    },
-  ]);
-}
-
-export async function consumeAuthorizationRateLimits(
-  source: string,
-  clientId: string,
-) {
-  return consumeFixedWindowRateLimits([
-    {
-      key: `authorization:source:${source}`,
-      maxRequests: authorizationSourceLimit,
-      windowMs: 60_000,
-    },
-    {
-      key: `authorization:client:${clientId}`,
-      maxRequests: authorizationClientLimit,
-      windowMs: 60_000,
-    },
-    {
-      key: "authorization:global",
-      maxRequests: authorizationGlobalLimit,
-      windowMs: 60_000,
-    },
-  ]);
-}
 
 export async function getClient(
   clientId: string,
@@ -103,24 +50,26 @@ export async function registerClient(params: {
     clientName: params.clientName,
     issuedAt: Math.floor(Date.now() / 1000),
   };
-  await putStateWithCap(
+  await putState(
     "client",
     clientId,
     client,
     new Date(Date.now() + clientTtlMs),
-    maxRegisteredClients,
   );
   return client;
 }
 
-export async function createAuthCode(params: AuthCode): Promise<string> {
+export async function createAuthCode(
+  params: AuthCode,
+  requestId?: string,
+): Promise<string> {
   const code = randomUUID();
-  await putStateWithCap(
+  await putState(
     "code",
     code,
     params,
     new Date(Date.now() + codeTtlMs),
-    maxAuthorizationCodes,
+    requestId,
   );
   return code;
 }
@@ -129,12 +78,11 @@ export async function createAuthorizationRequest(
   params: AuthorizationRequest,
 ): Promise<string> {
   const requestId = randomUUID();
-  await putAuthorizationRequestWithCaps(
+  await putState(
+    "request",
     requestId,
     params,
     new Date(Date.now() + requestTtlMs),
-    maxAuthorizationRequests,
-    maxAuthorizationRequestsPerClient,
   );
   return requestId;
 }
@@ -173,17 +121,43 @@ export async function exchangeCode(
   if (stored.redirectUri !== redirectUri) return null;
   if (!verifyPkce(codeVerifier, stored.codeChallenge)) return null;
 
-  const sessionToken = randomUUID();
-  const expiresIn = 30 * 24 * 60 * 60;
+  // Session insertion bypasses Better Auth's hooks. Revoking the approving
+  // session must also retire its outstanding authorization codes.
+  if (!stored.sessionId) return null;
+  return db.transaction(async (tx) => {
+    // Session deletions in the auth adapter lock this user before their
+    // DELETE statement, so revocation cannot miss this transaction's insert.
+    const [user] = await tx
+      .select({ id: userTable.id })
+      .from(userTable)
+      .where(and(eq(userTable.id, stored.userId), notBannedCondition()))
+      .limit(1)
+      .for("update");
+    if (!user) return null;
+    const [approver] = await tx
+      .select({ id: sessionTable.id, expiresAt: sessionTable.expiresAt })
+      .from(sessionTable)
+      .where(
+        and(
+          eq(sessionTable.id, stored.sessionId),
+          eq(sessionTable.userId, stored.userId),
+          gt(sessionTable.expiresAt, new Date()),
+        ),
+      )
+      .limit(1)
+      .for("update");
+    if (!approver || approver.expiresAt <= new Date()) return null;
 
-  await db.insert(sessionTable).values({
-    id: createId(),
-    token: sessionToken,
-    userId: stored.userId,
-    expiresAt: new Date(Date.now() + expiresIn * 1000),
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    const sessionToken = randomUUID();
+    const expiresIn = 30 * 24 * 60 * 60;
+    await tx.insert(sessionTable).values({
+      id: createId(),
+      token: sessionToken,
+      userId: stored.userId,
+      expiresAt: new Date(Date.now() + expiresIn * 1000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    return { accessToken: sessionToken, expiresIn };
   });
-
-  return { accessToken: sessionToken, expiresIn };
 }

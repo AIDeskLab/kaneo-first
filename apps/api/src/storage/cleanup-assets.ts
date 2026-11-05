@@ -6,6 +6,7 @@ import {
   commentTable,
   taskTable,
 } from "../database/schema";
+import { queueStorageCleanup } from "./cleanup-queue";
 import { deleteS3Object } from "./s3";
 
 const ASSET_URL_PATTERN = /\/api\/asset\/([a-z0-9]+)/gi;
@@ -144,18 +145,17 @@ export async function getTaskAssetKeys(taskId: string): Promise<string[]> {
 }
 
 /**
- * Remove snapshotted object keys from storage after a DB delete has committed.
+ * Record snapshotted object keys for a later storage retry.
  *
- * Used by cascade delete (and single-task delete): asset rows are already gone
- * with the tasks, so this only deletes S3 objects. Idempotent — empty input is
- * a no-op, duplicates are collapsed, and S3 DeleteObject treats missing keys as
- * success.
+ * Cascade delete already queues the same keys inside the task transaction.
+ * This post-commit call does not touch object storage: an offline store must
+ * not drop the key, and the cleanup worker deletes it once storage answers.
  */
 export async function cleanupAssetKeys(keys: string[]): Promise<void> {
   const uniqueKeys = [...new Set(keys.filter((key) => key.length > 0))];
   if (uniqueKeys.length === 0) return;
 
-  await deleteS3Keys(uniqueKeys);
+  await db.transaction((tx) => queueStorageCleanup(tx, uniqueKeys));
 }
 
 export async function deleteS3Keys(

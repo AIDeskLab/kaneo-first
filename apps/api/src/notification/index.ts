@@ -1,162 +1,250 @@
 import { eq } from "drizzle-orm";
-import { Hono } from "hono";
-import { describeRoute, resolver, validator } from "hono-openapi";
-import * as v from "valibot";
 import db from "../database";
 import { projectTable, taskTable } from "../database/schema";
 import { subscribeToEvent } from "../events";
-import { notificationSchema } from "../schemas";
+import {
+  apiRouter,
+  createRoute,
+  errorResponse,
+  jsonResponse,
+} from "../openapi";
 import clearNotifications from "./controllers/clear-notifications";
 import createNotification from "./controllers/create-notification";
+import deleteNotification from "./controllers/delete-notification";
 import getNotifications from "./controllers/get-notifications";
 import markAllNotificationsAsRead from "./controllers/mark-all-notifications-as-read";
-import markAsRead from "./controllers/mark-notification-as-read";
+import setNotificationRead from "./controllers/set-notification-read";
+import {
+  bulkResultSchema,
+  notificationListSchema,
+  notificationSchema,
+} from "./response";
+import {
+  createNotificationBody,
+  notificationParam,
+  notificationWorkspaceQuery,
+} from "./schema";
 
-const bulkResultSchema = v.object({
-  success: v.boolean(),
-  count: v.optional(v.number()),
+const listNotificationsRoute = createRoute({
+  method: "get",
+  operationId: "listNotifications",
+  path: "/",
+  tags: ["Notifications"],
+  summary: "List notifications",
+  request: { query: notificationWorkspaceQuery },
+  description:
+    "Get up to 50 notifications for the current user, read and unread. Resource notifications require current read permission and API key scope. Optionally limit them to one workspace before applying the limit.",
+  responses: {
+    200: jsonResponse("List of notifications", notificationListSchema),
+  },
 });
 
-const notification = new Hono<{
-  Variables: {
-    userId: string;
-  };
-}>()
-  .get(
-    "/",
-    describeRoute({
-      operationId: "listNotifications",
-      tags: ["Notifications"],
-      description: "Get all notifications for the current user",
-      responses: {
-        200: {
-          description: "List of notifications",
-          content: {
-            "application/json": {
-              schema: resolver(v.array(notificationSchema)),
-            },
-          },
-        },
-      },
-    }),
-    async (c) => {
-      const userId = c.get("userId");
-      const notifications = await getNotifications(userId);
-      return c.json(notifications);
+const createNotificationRoute = createRoute({
+  method: "post",
+  operationId: "createNotification",
+  path: "/",
+  tags: ["Notifications"],
+  summary: "Create notification",
+  description:
+    "Create a notification for the current user. Most notifications are raised by the server from task and workspace events; this exists for integrations. Returns null when the user has turned off this notification category in their preferences.",
+  request: {
+    body: {
+      required: true,
+      content: { "application/json": { schema: createNotificationBody } },
     },
-  )
-  .post(
-    "/",
-    describeRoute({
-      operationId: "createNotification",
-      tags: ["Notifications"],
-      description: "Create a new notification for a user",
-      responses: {
-        200: {
-          description: "Notification created successfully",
-          content: {
-            "application/json": { schema: resolver(notificationSchema) },
-          },
-        },
-      },
-    }),
-    validator(
-      "json",
-      v.object({
-        title: v.optional(v.nullable(v.string())),
-        message: v.optional(v.nullable(v.string())),
-        type: v.string(),
-        eventData: v.optional(v.nullable(v.record(v.string(), v.unknown()))),
-        relatedEntityId: v.optional(v.string()),
-        relatedEntityType: v.optional(v.string()),
-      }),
+  },
+  responses: {
+    200: jsonResponse(
+      "The created notification, or null when the user has muted this notification type",
+      notificationSchema.nullable(),
     ),
-    async (c) => {
-      const {
-        title,
-        message,
-        type,
-        eventData,
-        relatedEntityId,
-        relatedEntityType,
-      } = c.req.valid("json");
-      const userId = c.get("userId");
-      const notification = await createNotification({
-        userId,
+    400: errorResponse("Invalid request"),
+  },
+});
+
+const markAsReadRoute = createRoute({
+  method: "patch",
+  operationId: "markNotificationAsRead",
+  path: "/{id}/read",
+  tags: ["Notifications"],
+  summary: "Mark notification read",
+  description:
+    "Mark one notification as read. Only the current user's notifications with current resource read permission and API key scope are accessible.",
+  request: { params: notificationParam },
+  responses: {
+    200: jsonResponse("The updated notification", notificationSchema),
+    404: errorResponse("Notification not found"),
+  },
+});
+
+const markAsUnreadRoute = createRoute({
+  method: "patch",
+  operationId: "markNotificationAsUnread",
+  path: "/{id}/unread",
+  tags: ["Notifications"],
+  summary: "Mark notification unread",
+  description:
+    "Mark one notification as unread again. Only the current user's notifications with current resource read permission and API key scope are accessible.",
+  request: { params: notificationParam },
+  responses: {
+    200: jsonResponse("The updated notification", notificationSchema),
+    404: errorResponse("Notification not found"),
+  },
+});
+
+const markAllAsReadRoute = createRoute({
+  method: "patch",
+  operationId: "markAllNotificationsAsRead",
+  path: "/read-all",
+  tags: ["Notifications"],
+  summary: "Mark all read",
+  request: { query: notificationWorkspaceQuery },
+  description:
+    "Mark accessible notifications for the current user as read, optionally limited to one workspace. Resource notifications require current read permission and API key scope.",
+  responses: {
+    200: jsonResponse("All notifications marked as read", bulkResultSchema),
+  },
+});
+
+const clearAllRoute = createRoute({
+  method: "delete",
+  operationId: "clearAllNotifications",
+  path: "/clear-all",
+  tags: ["Notifications"],
+  summary: "Clear all",
+  request: { query: notificationWorkspaceQuery },
+  description:
+    "Permanently delete accessible notifications for the current user, optionally limited to one workspace. Resource notifications require current read permission and API key scope. This cannot be undone.",
+  responses: {
+    200: jsonResponse("All notifications cleared", bulkResultSchema),
+  },
+});
+
+const clearReadRoute = createRoute({
+  method: "delete",
+  operationId: "clearReadNotifications",
+  path: "/clear-read",
+  tags: ["Notifications"],
+  summary: "Clear read notifications",
+  request: { query: notificationWorkspaceQuery },
+  description:
+    "Permanently delete the current user's accessible read notifications, optionally limited to one workspace. Resource notifications require current read permission and API key scope. Unread notifications are kept. This cannot be undone.",
+  responses: {
+    200: jsonResponse("Read notifications cleared", bulkResultSchema),
+  },
+});
+
+const deleteNotificationRoute = createRoute({
+  method: "delete",
+  operationId: "deleteNotification",
+  path: "/{id}",
+  tags: ["Notifications"],
+  summary: "Delete notification",
+  description:
+    "Permanently delete one notification. Only the current user's notifications with current resource read permission and API key scope are accessible. Other notifications are not found.",
+  request: { params: notificationParam },
+  responses: {
+    200: jsonResponse("Notification deleted", bulkResultSchema),
+    404: errorResponse("Notification not found"),
+  },
+});
+
+const notification = apiRouter()
+  .openapi(listNotificationsRoute, async (c) =>
+    c.json(
+      await getNotifications(
+        c.get("userId"),
+        c.req.valid("query").workspaceId,
+        c.get("apiKey")?.permissions,
+      ),
+      200,
+    ),
+  )
+  .openapi(createNotificationRoute, async (c) => {
+    const {
+      title,
+      message,
+      type,
+      eventData,
+      relatedEntityId,
+      relatedEntityType,
+    } = c.req.valid("json");
+    return c.json(
+      await createNotification({
+        userId: c.get("userId"),
         title,
         content: message,
         type,
         eventData,
         resourceId: relatedEntityId,
         resourceType: relatedEntityType,
-      });
-      return c.json(notification);
-    },
+      }),
+      200,
+    );
+  })
+  .openapi(markAsReadRoute, async (c) =>
+    c.json(
+      await setNotificationRead(
+        c.req.valid("param").id,
+        c.get("userId"),
+        true,
+        c.get("apiKey")?.permissions,
+      ),
+      200,
+    ),
   )
-  .patch(
-    "/:id/read",
-    describeRoute({
-      operationId: "markNotificationAsRead",
-      tags: ["Notifications"],
-      description: "Mark a specific notification as read",
-      responses: {
-        200: {
-          description: "Notification marked as read",
-          content: {
-            "application/json": { schema: resolver(notificationSchema) },
-          },
-        },
-      },
-    }),
-    validator("param", v.object({ id: v.string() })),
-    async (c) => {
-      const { id } = c.req.valid("param");
-      const userId = c.get("userId");
-      const notification = await markAsRead(id, userId);
-      return c.json(notification);
-    },
+  .openapi(markAsUnreadRoute, async (c) =>
+    c.json(
+      await setNotificationRead(
+        c.req.valid("param").id,
+        c.get("userId"),
+        false,
+        c.get("apiKey")?.permissions,
+      ),
+      200,
+    ),
   )
-  .patch(
-    "/read-all",
-    describeRoute({
-      operationId: "markAllNotificationsAsRead",
-      tags: ["Notifications"],
-      description: "Mark all notifications as read for the current user",
-      responses: {
-        200: {
-          description: "All notifications marked as read",
-          content: {
-            "application/json": { schema: resolver(bulkResultSchema) },
-          },
-        },
-      },
-    }),
-    async (c) => {
-      const userId = c.get("userId");
-      const result = await markAllNotificationsAsRead(userId);
-      return c.json(result);
-    },
+  .openapi(markAllAsReadRoute, async (c) =>
+    c.json(
+      await markAllNotificationsAsRead(
+        c.get("userId"),
+        c.req.valid("query").workspaceId,
+        c.get("apiKey")?.permissions,
+      ),
+      200,
+    ),
   )
-  .delete(
-    "/clear-all",
-    describeRoute({
-      operationId: "clearAllNotifications",
-      tags: ["Notifications"],
-      description: "Clear all notifications for the current user",
-      responses: {
-        200: {
-          description: "All notifications cleared",
-          content: {
-            "application/json": { schema: resolver(bulkResultSchema) },
-          },
-        },
-      },
-    }),
-    async (c) => {
-      const userId = c.get("userId");
-      const result = await clearNotifications(userId);
-      return c.json(result);
-    },
+  .openapi(clearAllRoute, async (c) =>
+    c.json(
+      await clearNotifications(
+        c.get("userId"),
+        c.req.valid("query").workspaceId,
+        false,
+        c.get("apiKey")?.permissions,
+      ),
+      200,
+    ),
+  )
+  .openapi(clearReadRoute, async (c) =>
+    c.json(
+      await clearNotifications(
+        c.get("userId"),
+        c.req.valid("query").workspaceId,
+        true,
+        c.get("apiKey")?.permissions,
+      ),
+      200,
+    ),
+  )
+  .openapi(deleteNotificationRoute, async (c) =>
+    c.json(
+      await deleteNotification(
+        c.req.valid("param").id,
+        c.get("userId"),
+        c.get("apiKey")?.permissions,
+      ),
+      200,
+    ),
   );
 
 subscribeToEvent<{
@@ -247,13 +335,13 @@ subscribeToEvent<{
 
 subscribeToEvent<{
   taskId: string;
-  userId: string;
+  userId?: string;
   oldAssignee: string | null;
   newAssignee: string;
   newAssigneeId: string;
   title: string;
 }>("task.assignee_changed", async (data) => {
-  if (data.newAssigneeId) {
+  if (data.newAssigneeId && data.newAssigneeId !== data.userId) {
     const [task] = await db
       .select({ projectId: taskTable.projectId })
       .from(taskTable)

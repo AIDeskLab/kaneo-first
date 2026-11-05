@@ -1,15 +1,19 @@
 import { createHmac } from "node:crypto";
-import { fetchPublicDestination } from "../../utils/assert-public-destination";
+import * as Sentry from "@sentry/node";
+import { sendOutboundRequest } from "../../utils/outbound-request";
 
 type GenericWebhookPayload = Record<string, unknown>;
-
-const GENERIC_WEBHOOK_TIMEOUT_MS = 10_000;
 
 export async function postToGenericWebhook(
   webhookUrl: string,
   payload: GenericWebhookPayload,
   secret?: string,
 ): Promise<void> {
+  Sentry.addBreadcrumb({
+    category: "integration",
+    level: "info",
+    data: { integration: "generic-webhook" },
+  });
   const body = JSON.stringify(payload);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -21,44 +25,9 @@ export async function postToGenericWebhook(
       .digest("hex");
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(
-    () => controller.abort(),
-    GENERIC_WEBHOOK_TIMEOUT_MS,
+  await sendOutboundRequest(
+    webhookUrl,
+    { headers, body },
+    { publicDestination: true },
   );
-
-  try {
-    const response = await fetchPublicDestination(
-      webhookUrl,
-      "Generic webhook",
-      {
-        method: "POST",
-        headers,
-        body,
-        signal: controller.signal,
-      },
-      {
-        allowPrivate:
-          process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS === "true" ||
-          process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS === "1",
-      },
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `Generic webhook request failed (${response.status}): ${errorText}`,
-      );
-    }
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(
-        `Generic webhook request timed out after ${GENERIC_WEBHOOK_TIMEOUT_MS}ms`,
-      );
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
 }

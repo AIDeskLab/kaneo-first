@@ -1,12 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { registerTools } from "./register.js";
 
 type RegisteredTool = {
   name: string;
-  config: {
-    description?: string;
-    inputSchema?: { parse: (args: unknown) => unknown };
-  };
+  config: { inputSchema?: { parse: (args: unknown) => unknown } };
   handler: (args: Record<string, unknown>) => Promise<{
     content: Array<{ type: string; text: string }>;
     isError?: boolean;
@@ -50,67 +47,112 @@ describe("registerTools", () => {
       expect.any(Object),
       expect.any(Function),
     );
-    expect(server.registerTool).toHaveBeenCalledWith(
-      "update_task_status",
-      expect.any(Object),
-      expect.any(Function),
-    );
-    expect(server.registerTool).toHaveBeenCalledWith(
-      "delete_task",
-      expect.any(Object),
-      expect.any(Function),
-    );
   });
 
-  it("registers delete_task as DELETE /api/task/:id with taskId input", async () => {
+  it("uses the API-key current-user endpoint for whoami", async () => {
     const { server, tools } = createServerMock();
     const client = {
-      json: vi.fn().mockResolvedValue({ id: "task-1" }),
+      usingApiKey: true,
+      json: vi.fn().mockResolvedValue({
+        id: "user-1",
+        name: "Mohiuddin",
+        email: "user@example.com",
+        role: "user",
+        token: "unexpected-user-secret",
+      }),
     };
 
     registerTools(server as never, { client: client as never });
 
-    const tool = tools.get("delete_task");
-    expect(tool).toBeDefined();
-    expect(tool?.config.description).toMatch(/cascade/i);
+    const result = await tools.get("whoami")?.handler({});
 
-    const schema = tool?.config.inputSchema;
-    expect(schema).toBeDefined();
-    expect(schema?.parse({ taskId: "task-1" })).toEqual({ taskId: "task-1" });
-    expect(() => schema?.parse({})).toThrow();
-    expect(() => schema?.parse({ taskId: "  " })).toThrow();
-
-    await tool?.handler({ taskId: "task 1" });
-
-    expect(client.json).toHaveBeenCalledWith("/api/task/task%201", {
-      method: "DELETE",
+    expect(client.json).toHaveBeenCalledWith("/api/user/me", {
+      method: "GET",
     });
+    expect(result?.isError).toBe(false);
+    expect(result?.content).toEqual([
+      {
+        type: "text",
+        text: JSON.stringify(
+          {
+            id: "user-1",
+            name: "Mohiuddin",
+            email: "user@example.com",
+            role: "user",
+          },
+          null,
+          2,
+        ),
+      },
+    ]);
   });
 
-  it("documents recursive subtask cascade on update_task and update_task_status", () => {
+  it.each(["user", null, undefined])(
+    "returns only safe user fields for whoami with session authentication and role %s",
+    async (role) => {
+      const { server, tools } = createServerMock();
+      const client = {
+        usingApiKey: false,
+        json: vi.fn().mockResolvedValue({
+          user: {
+            id: "user-1",
+            name: "Mohiuddin",
+            email: "user@example.com",
+            role,
+            token: "unexpected-user-secret",
+          },
+          session: {
+            id: "session-1",
+            token: "live-session-secret",
+            expiresAt: "2026-11-08T00:00:00.000Z",
+            ipAddress: "192.0.2.1",
+            userAgent: "MCP client",
+          },
+          token: "unexpected-response-secret",
+        }),
+      };
+
+      registerTools(server as never, { client: client as never });
+
+      const result = await tools.get("whoami")?.handler({});
+
+      expect(client.json).toHaveBeenCalledWith("/api/auth/get-session", {
+        method: "GET",
+      });
+      expect(result?.isError).toBe(false);
+      expect(result?.content).toEqual([
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              id: "user-1",
+              name: "Mohiuddin",
+              email: "user@example.com",
+              role,
+            },
+            null,
+            2,
+          ),
+        },
+      ]);
+    },
+  );
+
+  it("returns null for whoami when there is no session", async () => {
     const { server, tools } = createServerMock();
-    const client = { json: vi.fn() };
+    const client = {
+      usingApiKey: false,
+      json: vi.fn().mockResolvedValue(null),
+    };
 
     registerTools(server as never, { client: client as never });
 
-    const updateTask = tools.get("update_task");
-    const updateTaskStatus = tools.get("update_task_status");
+    const result = await tools.get("whoami")?.handler({});
 
-    expect(updateTask).toBeDefined();
-    expect(updateTaskStatus).toBeDefined();
-    expect(updateTask?.config.description).toMatch(
-      /cascade to recursive subtask descendants/i,
-    );
-    expect(updateTaskStatus?.config.description).toMatch(
-      /cascades to recursive subtask descendants/i,
-    );
-
-    expect(
-      updateTaskStatus?.config.inputSchema?.parse({
-        taskId: "task-1",
-        status: "done",
-      }),
-    ).toEqual({ taskId: "task-1", status: "done" });
+    expect(result).toEqual({
+      content: [{ type: "text", text: "null" }],
+      isError: false,
+    });
   });
 
   it("builds the expected query string for list_tasks", async () => {
@@ -125,11 +167,12 @@ describe("registerTools", () => {
       projectId: "project 1",
       status: "open",
       page: 2,
+      relatedPage: 3,
       sortOrder: "desc",
     });
 
     expect(client.json).toHaveBeenCalledWith(
-      "/api/task/tasks/project%201?status=open&page=2&sortOrder=desc",
+      "/api/task/tasks/project%201?status=open&page=2&relatedPage=3&sortOrder=desc",
       { method: "GET" },
     );
     expect(result).toEqual({
@@ -141,6 +184,36 @@ describe("registerTools", () => {
       ],
       isError: false,
     });
+  });
+
+  it("gets one task by ticket ID with an optional workspace", async () => {
+    const { server, tools } = createServerMock();
+    const client = {
+      json: vi.fn().mockResolvedValue({ id: "task-1", number: 12 }),
+    };
+    registerTools(server as never, { client: client as never });
+
+    const tool = tools.get("get_task_by_ticket_id");
+    expect(tool).toBeDefined();
+    await tool?.handler({ ticketId: "KAN-12" });
+    await tool?.handler({ ticketId: "KAN-12", workspaceId: "workspace 1" });
+    await tool?.handler({ ticketId: "KAN-12", projectId: "project 1" });
+
+    expect(client.json).toHaveBeenNthCalledWith(
+      1,
+      "/api/task/by-ticket-id/KAN-12",
+      { method: "GET" },
+    );
+    expect(client.json).toHaveBeenNthCalledWith(
+      2,
+      "/api/task/by-ticket-id/KAN-12?workspaceId=workspace+1",
+      { method: "GET" },
+    );
+    expect(client.json).toHaveBeenNthCalledWith(
+      3,
+      "/api/task/by-ticket-id/KAN-12?projectId=project+1",
+      { method: "GET" },
+    );
   });
 
   it("fetches the current task and sends a full body for update_task", async () => {
@@ -278,6 +351,80 @@ describe("registerTools", () => {
     ).toThrow();
   });
 
+  it("lists a project's custom field definitions", async () => {
+    const { server, tools } = createServerMock();
+    const client = { json: vi.fn().mockResolvedValue([]) };
+
+    registerTools(server as never, { client: client as never });
+
+    await tools
+      .get("list_project_custom_fields")
+      ?.handler({ projectId: "project 1" });
+
+    expect(client.json).toHaveBeenCalledWith(
+      "/api/custom-field/project/project%201",
+    );
+  });
+
+  it("reads a task's custom field values", async () => {
+    const { server, tools } = createServerMock();
+    const client = { json: vi.fn().mockResolvedValue([]) };
+
+    registerTools(server as never, { client: client as never });
+
+    await tools
+      .get("get_task_custom_field_values")
+      ?.handler({ taskId: "task 1" });
+
+    expect(client.json).toHaveBeenCalledWith("/api/custom-field/task/task%201");
+  });
+
+  it.each([
+    [["Frontend", "API"], '["Frontend","API"]'],
+    [5, "5"],
+    [true, "true"],
+    ["2026-10-17", "2026-10-17"],
+    [null, ""],
+  ])("sets custom field value %j as %j", async (value, encoded) => {
+    const { server, tools } = createServerMock();
+    const client = { json: vi.fn().mockResolvedValue({ id: "value-1" }) };
+
+    registerTools(server as never, { client: client as never });
+
+    const result = await tools
+      .get("set_task_custom_field_value")
+      ?.handler({ taskId: "task-1", fieldId: "field-1", value });
+
+    expect(client.json).toHaveBeenCalledWith("/api/custom-field/value", {
+      method: "PUT",
+      body: JSON.stringify({
+        taskId: "task-1",
+        fieldId: "field-1",
+        value: encoded,
+      }),
+    });
+    expect(result?.isError).toBe(false);
+  });
+
+  it("rejects a custom field value that is missing or an object", async () => {
+    const { server, tools } = createServerMock();
+    const client = { json: vi.fn() };
+
+    registerTools(server as never, { client: client as never });
+
+    const tool = tools.get("set_task_custom_field_value");
+    const missing = await tool?.handler({ taskId: "task-1", fieldId: "f" });
+    const object = await tool?.handler({
+      taskId: "task-1",
+      fieldId: "f",
+      value: { option: "a" },
+    });
+
+    expect(missing?.isError).toBe(true);
+    expect(object?.isError).toBe(true);
+    expect(client.json).not.toHaveBeenCalled();
+  });
+
   it("creates a task relation with the expected body", async () => {
     const { server, tools } = createServerMock();
     const client = {
@@ -346,42 +493,89 @@ describe("registerTools", () => {
     });
   });
 
-  it("deletes a task-associated label after a preflight check", async () => {
+  it("deletes a task-associated label without an obsolete preflight", async () => {
     const { server, tools } = createServerMock();
-    const client = {
-      json: vi
-        .fn()
-        .mockResolvedValueOnce({ id: "label-1", taskId: "task-1" })
-        .mockResolvedValueOnce({ id: "label-1" }),
-    };
-
+    const client = { json: vi.fn().mockResolvedValue({ id: "label-1" }) };
     registerTools(server as never, { client: client as never });
-
     const result = await tools.get("delete_label")?.handler({ id: "label-1" });
-
-    expect(client.json).toHaveBeenNthCalledWith(1, "/api/label/label-1", {
-      method: "GET",
-    });
-    expect(client.json).toHaveBeenNthCalledWith(2, "/api/label/label-1", {
+    expect(client.json).toHaveBeenCalledExactlyOnceWith("/api/label/label-1", {
       method: "DELETE",
+      signal: expect.any(AbortSignal),
     });
     expect(result?.isError).toBe(false);
   });
 
-  it("refuses to delete a workspace label (taskId null)", async () => {
+  it("resumes workspace label deletion until the API completes it", async () => {
     const { server, tools } = createServerMock();
     const client = {
-      json: vi.fn().mockResolvedValue({ id: "label-1", taskId: null }),
+      json: vi
+        .fn()
+        .mockResolvedValueOnce({
+          id: "label-1",
+          taskId: null,
+          pendingDeletion: true,
+        })
+        .mockResolvedValueOnce({ id: "label-1", taskId: null }),
     };
-
     registerTools(server as never, { client: client as never });
-
     const result = await tools.get("delete_label")?.handler({ id: "label-1" });
-
-    expect(result?.isError).toBe(true);
-    expect(client.json).toHaveBeenCalledTimes(1);
-    expect(client.json).toHaveBeenCalledWith("/api/label/label-1", {
-      method: "GET",
+    expect(result?.isError).toBe(false);
+    expect(client.json).toHaveBeenCalledTimes(2);
+    expect(client.json).toHaveBeenNthCalledWith(2, "/api/label/label-1", {
+      method: "DELETE",
+      signal: expect.any(AbortSignal),
     });
+  });
+
+  it("returns saved progress when the overall deletion deadline expires", async () => {
+    const { server, tools } = createServerMock();
+    const controller = new AbortController();
+    const timeout = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockReturnValue(controller.signal);
+    const progress = { id: "large", pendingDeletion: true };
+    const client = {
+      json: vi
+        .fn()
+        .mockResolvedValueOnce(progress)
+        .mockImplementationOnce(async () => {
+          controller.abort();
+          throw new DOMException("Timed out", "TimeoutError");
+        }),
+    };
+    try {
+      registerTools(server as never, { client: client as never });
+      const result = await tools.get("delete_label")?.handler({ id: "large" });
+      expect(timeout).toHaveBeenCalledWith(10_000);
+      expect(result?.isError).toBe(false);
+      expect(client.json).toHaveBeenCalledTimes(2);
+      expect(client.json).toHaveBeenLastCalledWith("/api/label/large", {
+        method: "DELETE",
+        signal: controller.signal,
+      });
+      expect(result?.content).toEqual([
+        expect.objectContaining({
+          text: expect.stringContaining('"pendingDeletion": true'),
+        }),
+      ]);
+    } finally {
+      timeout.mockRestore();
+    }
+  });
+
+  it("returns resumable progress when a cascade exceeds one tool call", async () => {
+    const { server, tools } = createServerMock();
+    const client = {
+      json: vi.fn().mockResolvedValue({ pendingDeletion: true }),
+    };
+    registerTools(server as never, { client: client as never });
+    const result = await tools.get("delete_label")?.handler({ id: "large" });
+    expect(result?.isError).toBe(false);
+    expect(client.json).toHaveBeenCalledTimes(100);
+    expect(result?.content).toEqual([
+      expect.objectContaining({
+        text: expect.stringContaining('"pendingDeletion": true'),
+      }),
+    ]);
   });
 });

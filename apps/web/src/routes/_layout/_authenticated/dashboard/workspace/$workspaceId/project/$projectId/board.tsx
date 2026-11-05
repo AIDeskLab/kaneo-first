@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import BoardToolbar from "@/components/board/board-toolbar";
 import ProjectLayout from "@/components/common/project-layout";
+import { BoardRefreshError } from "@/components/project/board-refresh-error";
 import KanbanBoard from "@/components/kanban-board";
 import ListView from "@/components/list-view";
 import PageTitle from "@/components/page-title";
@@ -79,7 +80,12 @@ function RouteComponent() {
   const { projectId, workspaceId } = Route.useParams();
   const { taskId } = Route.useSearch();
   const navigate = useNavigate();
-  const { data } = useGetTasks(projectId);
+  const {
+    data,
+    isError: boardError,
+    isFetching: boardFetching,
+    refetch: retryBoard,
+  } = useGetTasks(projectId);
   const { project, setProject } = useProjectStore();
   const { viewMode, setViewMode, hierarchyMode, setHierarchyMode } =
     useUserPreferencesStore();
@@ -211,7 +217,7 @@ function RouteComponent() {
       projectId={projectId}
       workspaceId={workspaceId}
       activeView="board"
-      headerActions={boardHeaderSearch}
+      toolbar={boardHeaderSearch}
     >
       <PageTitle
         title={`${project?.name} — ${viewMode === "board" ? t("tasks:view.board") : t("tasks:view.list")}`}
@@ -235,18 +241,27 @@ function RouteComponent() {
           onSortChange={setSort}
         />
 
+        {boardError && sortedProject ? (
+          <BoardRefreshError
+            isRetrying={boardFetching}
+            onRetry={() => void retryBoard()}
+          />
+        ) : null}
         <div className="flex h-full flex-1 overflow-hidden bg-background">
           {sortedProject ? (
             viewMode === "board" ? (
               <KanbanBoard
                 project={sortedProject}
-                disableDragDrop={sort.field !== "position"}
+                disableDragDrop={boardError || sort.field !== "position"}
               />
             ) : (
               <ListView
                 project={sortedProject}
                 sort={sort}
-                disableDragDrop={sort.field !== "position"}
+                disableCollectionActions={boardFetching || boardError}
+                disableDragDrop={
+                  boardFetching || boardError || sort.field !== "position"
+                }
               />
             )
           ) : (

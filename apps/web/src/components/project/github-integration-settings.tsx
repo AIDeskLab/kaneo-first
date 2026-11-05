@@ -4,7 +4,6 @@ import {
   CheckCircle,
   ExternalLink,
   GitBranch,
-  Github,
   Import,
   Link,
   RefreshCw,
@@ -15,6 +14,7 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod/v4";
+import { Github } from "@/components/icons/github";
 import { RepositoryBrowserModal } from "@/components/project/repository-browser-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

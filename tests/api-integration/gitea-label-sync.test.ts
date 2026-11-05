@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { eq, sql } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
 import { importLabelsForTask } from "../../apps/api/src/gitea-integration/controllers/import-gitea-issues";
 import { resetTestDatabase } from "./helpers/database";
@@ -56,7 +56,7 @@ describe("Gitea label import", () => {
 
     const migration = await readFile(
       new URL(
-        "../../apps/api/drizzle/0038_silky_lethal_legion.sql",
+        "../../apps/api/drizzle/0073_fork_schema_delta.sql",
         import.meta.url,
       ),
       "utf8",

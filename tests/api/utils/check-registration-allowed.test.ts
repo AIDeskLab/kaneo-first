@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 
 const mockLimit = vi.fn();
 
@@ -6,6 +13,22 @@ vi.mock("../../../apps/api/src/database", () => ({
   default: {
     select: () => ({
       from: () => ({
+        leftJoin: () => ({
+          where: () => ({
+            limit: async () => [
+              {
+                instanceName: null,
+                registrationEnabled: true,
+                passwordRegistrationEnabled: true,
+                requireEmailVerification: false,
+                defaultRoleId: null,
+                defaultRole: "user",
+                workspaceCreationRestricted: false,
+                disabledIntegrations: [],
+              },
+            ],
+          }),
+        }),
         innerJoin: () => ({
           innerJoin: () => ({
             where: () => ({
@@ -18,6 +41,7 @@ vi.mock("../../../apps/api/src/database", () => ({
   },
 }));
 
+import { invalidateInstanceSettings } from "../../../apps/api/src/instance-settings/get-instance-settings";
 import {
   checkPasswordRegistrationAllowed,
   checkRegistrationAllowed,
@@ -41,9 +65,11 @@ describe("checkRegistrationAllowed", () => {
 
   beforeEach(() => {
     mockLimit.mockReset();
+    invalidateInstanceSettings();
   });
 
   afterEach(() => {
+    invalidateInstanceSettings();
     if (originalEnv === undefined) {
       delete process.env[DISABLE_REGISTRATION_KEY];
     } else {

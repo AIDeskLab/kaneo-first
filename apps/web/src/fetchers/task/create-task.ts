@@ -1,5 +1,6 @@
 import { client } from "@kaneo/libs";
 import type { InferRequestType } from "hono/client";
+import { HttpError } from "@/lib/http-error";
 
 export type CreateTaskRequest = InferRequestType<
   (typeof client)["task"][":projectId"]["$post"]
@@ -10,11 +11,14 @@ async function createTask(
   title: string,
   description: string,
   projectId: string,
-  userId: string,
+  userId: string | undefined,
   status: string,
   startDate: Date | undefined,
   dueDate: Date | undefined,
   priority: CreateTaskRequest["priority"],
+  customFields?: { fieldId: string; value: string }[],
+  draftAssetIds?: string[],
+  recurrence?: CreateTaskRequest["recurrence"],
 ) {
   if (!projectId) {
     throw new Error("No project selected for task creation");
@@ -24,18 +28,20 @@ async function createTask(
     json: {
       title,
       description,
-      userId,
+      ...(userId ? { userId } : {}),
       status,
       startDate: startDate?.toISOString() || undefined,
       dueDate: dueDate?.toISOString() || undefined,
       priority,
+      recurrence,
+      customFields,
+      draftAssetIds,
     },
     param: { projectId },
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error);
+    throw await HttpError.fromResponse(response);
   }
 
   const data = await response.json();

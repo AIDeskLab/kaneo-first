@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import db, { getDatabasePool, schema } from "../../apps/api/src/database";
 import { importLabelsForTask } from "../../apps/api/src/gitea-integration/controllers/import-gitea-issues";
 import deleteLabel from "../../apps/api/src/label/controllers/delete-label";

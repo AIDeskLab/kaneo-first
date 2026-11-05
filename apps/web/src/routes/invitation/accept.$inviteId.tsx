@@ -161,8 +161,8 @@ function AcceptInvitation() {
             <div className="space-y-3 text-center">
               <h2 className="text-lg font-semibold text-foreground">
                 {invitationData.invitation?.expired
-                  ? t("auth:invitation.invitationExpired")
-                  : t("auth:invitation.invalidTitle")}
+                  ? t("auth:invitation.expired.title")
+                  : t("auth:invitation.invalid.title")}
               </h2>
               <p className="text-sm text-muted-foreground">
                 {invitationData.error}
@@ -200,6 +200,43 @@ function AcceptInvitation() {
             <div className="flex items-center justify-center w-12 h-12 mx-auto bg-destructive/10 rounded-full">
               <XCircle className="w-6 h-6 text-destructive" />
             </div>
+          </div>
+        </AuthLayout>
+      </>
+    );
+  }
+
+  const signedInEmail = session?.user?.email;
+  if (
+    isSignedIn &&
+    signedInEmail?.toLowerCase() !== invitation.email.toLowerCase()
+  ) {
+    return (
+      <>
+        <PageTitle title={t("auth:invitation.pageTitleAccept")} />
+        <AuthLayout title={t("auth:invitation.mismatch.title")}>
+          <div className="space-y-4 mt-4">
+            <p className="text-sm text-center text-muted-foreground">
+              {t("auth:invitation.mismatch.description", {
+                invitedEmail: invitation.email,
+                email: signedInEmail,
+              })}
+            </p>
+            <Button
+              className="w-full"
+              onClick={async () => {
+                await authClient.signOut();
+                navigate({
+                  to: "/auth/sign-in",
+                  search: {
+                    invitationId: inviteId,
+                    email: invitation.email,
+                  },
+                });
+              }}
+            >
+              {t("auth:invitation.switchAccount")}
+            </Button>
           </div>
         </AuthLayout>
       </>
@@ -245,7 +282,7 @@ function AcceptInvitation() {
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4 mr-2" />
-                    {t("auth:invitation.acceptInvitation")}
+                    {t("auth:invitation.join")}
                   </>
                 )}
               </Button>

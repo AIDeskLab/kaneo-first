@@ -2,6 +2,11 @@ import { and, eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { projectGroupTable, projectTable } from "../../database/schema";
+import { isSameProjectKey } from "../project-key";
+import {
+  assertProjectKeyAvailable,
+  lockProjectOrdering,
+} from "./project-placement";
 
 async function updateProject(
   id: string,
@@ -48,20 +53,26 @@ async function updateProject(
     }
   }
 
-  const [updatedWorkspace] = await db
-    .update(projectTable)
-    .set({
-      name,
-      icon,
-      slug,
-      description,
-      isPublic,
-      projectGroupId: projectGroupId ?? null,
-    })
-    .where(
-      and(eq(projectTable.id, id), eq(projectTable.workspaceId, workspaceId)),
-    )
-    .returning();
+  const [updatedWorkspace] = await db.transaction(async (tx) => {
+    await lockProjectOrdering(tx, workspaceId);
+    if (!existingProject || !isSameProjectKey(existingProject.slug, slug)) {
+      await assertProjectKeyAvailable(tx, workspaceId, slug, id);
+    }
+    return tx
+      .update(projectTable)
+      .set({
+        name,
+        icon,
+        slug,
+        description,
+        isPublic,
+        projectGroupId: projectGroupId ?? null,
+      })
+      .where(
+        and(eq(projectTable.id, id), eq(projectTable.workspaceId, workspaceId)),
+      )
+      .returning();
+  });
 
   return updatedWorkspace;
 }

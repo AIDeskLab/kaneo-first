@@ -31,6 +31,15 @@ export async function requireWorkspaceAssignees(
   ];
   if (normalizedIds.length === 0) return new Map<string, string>();
 
+  const users = await tx
+    .select({ id: userTable.id })
+    .from(userTable)
+    .where(inArray(userTable.id, normalizedIds));
+  const known = new Set(users.map((user) => user.id));
+  if (normalizedIds.some((id) => !known.has(id))) {
+    throw new HTTPException(404, { message: "Assignee not found" });
+  }
+
   const memberships = await tx
     .select({ id: userTable.id, name: userTable.name })
     .from(workspaceUserTable)
@@ -44,7 +53,9 @@ export async function requireWorkspaceAssignees(
   const names = new Map(memberships.map(({ id, name }) => [id, name]));
 
   if (normalizedIds.some((id) => !names.has(id))) {
-    throw new HTTPException(404, { message: "Assignee not found" });
+    throw new HTTPException(403, {
+      message: "Assignee is not a member of this workspace",
+    });
   }
   return names;
 }

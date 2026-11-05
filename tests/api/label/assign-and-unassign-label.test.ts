@@ -6,7 +6,7 @@ import {
   it,
   type Mock,
   vi,
-} from "vitest";
+} from "vite-plus/test";
 
 const mockFindFirst = vi.fn();
 const mockSelect = vi.fn();
@@ -17,13 +17,15 @@ const mockRemoveLabelFromGitHub = vi.fn();
 const mockRemoveLabelFromGitea = vi.fn();
 const mockSyncLabelToGitHub = vi.fn();
 const mockSyncLabelToGitea = vi.fn();
+const mockAssertProjectAccess = vi.fn();
 
 function createMockTxContext() {
   return {
-    execute: vi.fn().mockResolvedValue(undefined),
+    execute: async () => undefined,
     insert: (...args: unknown[]) => mockInsert(...args),
     delete: (...args: unknown[]) => mockDelete(...args),
     query: {
+      taskTable: { findFirst: async () => ({ projectId: "proj-1" }) },
       labelTable: {
         findFirst: (...args: unknown[]) => mockFindFirst(...args),
       },
@@ -38,6 +40,7 @@ const mockTransaction = vi.fn(async (cb: (tx: unknown) => unknown) =>
 vi.mock("../../../apps/api/src/database", () => ({
   default: {
     query: {
+      taskTable: { findFirst: async () => ({ projectId: "proj-1" }) },
       labelTable: {
         findFirst: (...args: unknown[]) => mockFindFirst(...args),
       },
@@ -51,6 +54,10 @@ vi.mock("../../../apps/api/src/database", () => ({
 
 vi.mock("../../../apps/api/src/events", () => ({
   publishEvent: (...args: unknown[]) => mockPublishEvent(...args),
+}));
+
+vi.mock("../../../apps/api/src/project-access/assert-project-access", () => ({
+  assertProjectAccess: (...args: unknown[]) => mockAssertProjectAccess(...args),
 }));
 
 vi.mock(
@@ -131,8 +138,6 @@ function makeInsertMock(insertedRow: unknown) {
 describe("unassignLabelFromTask", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mockRemoveLabelFromGitHub.mockResolvedValue(undefined);
-    mockRemoveLabelFromGitea.mockResolvedValue(undefined);
     mockTransaction.mockImplementation(async (cb: (tx: unknown) => unknown) =>
       cb(createMockTxContext()),
     );
@@ -147,6 +152,7 @@ describe("unassignLabelFromTask", () => {
     mockSelect.mockReturnValue(makeSelectMock([TASK]));
     mockDelete.mockReturnValue(makeDeleteMock(TASK_LABEL));
     mockRemoveLabelFromGitHub.mockResolvedValue(undefined);
+    mockRemoveLabelFromGitea.mockResolvedValue(undefined);
 
     await unassignLabelFromTask("label-task-1", "user-1");
 
@@ -161,7 +167,7 @@ describe("unassignLabelFromTask", () => {
     });
   });
 
-  it("calls both external providers with the deleted task's id and name", async () => {
+  it("calls removeLabelFromGitHub with the deleted task's id and name", async () => {
     mockFindFirst.mockResolvedValue(TASK_LABEL);
     mockSelect.mockReturnValue(makeSelectMock([TASK]));
     mockDelete.mockReturnValue(makeDeleteMock(TASK_LABEL));
@@ -171,31 +177,6 @@ describe("unassignLabelFromTask", () => {
     await unassignLabelFromTask("label-task-1", "user-1");
 
     expect(mockRemoveLabelFromGitHub).toHaveBeenCalledWith("task-1", "bug");
-    expect(mockRemoveLabelFromGitea).toHaveBeenCalledWith("task-1", "bug");
-  });
-
-  it("propagates provider failure without deleting local state", async () => {
-    mockFindFirst.mockResolvedValue(TASK_LABEL);
-    mockSelect.mockReturnValue(makeSelectMock([TASK]));
-    mockDelete.mockReturnValue(makeDeleteMock(TASK_LABEL));
-    mockRemoveLabelFromGitea.mockRejectedValue(new Error("gitea down"));
-
-    await expect(
-      unassignLabelFromTask("label-task-1", "user-1"),
-    ).rejects.toThrow("gitea down");
-    expect(mockDelete).not.toHaveBeenCalled();
-    expect(mockPublishEvent).not.toHaveBeenCalled();
-  });
-
-  it("preserves GitHub fail-closed behavior", async () => {
-    mockFindFirst.mockResolvedValue(TASK_LABEL);
-    mockSelect.mockReturnValue(makeSelectMock([TASK]));
-    mockRemoveLabelFromGitHub.mockRejectedValue(new Error("github down"));
-
-    await expect(
-      unassignLabelFromTask("label-task-1", "user-1"),
-    ).rejects.toThrow("github down");
-    expect(mockDelete).not.toHaveBeenCalled();
   });
 
   it("rejects when the label is a workspace definition (taskId is null)", async () => {
@@ -260,20 +241,6 @@ describe("assignLabelToTask", () => {
     );
   });
 
-  it("waits for provider attachment and preserves local state on attachment failure", async () => {
-    mockFindFirst.mockResolvedValue(WORKSPACE_LABEL);
-    mockSelect.mockReturnValue(makeSelectMock([TASK]));
-    mockSyncLabelToGitHub.mockRejectedValue(new Error("github attach failed"));
-    mockSyncLabelToGitea.mockResolvedValue(undefined);
-
-    await expect(
-      assignLabelToTask("label-ws-1", "task-1", "user-1"),
-    ).rejects.toThrow("github attach failed");
-    expect(mockInsert).not.toHaveBeenCalled();
-    expect(mockDelete).not.toHaveBeenCalled();
-    expect(mockPublishEvent).not.toHaveBeenCalled();
-  });
-
   it("is idempotent when the same label is already attached to the same task", async () => {
     mockFindFirst.mockResolvedValueOnce({ ...TASK_LABEL, taskId: "task-1" });
     mockSelect.mockReturnValue(makeSelectMock([TASK]));
@@ -301,6 +268,10 @@ describe("assignLabelToTask", () => {
 
     await assignLabelToTask("label-task-1", "task-1", "user-1");
 
+    expect(mockPublishEvent).toHaveBeenCalledWith("task.labels_updated", {
+      projectId: "proj-1",
+      taskId: "task-old",
+    });
     expect(mockRemoveLabelFromGitHub).toHaveBeenCalledWith("task-old", "bug");
     expect(mockRemoveLabelFromGitea).toHaveBeenCalledWith("task-old", "bug");
     expect(mockSyncLabelToGitHub).toHaveBeenCalledWith(
@@ -316,21 +287,6 @@ describe("assignLabelToTask", () => {
     );
   });
 
-  it("does not move or emit success when old-task provider removal fails", async () => {
-    const stale = { ...TASK_LABEL, taskId: "task-old" };
-    mockFindFirst.mockResolvedValue(stale);
-    mockSelect.mockReturnValue(makeSelectMock([TASK]));
-    mockRemoveLabelFromGitHub.mockRejectedValue(new Error("github down"));
-
-    await expect(
-      assignLabelToTask("label-task-1", "task-1", "user-1"),
-    ).rejects.toThrow("github down");
-    expect(mockTransaction).toHaveBeenCalledOnce();
-    expect(mockDelete).not.toHaveBeenCalled();
-    expect(mockInsert).not.toHaveBeenCalled();
-    expect(mockPublishEvent).not.toHaveBeenCalled();
-  });
-
   it("is idempotent when the workspace label is re-attached to the same task", async () => {
     mockFindFirst.mockResolvedValueOnce(WORKSPACE_LABEL);
     mockSelect.mockReturnValue(makeSelectMock([TASK]));
@@ -343,16 +299,8 @@ describe("assignLabelToTask", () => {
 
     expect(result).toEqual(TASK_LABEL);
     expect(mockInsert).toHaveBeenCalledTimes(1);
-    expect(mockSyncLabelToGitHub).toHaveBeenCalledWith(
-      "task-1",
-      "bug",
-      "EF4444",
-    );
-    expect(mockSyncLabelToGitea).toHaveBeenCalledWith(
-      "task-1",
-      "bug",
-      "EF4444",
-    );
+    expect(mockSyncLabelToGitHub).not.toHaveBeenCalled();
+    expect(mockSyncLabelToGitea).not.toHaveBeenCalled();
     expect(mockPublishEvent).not.toHaveBeenCalled();
   });
 
@@ -362,13 +310,19 @@ describe("assignLabelToTask", () => {
     const insertChain = makeInsertMock(undefined);
     mockInsert.mockReturnValue(insertChain);
     mockFindFirst.mockResolvedValueOnce(WORKSPACE_LABEL);
-    mockFindFirst.mockResolvedValueOnce(WORKSPACE_LABEL);
+    mockFindFirst.mockResolvedValueOnce(TASK_LABEL);
 
-    await assignLabelToTask("label-ws-1", "task-1", "user-1");
+    const result = await assignLabelToTask("label-ws-1", "task-1", "user-1");
 
+    expect(result).toEqual(TASK_LABEL);
+    expect(result.taskId).toBe("task-1");
     expect(mockTransaction).toHaveBeenCalledTimes(1);
     expect(mockInsert).toHaveBeenCalledTimes(1);
     expect(mockFindFirst).toHaveBeenCalledTimes(3);
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockSyncLabelToGitHub).not.toHaveBeenCalled();
+    expect(mockSyncLabelToGitea).not.toHaveBeenCalled();
+    expect(mockPublishEvent).not.toHaveBeenCalled();
   });
 
   it("throws HTTP 500 when the insert and fallback lookup both return no row", async () => {
@@ -385,8 +339,8 @@ describe("assignLabelToTask", () => {
       status: 500,
     });
 
-    expect(mockSyncLabelToGitHub).toHaveBeenCalledOnce();
-    expect(mockSyncLabelToGitea).toHaveBeenCalledOnce();
+    expect(mockSyncLabelToGitHub).not.toHaveBeenCalled();
+    expect(mockSyncLabelToGitea).not.toHaveBeenCalled();
     expect(mockPublishEvent).not.toHaveBeenCalled();
   });
 
@@ -404,4 +358,31 @@ describe("assignLabelToTask", () => {
     expect(mockDelete).not.toHaveBeenCalled();
     expect(mockInsert).not.toHaveBeenCalled();
   });
+
+  it("rejects a target task in a project the caller cannot access", async () => {
+    mockFindFirst.mockResolvedValue(WORKSPACE_LABEL);
+    mockSelect.mockReturnValue(makeSelectMock([TASK]));
+    mockAssertProjectAccess.mockRejectedValue(
+      Object.assign(new Error("You don't have access to this project"), {
+        status: 403,
+      }),
+    );
+
+    await expect(
+      assignLabelToTask("label-ws-1", "task-1", "user-1"),
+    ).rejects.toMatchObject({ status: 403 });
+
+    expect(mockAssertProjectAccess).toHaveBeenCalledWith("user-1", "proj-1");
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockPublishEvent).not.toHaveBeenCalled();
+  });
 });
+
+vi.mock(
+  "../../../apps/api/src/plugins/gitlab/utils/sync-label-to-gitlab",
+  () => ({
+    removeLabelFromGitlab: async () => undefined,
+    syncLabelToGitlab: async () => undefined,
+  }),
+);

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const mockFindMany = vi.fn();
 const mockListLabels = vi.fn();
@@ -7,6 +7,18 @@ const mockCreateGiteaClient = vi.fn();
 const mockGetIssue = vi.fn();
 const mockAddLabelsToIssue = vi.fn();
 const mockCreateLabel = vi.fn();
+
+vi.mock("../../../../apps/api/src/plugins/sync/eligibility", () => ({
+  canSyncTask: async () => true,
+}));
+
+vi.mock("../../../../apps/api/src/plugins/sync/dispatch-issue-write", () => ({
+  dispatchIssueWrite: async (
+    _link: unknown,
+    _expectedConfig: unknown,
+    send: () => Promise<unknown>,
+  ) => ({ value: await send() }),
+}));
 
 vi.mock("../../../../apps/api/src/database", () => ({
   default: {

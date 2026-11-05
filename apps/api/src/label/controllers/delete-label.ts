@@ -1,154 +1,177 @@
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, lte, sql } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
+import type { PoolClient } from "pg";
 import db from "../../database";
 import { labelTable, projectTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
 import { removeLabelFromGitea } from "../../plugins/gitea/utils/sync-label-to-gitea";
 import { removeLabelFromGitHub } from "../../plugins/github/utils/sync-label-to-github";
-import { lockWorkspaceLabels } from "./workspace-label-lock";
+import { removeLabelFromGitlab } from "../../plugins/gitlab/utils/sync-label-to-gitlab";
+import { notifySyncWorkspaceLabelChanged } from "../../plugins/sync/workspace-label-changed";
+import { withLabelDeletionLock } from "../deletion-lock";
+import { normalizeLabelIdentity } from "./workspace-label-lock";
 
-async function deleteLabel(id: string, userId: string) {
-  const label = await db.query.labelTable.findFirst({
-    where: (label, { eq }) => eq(label.id, id),
-  });
+const WORKSPACE_LABEL_LOCK_NAMESPACE = 1533;
 
-  if (!label) {
-    throw new HTTPException(404, {
-      message: "Label not found",
-    });
+async function withWorkspaceLabelLock<T>(
+  client: PoolClient,
+  workspaceId: string,
+  name: string,
+  run: () => Promise<T>,
+): Promise<T> {
+  const key = `${workspaceId}:${normalizeLabelIdentity(name)}`;
+  await client.query("SELECT pg_advisory_lock($1, hashtext($2))", [
+    WORKSPACE_LABEL_LOCK_NAMESPACE,
+    key,
+  ]);
+  try {
+    return await run();
+  } finally {
+    await client.query("SELECT pg_advisory_unlock($1, hashtext($2))", [
+      WORKSPACE_LABEL_LOCK_NAMESPACE,
+      key,
+    ]);
   }
-  const existingLabel = label;
+}
 
-  if (existingLabel.taskId) {
-    const taskId = existingLabel.taskId;
-    // Task-level label: fetch task, delete with event + GitHub sync
-    const [task] = await db
-      .select({
-        id: taskTable.id,
-        projectId: taskTable.projectId,
-        workspaceId: projectTable.workspaceId,
-      })
-      .from(taskTable)
-      .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
-      .where(eq(taskTable.id, taskId))
-      .limit(1);
+export const LABEL_DELETE_BATCH_SIZE = 25;
+type Label = typeof labelTable.$inferSelect;
 
-    if (!task) {
-      throw new HTTPException(404, {
-        message: "Task not found",
-      });
+async function notifyDeletion(label: Label, userId: string) {
+  if (!label.taskId) return;
+  const [task] = await db
+    .select({
+      id: taskTable.id,
+      projectId: taskTable.projectId,
+      workspaceId: projectTable.workspaceId,
+    })
+    .from(taskTable)
+    .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
+    .where(
+      and(
+        eq(taskTable.id, label.taskId),
+        eq(projectTable.workspaceId, label.workspaceId ?? ""),
+      ),
+    )
+    .limit(1);
+  // Legacy inconsistent rows may be cleaned up, but never emit foreign events.
+  if (!task) return;
+  for (const remove of [
+    removeLabelFromGitHub,
+    removeLabelFromGitea,
+    removeLabelFromGitlab,
+  ]) {
+    try {
+      await remove(task.id, label.name);
+    } catch {
+      console.error(
+        "Failed to synchronize a label removal with an external provider",
+      );
     }
-
-    const deletedLabel = await db.transaction(async (tx) => {
-      await lockWorkspaceLabels(tx, task.workspaceId, [existingLabel.name]);
-      await removeLabelFromGitHub(taskId, existingLabel.name);
-      await removeLabelFromGitea(taskId, existingLabel.name);
-      const [deleted] = await tx
-        .delete(labelTable)
-        .where(eq(labelTable.id, id))
-        .returning();
-      return deleted;
-    });
-
-    if (!deletedLabel) {
-      throw new HTTPException(404, {
-        message: "Label not found",
-      });
-    }
-
-    await publishEvent("task.label_deleted", {
-      label: deletedLabel,
+  }
+  await publishEvent(
+    "task.label_deleted",
+    {
+      label,
       task,
       projectId: task.projectId,
       taskId: task.id,
       userId,
       type: "label_deleted",
+    },
+    { waitForHandlers: true },
+  );
+}
+
+async function deleteLabel(
+  id: string,
+  userId: string,
+): Promise<Label & { pendingDeletion?: true }> {
+  return withLabelDeletionLock(id, async (client) => {
+    const label = await db.query.labelTable.findFirst({
+      where: eq(labelTable.id, id),
     });
-
-    return deletedLabel;
-  }
-
-  // Label without a workspace: the cascade filter below could never match
-  if (existingLabel.workspaceId === null) {
-    const [deletedLabel] = await db
-      .delete(labelTable)
-      .where(eq(labelTable.id, id))
-      .returning();
-    if (!deletedLabel) {
-      throw new HTTPException(404, { message: "Label not found" });
-    }
-    return deletedLabel;
-  }
-  const workspaceId = existingLabel.workspaceId;
-
-  // Capture affected task-level labels before cascading so we have data
-  // for events and provider sync
-  let affectedLabels: Awaited<ReturnType<typeof loadAffectedLabels>> = [];
-  async function loadAffectedLabels(
-    tx: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0],
-  ) {
-    return tx
-      .select({
-        label: labelTable,
-        taskId: taskTable.id,
-        projectId: projectTable.id,
-        workspaceId: projectTable.workspaceId,
-      })
-      .from(labelTable)
-      .innerJoin(taskTable, eq(labelTable.taskId, taskTable.id))
-      .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
-      .where(
-        and(
-          eq(labelTable.workspaceId, workspaceId),
-          eq(labelTable.name, existingLabel.name),
-          isNotNull(labelTable.taskId),
-        ),
+    if (!label) throw new HTTPException(404, { message: "Label not found" });
+    const remove = () => removeLoadedLabel(label, userId);
+    if (label.workspaceId) {
+      return withWorkspaceLabelLock(
+        client,
+        label.workspaceId,
+        label.name,
+        remove,
       );
-  }
-
-  // Remote-first is retry-safe: provider helpers treat missing integrations and
-  // already-absent labels as success, while any real provider failure leaves all
-  // local rows intact for a later retry.
-  const deletedLabel = await db.transaction(async (tx) => {
-    await lockWorkspaceLabels(tx, workspaceId, [existingLabel.name]);
-    affectedLabels = await loadAffectedLabels(tx);
-    for (const { label: affectedLabel } of affectedLabels) {
-      if (!affectedLabel.taskId) continue;
-      await removeLabelFromGitHub(affectedLabel.taskId, affectedLabel.name);
-      await removeLabelFromGitea(affectedLabel.taskId, affectedLabel.name);
     }
-    const [deletedDefinition] = await tx
-      .delete(labelTable)
-      .where(eq(labelTable.id, id))
-      .returning();
-    if (!deletedDefinition) {
-      throw new HTTPException(404, { message: "Label not found" });
-    }
-    await tx
-      .delete(labelTable)
-      .where(
-        and(
-          eq(labelTable.workspaceId, workspaceId),
-          eq(labelTable.name, existingLabel.name),
-          isNotNull(labelTable.taskId),
-        ),
-      );
-    return deletedDefinition;
+    return remove();
   });
+}
 
-  // Emit events and sync providers for each affected task
-  for (const { label: l, taskId, projectId } of affectedLabels) {
-    await publishEvent("task.label_deleted", {
-      label: l,
-      task: { id: taskId, projectId },
-      projectId,
-      taskId,
-      userId,
-      type: "label_deleted",
-    });
+async function removeLoadedLabel(
+  label: Label,
+  userId: string,
+): Promise<Label & { pendingDeletion?: true }> {
+  if (label.taskId) {
+    const [task] = await db
+      .select({ workspaceId: projectTable.workspaceId })
+      .from(taskTable)
+      .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
+      .where(eq(taskTable.id, label.taskId))
+      .limit(1);
+    if (!task || task.workspaceId !== label.workspaceId)
+      throw new HTTPException(404, { message: "Task not found" });
+    const [deleted] = await db
+      .delete(labelTable)
+      .where(eq(labelTable.id, label.id))
+      .returning();
+    if (!deleted) throw new HTTPException(404, { message: "Label not found" });
+    await notifyDeletion(deleted, userId);
+    return deleted;
   }
 
-  return deletedLabel;
+  // Persist the snapshot boundary before the first batch. A disconnect or
+  // restart leaves this root available for the same DELETE request to resume.
+  const [root] = await db
+    .update(labelTable)
+    .set({
+      // UTC like every timezone-less column, whatever the session time zone.
+      deletionStartedAt: sql`coalesce(${labelTable.deletionStartedAt}, timezone('UTC', clock_timestamp()))`,
+    })
+    .where(eq(labelTable.id, label.id))
+    .returning();
+  if (!root) throw new HTTPException(404, { message: "Label not found" });
+  if (root.workspaceId) {
+    await notifySyncWorkspaceLabelChanged(root.workspaceId, root.id);
+    const predicate = and(
+      eq(labelTable.workspaceId, root.workspaceId),
+      eq(labelTable.name, root.name),
+      isNotNull(labelTable.taskId),
+      lte(
+        labelTable.createdAt,
+        sql`(select deletion_started_at from label where id = ${label.id})`,
+      ),
+    );
+    const rows = await db
+      .select({ id: labelTable.id })
+      .from(labelTable)
+      .where(predicate)
+      .orderBy(asc(labelTable.createdAt), asc(labelTable.id))
+      .limit(LABEL_DELETE_BATCH_SIZE + 1);
+    for (const row of rows.slice(0, LABEL_DELETE_BATCH_SIZE)) {
+      // Recheck the snapshot/name if a concurrent edit changed this copy.
+      const [deleted] = await db
+        .delete(labelTable)
+        .where(and(eq(labelTable.id, row.id), predicate))
+        .returning();
+      if (deleted) await notifyDeletion(deleted, userId);
+    }
+    if (rows.length > LABEL_DELETE_BATCH_SIZE)
+      return { ...root, pendingDeletion: true };
+  }
+  const [deleted] = await db
+    .delete(labelTable)
+    .where(eq(labelTable.id, label.id))
+    .returning();
+  if (!deleted) throw new HTTPException(404, { message: "Label not found" });
+  return deleted;
 }
 
 export default deleteLabel;

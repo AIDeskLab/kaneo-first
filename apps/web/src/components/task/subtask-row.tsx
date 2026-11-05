@@ -15,6 +15,8 @@ type SubtaskRowProps = {
   tasks: Task[];
   projectId: string;
   workspaceId: string;
+  displayId: string | null;
+  workspaceSlug?: string | null;
   isSelected: boolean;
   isFocused: boolean;
   isCompleted: boolean;
@@ -33,6 +35,8 @@ export default function SubtaskRow({
   tasks,
   projectId,
   workspaceId,
+  displayId,
+  workspaceSlug,
   isSelected,
   isFocused,
   isCompleted,
@@ -90,9 +94,14 @@ export default function SubtaskRow({
               onClick={onNavigate}
             >
               <span
-                className={`text-sm truncate block ${isCompleted ? "line-through text-muted-foreground" : "text-foreground/90"}`}
+                className={`flex min-w-0 items-baseline gap-2 text-sm ${isCompleted ? "line-through text-muted-foreground" : "text-foreground/90"}`}
               >
-                {task.title}
+                {displayId ? (
+                  <span className="shrink-0 font-mono text-xs text-muted-foreground no-underline">
+                    {displayId}
+                  </span>
+                ) : null}
+                <span className="truncate">{task.title}</span>
               </span>
             </button>
 
@@ -131,6 +140,7 @@ export default function SubtaskRow({
           taskCardContext={{
             projectId,
             worskpaceId: workspaceId,
+            workspaceSlug,
           }}
           onDeleteClick={onDeleteClick}
         />

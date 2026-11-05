@@ -4,11 +4,7 @@ import { assertPublicDestination } from "../../utils/assert-public-destination";
 export async function assertPublicWebhookDestination(
   webhookUrl: string,
 ): Promise<void> {
-  await assertPublicDestination(webhookUrl, "Generic webhook", {
-    allowPrivate:
-      process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS === "true" ||
-      process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS === "1",
-  });
+  await assertPublicDestination(webhookUrl, "Generic webhook");
 }
 
 export const genericWebhookEventKeys = [
@@ -118,7 +114,7 @@ export function normalizeGenericWebhookConfig(
       config.dueDateReminderLeadTimeMinutes ?? 1440,
     events: {
       ...defaultGenericWebhookEvents,
-      ...(config.events ?? {}),
+      ...config.events,
     },
   };
 }

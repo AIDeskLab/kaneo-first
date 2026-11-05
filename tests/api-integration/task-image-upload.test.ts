@@ -1,5 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
+import { S3Client } from "../../apps/api/node_modules/@aws-sdk/client-s3";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { mockAnonymousSession, mockAuthenticatedSession } from "./helpers/auth";
@@ -8,6 +16,7 @@ import {
   createProjectFixture,
   createWorkspaceMember,
 } from "./helpers/fixtures";
+import { readErrorBody } from "./helpers/error-body";
 
 describe("API integration: task image upload finalize", () => {
   beforeEach(async () => {
@@ -18,6 +27,11 @@ describe("API integration: task image upload finalize", () => {
     process.env.S3_ACCESS_KEY_ID = "test-access-key";
     process.env.S3_SECRET_ACCESS_KEY = "test-secret-key";
     delete process.env.S3_KEY_PREFIX;
+    // These URL/metadata tests must provide an uploaded-object fixture now
+    // that finalization verifies storage. Never contact the placeholder host.
+    vi.spyOn(S3Client.prototype, "send").mockRejectedValue(
+      new Error("No uploaded-object fixture configured"),
+    );
   });
 
   afterEach(() => {
@@ -25,6 +39,10 @@ describe("API integration: task image upload finalize", () => {
   });
 
   it("returns a URL using KANEO_API_URL", async () => {
+    vi.mocked(S3Client.prototype.send).mockResolvedValueOnce({
+      ContentLength: 12345,
+      ContentType: "image/png",
+    });
     process.env.KANEO_API_URL = "http://kaneo.test:1337";
 
     const member = await createWorkspaceMember();
@@ -75,6 +93,10 @@ describe("API integration: task image upload finalize", () => {
   });
 
   it("updates the URL when KANEO_API_URL changes", async () => {
+    vi.mocked(S3Client.prototype.send).mockResolvedValueOnce({
+      ContentLength: 99999,
+      ContentType: "image/png",
+    });
     process.env.KANEO_API_URL = "https://proxy.kaneo.internal";
 
     const member = await createWorkspaceMember();
@@ -125,6 +147,10 @@ describe("API integration: task image upload finalize", () => {
   });
 
   it("falls back to deriving URL from the request when KANEO_API_URL is not set", async () => {
+    vi.mocked(S3Client.prototype.send).mockResolvedValueOnce({
+      ContentLength: 12345,
+      ContentType: "image/png",
+    });
     delete process.env.KANEO_API_URL;
 
     const member = await createWorkspaceMember();
@@ -173,6 +199,10 @@ describe("API integration: task image upload finalize", () => {
   });
 
   it("persists a new asset record with correct metadata", async () => {
+    vi.mocked(S3Client.prototype.send).mockResolvedValueOnce({
+      ContentLength: 45678,
+      ContentType: "image/png",
+    });
     process.env.KANEO_API_URL = "http://localhost:1337";
 
     const member = await createWorkspaceMember();
@@ -236,6 +266,10 @@ describe("API integration: task image upload finalize", () => {
   });
 
   it("creates attachment records for non-image content types", async () => {
+    vi.mocked(S3Client.prototype.send).mockResolvedValueOnce({
+      ContentLength: 102400,
+      ContentType: "application/pdf",
+    });
     process.env.KANEO_API_URL = "http://localhost:1337";
 
     const member = await createWorkspaceMember();
@@ -327,8 +361,10 @@ describe("API integration: task image upload finalize", () => {
     );
 
     expect(response.status).toBe(400);
-    const text = await response.text();
-    expect(text).toBe("Image upload key does not match the task context.");
+    expect(await readErrorBody(response)).toMatchObject({
+      message: "Image upload key does not match the task context.",
+      code: "BAD_REQUEST",
+    });
   });
 
   it("rejects unauthenticated requests", async () => {
@@ -426,9 +462,10 @@ describe("API integration: task image upload finalize", () => {
       },
     );
 
-    expect(response.status).toBe(403);
-    await expect(response.text()).resolves.toBe(
-      "You don't have access to this workspace",
-    );
+    expect(response.status).toBe(404);
+    expect(await readErrorBody(response)).toMatchObject({
+      message: "Task not found",
+      code: "NOT_FOUND",
+    });
   });
 });

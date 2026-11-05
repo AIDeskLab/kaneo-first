@@ -16,11 +16,12 @@ import { snapCenterToCursor } from "@dnd-kit/modifiers";
 import { useNavigate } from "@tanstack/react-router";
 import { produce } from "immer";
 import { Flag } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { priorityColorsTaskCard } from "@/constants/priority-colors";
 import { useBulkOperations } from "@/hooks/mutations/task/use-bulk-operations";
 import { useUpdateTask } from "@/hooks/mutations/task/use-update-task";
+import { useCollapsedSections } from "@/hooks/use-collapsed-sections";
 import { useRegisterShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { flattenTree, groupNestedByColumn } from "@/lib/build-task-hierarchy";
 import { cn } from "@/lib/cn";
@@ -41,13 +42,33 @@ import TaskTreeList from "./task-tree-list";
 
 const EMPTY_TREE_TASKS: ReturnType<typeof flattenTree> = [];
 
+const DEFAULT_SORT: SortConfig = { field: "position", direction: "asc" };
+
+// j/k follow the row that actually has DOM focus when it disagrees with the
+// store, which happens after a shortcut moves the store without moving focus.
+function syncFocusFromActiveRow() {
+  const row = document.activeElement?.closest("[data-task-id]");
+  const taskId = row?.getAttribute("data-task-id");
+  if (!taskId) return;
+  const state = useBulkSelectionStore.getState();
+  if (state.focusedTaskId !== taskId) {
+    state.setFocusedTask(taskId, row?.getAttribute("data-task-row-id"));
+  }
+}
+
 type ListViewProps = {
   project: ProjectWithTasks;
-  sort: SortConfig;
+  sort?: SortConfig;
   disableDragDrop?: boolean;
+  disableCollectionActions?: boolean;
 };
 
-function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
+function ListView({
+  project,
+  sort = DEFAULT_SORT,
+  disableDragDrop = false,
+  disableCollectionActions = false,
+}: ListViewProps) {
   const { t } = useTranslation();
   const { setProject } = useProjectStore();
   const { hierarchyMode } = useUserPreferencesStore();
@@ -64,17 +85,14 @@ function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
   const navigate = useNavigate();
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
-  const [expandedSections, setExpandedSections] = useState<
-    Record<string, boolean>
-  >(() => {
+  const collapsedSections = useCollapsedSections(project?.id, "list");
+  const expandedSections = useMemo(() => {
     const sections: Record<string, boolean> = {};
-    if (project?.columns) {
-      for (const col of project.columns) {
-        sections[col.id] = true;
-      }
+    for (const column of project?.columns ?? []) {
+      sections[column.id] = collapsedSections.isExpanded(column.id);
     }
     return sections;
-  });
+  }, [collapsedSections, project?.columns]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [activeColumn, setActiveColumn] = useState<string | null>(null);
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
@@ -148,36 +166,58 @@ function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
     clearFocus();
   }, [clearFocus]);
 
-  useRegisterShortcuts({
-    shortcuts: {
-      j: () => {
-        focusNext();
-        const state = useBulkSelectionStore.getState();
-        if (state.focusedTaskId) {
-          navigate({ to: ".", search: { taskId: state.focusedTaskId } });
-        }
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+  const projectRef = useRef(project);
+  projectRef.current = project;
+  const focusedTaskIdRef = useRef(focusedTaskId);
+  focusedTaskIdRef.current = focusedTaskId;
+
+  const listShortcuts = useMemo(
+    () => ({
+      shortcuts: {
+        j: () => {
+          syncFocusFromActiveRow();
+          focusNext();
+          const state = useBulkSelectionStore.getState();
+          if (state.focusedTaskId) {
+            navigateRef.current({
+              to: ".",
+              search: { taskId: state.focusedTaskId },
+            });
+          }
+        },
+        k: () => {
+          syncFocusFromActiveRow();
+          focusPrevious();
+          const state = useBulkSelectionStore.getState();
+          if (state.focusedTaskId) {
+            navigateRef.current({
+              to: ".",
+              search: { taskId: state.focusedTaskId },
+            });
+          }
+        },
+        Enter: () => {
+          const currentProject = projectRef.current;
+          const taskId = focusedTaskIdRef.current;
+          if (taskId && currentProject) {
+            navigateRef.current({
+              to: "/dashboard/workspace/$workspaceId/project/$projectId/task/$taskId",
+              params: {
+                workspaceId: currentProject.workspaceId,
+                projectId: currentProject.id,
+                taskId,
+              },
+            });
+          }
+        },
       },
-      k: () => {
-        focusPrevious();
-        const state = useBulkSelectionStore.getState();
-        if (state.focusedTaskId) {
-          navigate({ to: ".", search: { taskId: state.focusedTaskId } });
-        }
-      },
-      Enter: () => {
-        if (focusedTaskId && project) {
-          navigate({
-            to: "/dashboard/workspace/$workspaceId/project/$projectId/task/$taskId",
-            params: {
-              workspaceId: project.workspaceId,
-              projectId: project.id,
-              taskId: focusedTaskId,
-            },
-          });
-        }
-      },
-    },
-  });
+    }),
+    [focusNext, focusPrevious],
+  );
+
+  useRegisterShortcuts(listShortcuts);
 
   const mouseSensor = useSensor(MouseSensor, {
     activationConstraint: { distance: hierarchyDragDisabled ? 999999 : 8 },
@@ -194,6 +234,7 @@ function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
     touchSensor,
     ...(hierarchyDragDisabled ? [] : [keyboardSensor]),
   );
+  const dragSensors = disableDragDrop ? [] : sensors;
 
   const handleToggleExpand = useCallback(
     (taskId: string) => {
@@ -240,7 +281,13 @@ function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
     setActiveId(null);
     setOverColumnId(null);
 
-    if (!over || !project?.columns || hierarchyMode !== "flat") return;
+    if (
+      disableDragDrop ||
+      !over ||
+      !project?.columns ||
+      hierarchyMode !== "flat"
+    )
+      return;
 
     const activeTaskId = active.id.toString();
     const overId = over.id.toString();
@@ -311,10 +358,7 @@ function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
   };
 
   const toggleSection = (sectionId: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [sectionId]: !prev[sectionId],
-    }));
+    collapsedSections.toggleSection(sectionId);
   };
 
   const handleArchiveClick = (column: ProjectWithTasks["columns"][number]) => {
@@ -328,9 +372,13 @@ function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
   };
 
   const handleConfirmArchive = async () => {
-    if (!columnToArchive || bulkArchivePending) return;
+    if (disableCollectionActions || !columnToArchive || bulkArchivePending)
+      return;
 
-    const taskIds = columnToArchive.tasks.map((task) => task.id);
+    const source =
+      project.columns.find((column) => column.id === columnToArchive.id) ??
+      columnToArchive;
+    const taskIds = source.tasks.map((task) => task.id);
     try {
       await bulkArchive(taskIds);
       toast.success(t("tasks:archive.success", { count: taskIds.length }));
@@ -356,7 +404,7 @@ function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
 
   return (
     <DndContext
-      sensors={sensors}
+      sensors={dragSensors}
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
@@ -390,12 +438,14 @@ function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
                 overColumnId={overColumnId}
                 onToggleSection={toggleSection}
                 onAddTask={(columnId) => {
+                  if (disableCollectionActions) return;
                   setIsTaskModalOpen(true);
                   setActiveColumn(columnId);
                 }}
                 onArchiveClick={handleArchiveClick}
                 onToggleExpand={handleToggleExpand}
                 isExpanded={checkExpanded}
+                disableCollectionActions={disableCollectionActions}
                 disableDragDrop={hierarchyDragDisabled}
               />
             ))}
@@ -445,8 +495,16 @@ function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
           setIsArchiveModalOpen(false);
           setColumnToArchive(null);
         }}
-        onConfirm={handleConfirmArchive}
-        taskCount={columnToArchive?.tasks.length ?? 0}
+        onConfirm={() => {
+          void handleConfirmArchive();
+        }}
+        disabled={disableCollectionActions}
+        taskCount={
+          project.columns.find((column) => column.id === columnToArchive?.id)
+            ?.tasks.length ??
+          columnToArchive?.tasks.length ??
+          0
+        }
         isPending={bulkArchivePending}
       />
 

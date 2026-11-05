@@ -101,7 +101,7 @@ export function SignUpForm({
       if (invitationId) {
         history.push(`/invitation/accept/${invitationId}`);
       } else {
-        history.push("/dashboard");
+        history.push("/onboarding");
       }
     } catch (error) {
       toast.error(
@@ -124,7 +124,7 @@ export function SignUpForm({
             render={({ field, fieldState }) => (
               <FormItem>
                 <FormLabel className="text-sm font-medium">
-                  {t("auth:signUpForm.fullName")}
+                  {t("auth:forms.name")}
                 </FormLabel>
                 <FormControl>
                   <Input

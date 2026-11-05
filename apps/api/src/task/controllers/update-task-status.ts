@@ -72,6 +72,17 @@ async function updateTaskStatus({
     });
   }
 
+  if (
+    refreshProjectIds.includes(updatedTask.projectId) &&
+    !changedTasks.some((task) => task.id === id)
+  ) {
+    await publishEvent("task.updated", {
+      taskId: updatedTask.id,
+      projectId: updatedTask.projectId,
+      userId: currentUserId,
+    });
+  }
+
   return updatedTask;
 }
 

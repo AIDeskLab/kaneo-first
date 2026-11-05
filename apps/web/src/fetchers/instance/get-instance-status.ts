@@ -1,4 +1,5 @@
 import { resolveApiBaseUrl } from "@kaneo/libs";
+import { HttpError } from "@/lib/http-error";
 
 export type InstanceStatus = {
   hasUsers: boolean;
@@ -13,14 +14,11 @@ export async function getInstanceStatus(): Promise<InstanceStatus> {
   if (!response.ok) {
     // Surface the server's error body when available so the UI can
     // distinguish "instance unreachable" from other failures.
-    let detail = "";
-    try {
-      detail = (await response.text()).trim();
-    } catch {}
-    throw new Error(
-      detail
-        ? `Failed to fetch instance status (${response.status}): ${detail}`
-        : `Failed to fetch instance status (${response.status})`,
+    const error = await HttpError.fromResponse(response);
+    throw new HttpError(
+      response.status,
+      `Failed to fetch instance status: ${error.message}`,
+      error,
     );
   }
   return response.json();

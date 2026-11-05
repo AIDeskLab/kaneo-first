@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import db, { getDatabasePool, schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import updateTask from "../../apps/api/src/task/controllers/update-task";
@@ -73,9 +73,9 @@ describe("task assignment authorization", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(assignedTask(outsider.user.id)),
     });
-    expect(createResponse.status).toBe(404);
+    expect(createResponse.status).toBe(403);
     await expect(createResponse.text()).resolves.toContain(
-      "Assignee not found",
+      "Assignee is not a member of this workspace",
     );
 
     const importResponse = await app.request(`/api/task/import/${project.id}`, {
@@ -83,10 +83,13 @@ describe("task assignment authorization", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ tasks: [assignedTask(outsider.user.id)] }),
     });
-    expect(importResponse.status).toBe(404);
-    await expect(importResponse.text()).resolves.toContain(
-      "Assignee not found",
-    );
+    expect(importResponse.status).toBe(200);
+    await expect(importResponse.json()).resolves.toMatchObject({
+      results: {
+        failed: 1,
+        tasks: [{ error: "Assignee is not a member of this workspace" }],
+      },
+    });
 
     const unassignedResponse = await app.request(`/api/task/${project.id}`, {
       method: "POST",
@@ -107,7 +110,10 @@ describe("task assignment authorization", () => {
         body: JSON.stringify({ userId: outsider.user.id }),
       },
     );
-    expect(dedicatedResponse.status).toBe(404);
+    expect(dedicatedResponse.status).toBe(403);
+    await expect(dedicatedResponse.text()).resolves.toContain(
+      "Assignee is not a member of this workspace",
+    );
 
     const fullUpdateResponse = await app.request(`/api/task/${task.id}`, {
       method: "PUT",
@@ -118,7 +124,10 @@ describe("task assignment authorization", () => {
         position: 1,
       }),
     });
-    expect(fullUpdateResponse.status).toBe(404);
+    expect(fullUpdateResponse.status).toBe(403);
+    await expect(fullUpdateResponse.text()).resolves.toContain(
+      "Assignee is not a member of this workspace",
+    );
 
     const bulkResponse = await app.request("/api/task/bulk", {
       method: "PATCH",
@@ -129,7 +138,10 @@ describe("task assignment authorization", () => {
         value: outsider.user.id,
       }),
     });
-    expect(bulkResponse.status).toBe(404);
+    expect(bulkResponse.status).toBe(403);
+    await expect(bulkResponse.text()).resolves.toContain(
+      "Assignee is not a member of this workspace",
+    );
   });
 
   it("does not let an update-only decision restore a concurrently changed assignee", async () => {

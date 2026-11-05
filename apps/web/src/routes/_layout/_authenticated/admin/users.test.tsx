@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { Route } from "./users";
 
 const session = vi.hoisted(() => ({ value: { user: { role: "admin" } } }));

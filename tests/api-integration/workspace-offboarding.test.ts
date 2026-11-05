@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vite-plus/test";
 import db, { getDatabasePool, schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { mockAuthenticatedSession } from "./helpers/auth";
@@ -215,7 +215,7 @@ describe("workspace member offboarding", () => {
       assignment,
       removal,
     ]);
-    expect([200, 404]).toContain(assignmentResponse.status);
+    expect([200, 403]).toContain(assignmentResponse.status);
     expect(removalResponse.status).toBe(204);
     await expect(
       db.query.taskTable.findFirst({ where: eq(schema.taskTable.id, task.id) }),

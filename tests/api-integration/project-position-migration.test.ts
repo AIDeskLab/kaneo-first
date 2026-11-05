@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { asc, eq, sql } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
 import { resetTestDatabase } from "./helpers/database";
 import {
@@ -28,7 +28,7 @@ describe("project position migration", () => {
       .set({ createdAt: tiedCreatedAt, position: 99 });
 
     const migration = await readFile(
-      resolve(process.cwd(), "drizzle/0036_young_albert_cleary.sql"),
+      resolve(process.cwd(), "drizzle/0037_tiny_raza.sql"),
       "utf8",
     );
     const statement = migration

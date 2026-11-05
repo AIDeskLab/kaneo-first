@@ -8,6 +8,10 @@ import {
   workspaceTable,
   workspaceUserTable,
 } from "../../database/schema";
+import { canAccessProject } from "../../project-access/can-access-project";
+import { projectAccessCondition } from "../../project-access/project-access-condition";
+import { escapeLikePattern } from "../like-pattern";
+import { TASK_SHORT_ID_PATTERN } from "../task-short-id";
 
 type SearchParams = {
   query: string;
@@ -135,28 +139,42 @@ async function globalSearch(params: SearchParams): Promise<{
     .map((w) => w.workspaceId)
     .filter(Boolean);
 
-  if (accessibleWorkspaceIds.length === 0) {
+  if (
+    accessibleWorkspaceIds.length === 0 ||
+    (projectId && !(await canAccessProject(resolvedUserId, projectId)))
+  ) {
     return { results: [], totalCount: 0, searchQuery: query };
   }
 
   const results: SearchResult[] = [];
   const searchPattern = `%${query.toLowerCase()}%`;
 
-  const workspaceFilter = workspaceId
-    ? eq(projectTable.workspaceId, workspaceId)
-    : inArray(projectTable.workspaceId, accessibleWorkspaceIds);
+  const workspaceFilter = and(
+    workspaceId
+      ? eq(projectTable.workspaceId, workspaceId)
+      : inArray(projectTable.workspaceId, accessibleWorkspaceIds),
+    projectAccessCondition(resolvedUserId, projectTable.id),
+  );
 
-  // Check if query matches short-id pattern (e.g. "DEP-23")
-  const shortIdMatch = query.match(/^([A-Za-z][\w-]*)-(\d+)$/);
+  // Check if query matches short-id pattern (e.g. "DEP-23"). `generateProjectSlug`
+  // normalizes to NFKC before it stores a key, so the query is normalized too,
+  // or a decomposed "ПА-23" would never reach the stored composed form.
+  const shortIdMatch = query.normalize("NFKC").match(TASK_SHORT_ID_PATTERN);
+
+  const shortIdNumber = Number(shortIdMatch?.[2]);
 
   if (type === "all" || type === "tasks") {
     const seenTaskIds = new Set<string>();
 
     // If query matches short-id pattern, look up by project slug + task number first
-    if (shortIdMatch?.[1] && shortIdMatch[2]) {
+    if (
+      shortIdMatch?.[1] &&
+      Number.isSafeInteger(shortIdNumber) &&
+      shortIdNumber > 0 &&
+      shortIdNumber <= 2_147_483_647
+    ) {
       const slug = shortIdMatch[1];
-      const numberStr = shortIdMatch[2];
-      const taskNumber = Number.parseInt(numberStr, 10);
+      const taskNumber = shortIdNumber;
 
       const shortIdTasks = await db
         .select({
@@ -186,7 +204,11 @@ async function globalSearch(params: SearchParams): Promise<{
           and(
             workspaceFilter,
             projectId ? eq(taskTable.projectId, projectId) : undefined,
-            ilike(projectTable.slug, slug),
+            // A project key may hold `_`, which `ilike` reads as "any one
+            // character", so `DE_-23` would also match a task in `DEP` and the
+            // `limit(1)` below would pick whichever came back first. Escaping
+            // keeps the case-insensitive comparison and drops the wildcards.
+            ilike(projectTable.slug, escapeLikePattern(slug)),
             eq(taskTable.number, taskNumber),
           ),
         )
@@ -354,13 +376,10 @@ async function globalSearch(params: SearchParams): Promise<{
         relevanceScore: workspaceRelevanceScore.as("relevanceScore"),
       })
       .from(workspaceTable)
-      .leftJoin(
-        workspaceUserTable,
-        eq(workspaceTable.id, workspaceUserTable.workspaceId),
-      )
       .where(
         and(
           inArray(workspaceTable.id, accessibleWorkspaceIds),
+          workspaceId ? eq(workspaceTable.id, workspaceId) : undefined,
           or(
             ilike(workspaceTable.name, searchPattern),
             ilike(workspaceTable.description, searchPattern),

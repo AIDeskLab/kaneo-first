@@ -10,6 +10,11 @@ import {
   githubRepositoryKeyFromConfig,
   normalizeGitHubRepositoryKey,
 } from "../../../github-integration/github-repository-key";
+import { type GitHubConfig, hasVerifiedGitHubBinding } from "../config";
+import { extractTaskLinks } from "../utils/task-references";
+
+import type { IntegrationDatabase } from "./integration-task-scope";
+import { activeIntegrationCondition } from "../../active-integration-condition";
 
 export type TaskRow = InferSelectModel<typeof taskTable>;
 
@@ -19,8 +24,12 @@ export type UpdateTaskStatusResult =
 
 const NON_COLUMN_STATUSES = new Set(["planned", "archived"]);
 
-export async function findTaskByNumber(projectId: string, taskNumber: number) {
-  return db.query.taskTable.findFirst({
+export async function findTaskByNumber(
+  projectId: string,
+  taskNumber: number,
+  database: Pick<typeof db, "query"> = db,
+) {
+  return database.query.taskTable.findFirst({
     where: and(
       eq(taskTable.projectId, projectId),
       eq(taskTable.number, taskNumber),
@@ -28,8 +37,28 @@ export async function findTaskByNumber(projectId: string, taskNumber: number) {
   });
 }
 
-export async function findTaskById(taskId: string) {
-  return db.query.taskTable.findFirst({
+export async function findTaskByLink(
+  projectId: string,
+  texts: (string | null | undefined)[],
+  database: Pick<typeof db, "query"> = db,
+) {
+  const links = extractTaskLinks(...texts);
+  const link = links.length === 1 ? links[0] : undefined;
+  if (link?.projectId !== projectId) return;
+
+  return database.query.taskTable.findFirst({
+    where: and(
+      eq(taskTable.projectId, projectId),
+      eq(taskTable.id, link.taskId),
+    ),
+  });
+}
+
+export async function findTaskById(
+  taskId: string,
+  database: Pick<typeof db, "query"> = db,
+) {
+  return database.query.taskTable.findFirst({
     where: eq(taskTable.id, taskId),
   });
 }
@@ -37,8 +66,9 @@ export async function findTaskById(taskId: string) {
 export async function updateTaskStatus(
   taskId: string,
   newStatus: string,
+  database: IntegrationDatabase = db,
 ): Promise<UpdateTaskStatusResult> {
-  const task = await db.query.taskTable.findFirst({
+  const task = await database.query.taskTable.findFirst({
     where: eq(taskTable.id, taskId),
   });
 
@@ -48,7 +78,7 @@ export async function updateTaskStatus(
 
   let columnId: string | null = null;
 
-  const column = await db.query.columnTable.findFirst({
+  const column = await database.query.columnTable.findFirst({
     where: and(
       eq(columnTable.projectId, task.projectId),
       eq(columnTable.slug, newStatus),
@@ -64,14 +94,13 @@ export async function updateTaskStatus(
     return { applied: false };
   }
 
-  await db
+  const [after] = await database
     .update(taskTable)
     .set({ status: newStatus, columnId })
-    .where(eq(taskTable.id, taskId));
-
-  const after = await db.query.taskTable.findFirst({
-    where: eq(taskTable.id, taskId),
-  });
+    .where(
+      and(eq(taskTable.id, taskId), eq(taskTable.projectId, task.projectId)),
+    )
+    .returning();
 
   if (!after) {
     return { applied: false };
@@ -80,13 +109,16 @@ export async function updateTaskStatus(
   return { applied: true, before: task, after };
 }
 
-export async function isTaskInFinalState(task: {
-  projectId: string;
-  status: string;
-  columnId: string | null;
-}): Promise<boolean> {
+export async function isTaskInFinalState(
+  task: {
+    projectId: string;
+    status: string;
+    columnId: string | null;
+  },
+  database: Pick<typeof db, "query"> = db,
+): Promise<boolean> {
   if (task.columnId) {
-    const columnById = await db.query.columnTable.findFirst({
+    const columnById = await database.query.columnTable.findFirst({
       where: and(
         eq(columnTable.id, task.columnId),
         eq(columnTable.projectId, task.projectId),
@@ -98,7 +130,7 @@ export async function isTaskInFinalState(task: {
     }
   }
 
-  const columnByStatus = await db.query.columnTable.findFirst({
+  const columnByStatus = await database.query.columnTable.findFirst({
     where: and(
       eq(columnTable.projectId, task.projectId),
       eq(columnTable.slug, task.status),
@@ -121,16 +153,14 @@ export async function getIntegrationWithProject(integrationId: string) {
   });
 }
 
-export async function findIntegrationByRepo(owner: string, repo: string) {
-  const integrations = await findAllIntegrationsByRepo(owner, repo);
-  return integrations[0] || null;
-}
+export type GitHubWebhookSource = {
+  installation?: { id: number };
+  repository: { id: number };
+};
 
-export async function findAllIntegrationsByRepo(owner: string, repo: string) {
+async function findAllIntegrationsByRepositoryKey(owner: string, repo: string) {
   const repositoryKey = normalizeGitHubRepositoryKey(owner, repo);
-  if (!repositoryKey) {
-    return [];
-  }
+  if (!repositoryKey) return [];
 
   const integrations = await db.query.integrationTable.findMany({
     where: and(
@@ -138,14 +168,8 @@ export async function findAllIntegrationsByRepo(owner: string, repo: string) {
       eq(integrationTable.isActive, true),
       eq(integrationTable.githubRepositoryKey, repositoryKey),
     ),
-    with: {
-      project: true,
-    },
+    with: { project: true },
   });
-
-  if (integrations.length === 0) {
-    return [];
-  }
 
   const verified = integrations.filter((integration) => {
     try {
@@ -155,10 +179,51 @@ export async function findAllIntegrationsByRepo(owner: string, repo: string) {
       return false;
     }
   });
+  return verified.length === 1 ? verified : [];
+}
 
-  if (verified.length !== 1) {
-    return [];
+export async function findAllIntegrationsByRepo(
+  source: GitHubWebhookSource,
+): Promise<Awaited<ReturnType<typeof findByGitHubInstallation>>>;
+export async function findAllIntegrationsByRepo(
+  owner: string,
+  repo: string,
+): Promise<Awaited<ReturnType<typeof findByGitHubInstallation>>>;
+export async function findAllIntegrationsByRepo(
+  ownerOrSource: string | GitHubWebhookSource,
+  repo?: string,
+) {
+  if (typeof ownerOrSource === "string") {
+    return findAllIntegrationsByRepositoryKey(ownerOrSource, repo ?? "");
   }
+  return findByGitHubInstallation(ownerOrSource);
+}
 
-  return verified;
+async function findByGitHubInstallation(source: GitHubWebhookSource) {
+  const installationId = source.installation?.id;
+  const repositoryId = source.repository.id;
+  if (
+    !Number.isSafeInteger(installationId) ||
+    !Number.isSafeInteger(repositoryId)
+  )
+    return [];
+  const integrations = await db.query.integrationTable.findMany({
+    where: and(
+      eq(integrationTable.type, "github"),
+      activeIntegrationCondition(),
+    ),
+    with: { project: true },
+  });
+  return integrations.filter((integration) => {
+    try {
+      const config = JSON.parse(integration.config) as GitHubConfig;
+      return (
+        hasVerifiedGitHubBinding(config) &&
+        config.installationId === installationId &&
+        config.repositoryId === repositoryId
+      );
+    } catch {
+      return false;
+    }
+  });
 }

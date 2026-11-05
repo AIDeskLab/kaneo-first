@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 
 // Mock events to prevent side effects from ws/index.ts top-level subscriptions
 vi.mock("../../../apps/api/src/events", () => ({
@@ -6,6 +13,7 @@ vi.mock("../../../apps/api/src/events", () => ({
   publishEvent: vi.fn(),
 }));
 
+import { subscribeToEvent } from "../../../apps/api/src/events";
 import {
   addConnection,
   broadcastToProject,
@@ -13,6 +21,16 @@ import {
   removeConnection,
   shutdownWebSocketAdapter,
 } from "../../../apps/api/src/ws/index";
+
+const projectUpdateHandler = vi
+  .mocked(subscribeToEvent)
+  .mock.calls.find(
+    ([eventName]: [string]) => eventName === "project.updated",
+  )?.[1];
+
+const taskTitleHandler = vi
+  .mocked(subscribeToEvent)
+  .mock.calls.find(([eventName]) => eventName === "task.title_changed")![1];
 
 function makeFakeWs() {
   return {
@@ -38,7 +56,7 @@ describe("broadcastToProject", () => {
 
   it("delivers messages to connected clients after batch timeout", async () => {
     const ws = makeFakeWs();
-    const conn = addConnection("proj-1", ws, "user-1", "init-1");
+    const conn = addConnection("proj-1", ws, "user-1", "init-1", "workspace");
 
     broadcastToProject("proj-1", {
       type: "TASK_CREATED",
@@ -73,8 +91,20 @@ describe("broadcastToProject", () => {
   it("excludes connections matching excludeInitiatorId", async () => {
     const ws1 = makeFakeWs();
     const ws2 = makeFakeWs();
-    const conn1 = addConnection("proj-1", ws1, "user-1", "init-excluded");
-    const conn2 = addConnection("proj-1", ws2, "user-2", "init-other");
+    const conn1 = addConnection(
+      "proj-1",
+      ws1,
+      "user-1",
+      "init-excluded",
+      "workspace",
+    );
+    const conn2 = addConnection(
+      "proj-1",
+      ws2,
+      "user-2",
+      "init-other",
+      "workspace",
+    );
 
     broadcastToProject(
       "proj-1",
@@ -101,7 +131,7 @@ describe("broadcastToProject", () => {
 
   it("deduplicates messages with the same key in a batch window", async () => {
     const ws = makeFakeWs();
-    const conn = addConnection("proj-1", ws, "user-1", "init-1");
+    const conn = addConnection("proj-1", ws, "user-1", "init-1", "workspace");
 
     // Send two messages with the same type+taskId — should be deduplicated
     broadcastToProject("proj-1", {
@@ -132,9 +162,83 @@ describe("broadcastToProject", () => {
     removeConnection("proj-1", conn);
   });
 
+  it("broadcasts project updates to connected clients", async () => {
+    const ws = makeFakeWs();
+    const conn = addConnection("proj-1", ws, "user-1", "init-1", "workspace");
+
+    expect(projectUpdateHandler).toBeDefined();
+    await projectUpdateHandler?.({ projectId: "proj-1" });
+
+    await vi.waitFor(
+      () => {
+        expect(
+          (ws as { send: ReturnType<typeof vi.fn> }).send,
+        ).toHaveBeenCalled();
+      },
+      { timeout: 300 },
+    );
+
+    const sent = JSON.parse(
+      (ws as { send: ReturnType<typeof vi.fn> }).send.mock.calls[0][0],
+    );
+    expect(sent).toMatchObject({
+      type: "PROJECT_UPDATED",
+      projectId: "proj-1",
+    });
+
+    removeConnection("proj-1", conn);
+  });
+
+  it("preserves a link refresh when a later unrelated project update shares its batch", async () => {
+    const ws = makeFakeWs();
+    const conn = addConnection("proj-1", ws, "user-1", "init-1", "workspace");
+    await projectUpdateHandler?.({ projectId: "proj-1", linksChanged: true });
+    await projectUpdateHandler?.({ projectId: "proj-1" });
+    const send = (ws as { send: ReturnType<typeof vi.fn> }).send;
+    await vi.waitFor(() => expect(send).toHaveBeenCalledOnce(), {
+      timeout: 300,
+    });
+    expect(JSON.parse(send.mock.calls[0][0])).toMatchObject({
+      type: "PROJECT_UPDATED",
+      projectId: "proj-1",
+      linksChanged: true,
+    });
+    removeConnection("proj-1", conn);
+  });
+
+  it("keeps title-change hints through batching without broadcasting private titles", async () => {
+    const ws = makeFakeWs();
+    const conn = addConnection("proj-1", ws, "user-1", "init-1", "workspace");
+    await taskTitleHandler({
+      projectId: "proj-1",
+      taskId: "t1",
+      newTitle: "First",
+    });
+    await taskTitleHandler({
+      projectId: "proj-1",
+      taskId: "t1",
+      newTitle: "Current",
+    });
+    broadcastToProject("proj-1", {
+      type: "TASK_UPDATED",
+      projectId: "proj-1",
+      taskId: "t1",
+    });
+    const send = (ws as { send: ReturnType<typeof vi.fn> }).send;
+    await vi.waitFor(() => expect(send).toHaveBeenCalledOnce(), {
+      timeout: 300,
+    });
+    expect(JSON.parse(send.mock.calls[0][0])).toMatchObject({
+      taskTitleChanged: true,
+    });
+    expect(send.mock.calls[0][0]).not.toContain("Current");
+    expect(send.mock.calls[0][0]).not.toContain("First");
+    removeConnection("proj-1", conn);
+  });
+
   it("does not deliver to connections on a different project", async () => {
     const ws = makeFakeWs();
-    const conn = addConnection("proj-2", ws, "user-1", "init-1");
+    const conn = addConnection("proj-2", ws, "user-1", "init-1", "workspace");
 
     broadcastToProject("proj-1", {
       type: "TASK_CREATED",
@@ -166,3 +270,41 @@ describe("broadcastToProject", () => {
     warnSpy.mockRestore();
   });
 });
+
+vi.mock(
+  "../../../apps/api/src/project-access/filter-users-with-project-access",
+  () => ({
+    filterUsersWithProjectAccess: async (userIds: Iterable<string>) =>
+      new Set(userIds),
+  }),
+);
+vi.mock("../../../apps/api/src/database", () => ({
+  default: {
+    select: (fields: Record<string, unknown>) => ({
+      from: () => ({
+        where: () =>
+          fields.userId
+            ? Promise.resolve([
+                { userId: "user-1" },
+                { userId: "user-2" },
+                { userId: "user" },
+              ])
+            : { limit: async () => [{ workspaceId: "workspace" }] },
+      }),
+    }),
+  },
+}));
+
+vi.mock("../../../apps/api/src/ws/project-read-access", () => ({
+  getProjectReadAccess: async (
+    _workspaceId: string,
+    recipients: Array<{ userId: string; apiKeyId?: string }>,
+  ) => ({
+    readers: new Set(recipients.map((conn) => conn.userId)),
+    apiKeys: new Map(
+      recipients.flatMap((conn) =>
+        conn.apiKeyId ? [[conn.apiKeyId, conn.userId] as const] : [],
+      ),
+    ),
+  }),
+}));

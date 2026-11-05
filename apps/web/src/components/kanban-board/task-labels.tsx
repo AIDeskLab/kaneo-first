@@ -1,60 +1,41 @@
-import { Badge } from "@/components/ui/badge";
+import { useTranslation } from "react-i18next";
+import { localeCompareSort } from "@/lib/format";
+import { resolveLabelColor } from "@/lib/label-color";
 import type Task from "@/types/task";
-
-const labelColors = [
-  { value: "gray", label: "Stone", color: "var(--color-stone-500)" },
-  { value: "dark-gray", label: "Slate", color: "var(--color-slate-500)" },
-  { value: "purple", label: "Lavender", color: "var(--color-violet-500)" },
-  { value: "teal", label: "Sage", color: "var(--color-emerald-600)" },
-  { value: "green", label: "Forest", color: "var(--color-green-600)" },
-  { value: "yellow", label: "Amber", color: "var(--color-amber-600)" },
-  { value: "orange", label: "Terracotta", color: "var(--color-orange-600)" },
-  { value: "pink", label: "Rose", color: "var(--color-rose-600)" },
-  { value: "red", label: "Crimson", color: "var(--color-red-600)" },
-];
-
-function isValidHtmlColor(color: string): boolean {
-  const s = new Option().style;
-  s.color = color;
-  return s.color !== "";
-}
-
-function validColor(value: string): string {
-  const mapped = labelColors.find((c) => c.value === value)?.color;
-  if (mapped) {
-    return mapped;
-  }
-
-  if (isValidHtmlColor(value)) {
-    return value;
-  }
-
-  return "var(--color-neutral-400)";
-}
 
 export function TaskLabels({
   labels,
 }: {
   labels: NonNullable<Task["labels"]>;
 }) {
+  const { i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage || i18n.language;
+
   if (!labels.length) return null;
 
+  const sortedLabels = [...labels].sort((a, b) =>
+    localeCompareSort(a.name, b.name, locale),
+  );
+
   return (
-    <div className="flex flex-wrap gap-1">
-      {labels.map((label: { id: string; name: string; color: string }) => (
-        <Badge
+    <div className="flex min-w-0 flex-wrap gap-x-2.5 gap-y-1">
+      {sortedLabels.map((label) => (
+        <span
           key={label.id}
-          variant="outline"
-          className="px-2 py-0.5 text-[10px] flex items-center"
+          data-slot="task-label"
+          className="flex max-w-full min-w-0 items-center gap-1.5 font-medium text-[10px] text-foreground/85"
         >
           <span
-            className="inline-block w-1.5 h-1.5 mr-1 rounded-full"
+            aria-hidden="true"
+            className="inline-block size-1.5 shrink-0 rounded-full"
             style={{
-              backgroundColor: validColor(label.color),
+              backgroundColor: resolveLabelColor(label.color),
             }}
           />
-          <span className="max-w-20 truncate">{label.name}</span>
-        </Badge>
+          <span className="min-w-0 truncate" title={label.name}>
+            {label.name}
+          </span>
+        </span>
       ))}
     </div>
   );

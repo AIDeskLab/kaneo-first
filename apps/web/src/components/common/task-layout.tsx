@@ -1,9 +1,9 @@
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys";
 import { useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import TaskCrumbSelect from "@/components/common/header/task-crumb-select";
 import Layout from "@/components/common/layout";
-import { KbdSequence } from "@/components/ui/kbd";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   Tooltip,
@@ -11,10 +11,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { shortcuts } from "@/constants/shortcuts";
 import useGetProject from "@/hooks/queries/project/use-get-project";
 import useGetTask from "@/hooks/queries/task/use-get-task";
 import { useProjectWebSocket } from "@/hooks/use-project-websocket";
+import { getProjectUnavailableReason } from "@/lib/project-unavailable-reason";
+import ProjectUnavailable from "./project-unavailable";
 
 type TaskLayoutProps = {
   taskId: string;
@@ -22,7 +23,7 @@ type TaskLayoutProps = {
   workspaceId: string;
   headerActions?: ReactNode;
   children: ReactNode;
-  rightSidebar?: ReactNode;
+  rail?: ReactNode;
 };
 
 export default function TaskLayout({
@@ -31,14 +32,18 @@ export default function TaskLayout({
   workspaceId,
   headerActions,
   children,
-  rightSidebar,
+  rail,
 }: TaskLayoutProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { data: project } = useGetProject({ id: projectId, workspaceId });
+  const { data: project, error: projectError } = useGetProject({
+    id: projectId,
+    workspaceId,
+  });
   const { data: task } = useGetTask(taskId);
+  const unavailableReason = getProjectUnavailableReason(projectError);
 
-  useProjectWebSocket(projectId);
+  useProjectWebSocket(unavailableReason ? "" : projectId);
 
   const taskLabel =
     project?.slug && task?.number != null
@@ -53,7 +58,7 @@ export default function TaskLayout({
   };
 
   return (
-    <Layout className="flex flex-col lg:flex-row">
+    <div data-task-view className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <div className="flex min-h-0 flex-1 flex-col">
         <Layout.Header className="h-11 border-border/80 px-2">
           <div className="flex w-full items-center justify-between gap-2">
@@ -66,12 +71,7 @@ export default function TaskLayout({
                   <TooltipContent>
                     <p className="flex items-center gap-2 text-[10px]">
                       Toggle sidebar
-                      <KbdSequence
-                        keys={[
-                          shortcuts.sidebar.prefix,
-                          shortcuts.sidebar.toggle,
-                        ]}
-                      />
+                      <ShortcutKeys id="toggleSidebar" />
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -103,25 +103,29 @@ export default function TaskLayout({
             </div>
 
             <div className="flex shrink-0 items-center gap-1.5">
-              {headerActions}
+              {unavailableReason ? null : headerActions}
             </div>
           </div>
         </Layout.Header>
 
         <Layout.Content>
-          <div className="flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
-            <div className="order-2 min-h-0 flex-1 overflow-y-auto overscroll-contain lg:order-1">
+          {unavailableReason ? (
+            <ProjectUnavailable
+              reason={unavailableReason}
+              workspaceId={workspaceId}
+            />
+          ) : (
+            <div className="h-full min-h-0 overflow-y-auto overscroll-y-contain">
               {children}
             </div>
-            <div className="order-1 border-b border-border/80 lg:order-2 lg:hidden">
-              {rightSidebar}
-            </div>
-          </div>
+          )}
         </Layout.Content>
       </div>
-      <div className="hidden border-l border-border/80 bg-card lg:flex lg:h-full lg:overflow-y-auto">
-        {rightSidebar}
-      </div>
-    </Layout>
+      {unavailableReason ? null : (
+        <div className="hidden border-border/80 border-l lg:flex lg:h-full lg:overflow-y-auto">
+          {rail}
+        </div>
+      )}
+    </div>
   );
 }

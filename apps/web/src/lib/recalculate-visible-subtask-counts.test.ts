@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { recalculateVisibleSubtaskCounts } from "@/lib/recalculate-visible-subtask-counts";
 import type { ProjectWithTasks } from "@/types/project";
 import type Task from "@/types/task";
@@ -45,6 +45,7 @@ describe("recalculateVisibleSubtaskCounts", () => {
           name: "To Do",
           icon: null,
           isFinal: false,
+          position: 0,
           tasks: [
             createTask({
               id: "parent",
@@ -68,6 +69,7 @@ describe("recalculateVisibleSubtaskCounts", () => {
           name: "Done",
           icon: null,
           isFinal: true,
+          position: 0,
           tasks: [],
         },
       ],
@@ -100,6 +102,7 @@ describe("recalculateVisibleSubtaskCounts", () => {
           name: "To Do",
           icon: null,
           isFinal: false,
+          position: 0,
           tasks: [
             createTask({
               id: "parent",
@@ -116,6 +119,7 @@ describe("recalculateVisibleSubtaskCounts", () => {
           name: "Done",
           icon: null,
           isFinal: true,
+          position: 0,
           tasks: [
             createTask({
               id: "done-child",

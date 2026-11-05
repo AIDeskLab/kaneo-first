@@ -1,66 +1,67 @@
-import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
+  type SortingStrategy,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useEffect } from "react";
+import { AnimatePresence, useReducedMotion } from "motion/react";
+import { memo } from "react";
 import type { ProjectWithTasks } from "@/types/project";
-import TaskCard from "../task-card";
+import DropzoneCard from "./dropzone-card";
+import { VirtualCardList } from "./virtual-card-list";
+
+const keepOrder: SortingStrategy = () => null;
+const VIRTUALIZE_AFTER = 40;
 
 type ColumnDropzoneProps = {
   column: ProjectWithTasks["columns"][number];
+  activeTaskId: string | null;
   disableDragDrop?: boolean;
-  onIsOverChange?: (isOver: boolean) => void;
+  disableSorting?: boolean;
+  animateEntries?: boolean;
+  scrollElement: HTMLDivElement | null;
 };
 
-export function ColumnDropzone({
+function ColumnDropzone({
   column,
+  activeTaskId,
   disableDragDrop = false,
-  onIsOverChange,
+  disableSorting = false,
+  animateEntries = true,
+  scrollElement,
 }: ColumnDropzoneProps) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: column.id,
-    data: {
-      type: "column",
-      column,
-    },
-  });
-
-  useEffect(() => {
-    onIsOverChange?.(isOver);
-  }, [isOver, onIsOverChange]);
-
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = Boolean(useReducedMotion());
 
   return (
-    <div ref={setNodeRef} className="flex-1 min-h-0">
-      <SortableContext
-        items={column.tasks}
-        strategy={verticalListSortingStrategy}
-      >
-        <div className="flex flex-col gap-2">
+    <SortableContext
+      items={column.tasks}
+      strategy={disableSorting ? keepOrder : verticalListSortingStrategy}
+    >
+      {column.tasks.length > VIRTUALIZE_AFTER ? (
+        <VirtualCardList
+          column={column}
+          activeTaskId={activeTaskId}
+          disableDragDrop={disableDragDrop}
+          scrollElement={scrollElement}
+        />
+      ) : (
+        <div className="flex flex-col gap-1.5">
           <AnimatePresence initial={false} mode="popLayout">
             {column.tasks.map((task) => (
-              <motion.div
+              <DropzoneCard
                 key={task.id}
-                initial={
-                  reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }
-                }
-                animate={
-                  reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }
-                }
-                exit={
-                  reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }
-                }
-                transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
-              >
-                <TaskCard task={task} disableDragDrop={disableDragDrop} />
-              </motion.div>
+                task={task}
+                isActive={task.id === activeTaskId}
+                animateEntry={animateEntries}
+                reduceMotion={reduceMotion}
+                disableDragDrop={disableDragDrop}
+                isFinalColumn={column.isFinal}
+              />
             ))}
           </AnimatePresence>
         </div>
-      </SortableContext>
-    </div>
+      )}
+    </SortableContext>
   );
 }
+
+export default memo(ColumnDropzone);

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import db, { schema } from "../../apps/api/src/database";
 import { createApp } from "../../apps/api/src/index";
 import { mockAuthenticatedSession } from "./helpers/auth";
@@ -9,6 +9,17 @@ import {
   createProjectFixture,
   createWorkspaceMember,
 } from "./helpers/fixtures";
+import { readErrorBody } from "./helpers/error-body";
+
+// Assignment notifications run in the background and can otherwise race the
+// next test's TRUNCATE. Notification access/delivery has its own DB suite;
+// these tests exercise the real authorization and resource mutations.
+vi.mock(
+  "../../apps/api/src/notification/controllers/create-notification",
+  () => ({
+    default: vi.fn(async () => null),
+  }),
+);
 
 type CreateTaskBody = {
   title: string;
@@ -21,6 +32,7 @@ async function seedTask(
   projectId: string,
   columnId: string | null,
   userId?: string,
+  status = "to-do",
 ) {
   const [task] = await db
     .insert(schema.taskTable)
@@ -29,7 +41,7 @@ async function seedTask(
       title: "Seeded task",
       description: "Existing",
       priority: "medium",
-      status: "to-do",
+      status,
       columnId,
       number: 1,
       position: 1,
@@ -100,7 +112,11 @@ describe("API integration: workspace RBAC enforcement", () => {
 
       const response = await postCreateTask(app, project.id);
       expect(response.status).toBe(403);
-      await expect(response.text()).resolves.toBe("Insufficient permissions");
+      expect(await readErrorBody(response)).toEqual({
+        message: "Insufficient permissions",
+        code: "MISSING_PERMISSION",
+        missingPermissions: ["task:create"],
+      });
 
       const persisted = await db.query.taskTable.findFirst({
         where: and(
@@ -153,23 +169,45 @@ describe("API integration: workspace RBAC enforcement", () => {
       expect(gone).toBeUndefined();
     });
 
-    it("allows an owner to delete a task (owner role grants task:delete)", async () => {
-      const member = await createWorkspaceMember({ role: "owner" });
-      const { project, columns } = await createProjectFixture({
-        workspaceId: member.workspace.id,
-      });
-      const task = await seedTask(project.id, columns.todo.id);
+    it.each([
+      ["To Do", "to-do", "todo"],
+      ["In Progress", "in-progress", "inProgress"],
+      ["In Review", "in-review", "inReview"],
+      ["Done", "done", "done"],
+    ] as const)(
+      "allows an owner to delete a task from %s",
+      async (_label, status, columnKey) => {
+        const member = await createWorkspaceMember({ role: "owner" });
+        const { project, columns } = await createProjectFixture({
+          workspaceId: member.workspace.id,
+        });
+        const task = await seedTask(
+          project.id,
+          columns[columnKey].id,
+          undefined,
+          status,
+        );
 
-      mockAuthenticatedSession(member.user);
-      const { app } = createApp();
+        mockAuthenticatedSession(member.user);
+        const { app } = createApp();
 
-      const response = await app.request(`/api/task/${task.id}`, {
-        method: "DELETE",
-      });
-      expect(response.status).toBe(200);
-    });
+        const response = await app.request(`/api/task/${task.id}`, {
+          method: "DELETE",
+        });
+        expect(response.status).toBe(200);
+        await expect(response.json()).resolves.toMatchObject({
+          id: task.id,
+          status,
+        });
 
-    it("returns 403 when the user has no row in workspace_member for the workspace", async () => {
+        const deletedTask = await db.query.taskTable.findFirst({
+          where: eq(schema.taskTable.id, task.id),
+        });
+        expect(deletedTask).toBeUndefined();
+      },
+    );
+
+    it("returns 404 when the user has no row in workspace_member for the workspace", async () => {
       const member = await createWorkspaceMember({ role: "admin" });
       const { project } = await createProjectFixture({
         workspaceId: member.workspace.id,
@@ -191,7 +229,8 @@ describe("API integration: workspace RBAC enforcement", () => {
 
       const response = await postCreateTask(app, project.id);
       // workspaceAccess.fromProject runs first and rejects with its own message
-      expect(response.status).toBe(403);
+      expect(response.status).toBe(404);
+      expect(await response.text()).toContain("Project not found");
     });
 
     it("does not authorize a project through a conflicting workspaceId query", async () => {
@@ -218,7 +257,7 @@ describe("API integration: workspace RBAC enforcement", () => {
         },
       );
 
-      expect(response.status).toBe(403);
+      expect(response.status).toBe(404);
     });
   });
 
@@ -302,7 +341,9 @@ describe("API integration: workspace RBAC enforcement", () => {
         workspaceId: member.workspace.id,
       });
       const { project: foreignProject, columns: foreignColumns } =
-        await createProjectFixture({ workspaceId: foreign.workspace.id });
+        await createProjectFixture({
+          workspaceId: foreign.workspace.id,
+        });
       const task = await seedTask(project.id, columns.todo.id);
       const foreignTask = await seedTask(
         foreignProject.id,
@@ -537,6 +578,64 @@ describe("API integration: workspace RBAC enforcement", () => {
           weird: { nested: true },
         }),
       );
+
+      mockAuthenticatedSession(member.user);
+      const { app } = createApp();
+
+      const response = await postCreateTask(app, project.id);
+      expect(response.status).toBe(200);
+    });
+
+    it("allows a member with several roles when any role grants the permission", async () => {
+      const member = await createWorkspaceMember({ role: "readonly,member" });
+      const { project } = await createProjectFixture({
+        workspaceId: member.workspace.id,
+      });
+      await createWorkspaceRoleRow(member.workspace.id, "readonly", {
+        task: ["read"],
+      });
+
+      mockAuthenticatedSession(member.user);
+      const { app } = createApp();
+
+      const response = await postCreateTask(app, project.id);
+      expect(response.status).toBe(200);
+    });
+
+    it("blocks a member with several roles when no role grants the permission", async () => {
+      const member = await createWorkspaceMember({ role: "readonly,viewer" });
+      const { project } = await createProjectFixture({
+        workspaceId: member.workspace.id,
+      });
+      await createWorkspaceRoleRow(member.workspace.id, "readonly", {
+        task: ["read"],
+      });
+
+      mockAuthenticatedSession(member.user);
+      const { app } = createApp();
+
+      const response = await postCreateTask(app, project.id);
+      expect(response.status).toBe(403);
+      expect(await readErrorBody(response)).toEqual({
+        message: "Insufficient permissions",
+        code: "MISSING_PERMISSION",
+        missingPermissions: ["task:create"],
+      });
+    });
+
+    it("allows a role when any duplicate workspace_role row grants the permission", async () => {
+      const member = await createWorkspaceMember({ role: "creator" });
+      const { project } = await createProjectFixture({
+        workspaceId: member.workspace.id,
+      });
+      await createWorkspaceRoleRow(member.workspace.id, "creator", {
+        task: ["read"],
+        project: ["read"],
+      });
+      await createWorkspaceRoleRow(member.workspace.id, "creator", {
+        task: ["create", "read"],
+        project: ["read"],
+      });
 
       mockAuthenticatedSession(member.user);
       const { app } = createApp();
@@ -1029,7 +1128,9 @@ describe("API integration: workspace RBAC enforcement", () => {
 
       const response = await app.request(
         `/api/slack-integration/project/${project.id}`,
-        { method: "DELETE" },
+        {
+          method: "DELETE",
+        },
       );
       expect(response.status).toBe(403);
     });

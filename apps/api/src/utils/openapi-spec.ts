@@ -256,8 +256,8 @@ export const mergeOpenApiSpecs = (
   authSpec: Record<string, unknown>,
 ) => {
   const mergeRecord = (a: unknown, b: unknown): Record<string, unknown> => ({
-    ...((a as Record<string, unknown>) || {}),
-    ...((b as Record<string, unknown>) || {}),
+    ...(a as Record<string, unknown>),
+    ...(b as Record<string, unknown>),
   });
 
   const mergeArray = (a: unknown, b: unknown): unknown[] => [

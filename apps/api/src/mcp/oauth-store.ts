@@ -1,25 +1,30 @@
-import { and, count, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, count, eq, gt, sql } from "drizzle-orm";
+import { HTTPException } from "hono/http-exception";
 import db from "../database";
 import { mcpOauthStateTable } from "../database/schema";
 
-export type OauthStateKind = "client" | "code" | "rate" | "request";
+export type OauthStateKind = "client" | "code" | "request";
+export const OAUTH_STATE_LIMITS = {
+  client: { rows: 1_000, perMinute: 60, perClient: 0, lock: 1 },
+  request: { rows: 10_000, perMinute: 300, perClient: 20, lock: 2 },
+  code: { rows: 10_000, perMinute: 300, perClient: 20, lock: 3 },
+} as const;
+export const OAUTH_PAYLOAD_BYTES = 32 * 1024;
+export const EXPIRED_STATE_BATCH = 100;
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-type RateLimitResult = {
-  allowed: boolean;
-  retryAfterSeconds: number;
-};
-
-export type FixedWindowRateLimit = {
-  key: string;
-  maxRequests: number;
-  windowMs: number;
-};
-
-export class StateCapacityError extends Error {
-  constructor() {
-    super("OAuth state capacity reached");
-    this.name = "StateCapacityError";
-  }
+async function sweepExpired(dbOrTx: typeof db | Transaction) {
+  // Never issue an unbounded delete or evict a live consent request. Fixed
+  // rate-counter rows are reused rather than accumulated per time window.
+  // Drizzle stores these timezone-less timestamps as UTC; compare in UTC too.
+  await dbOrTx.execute(sql`
+    DELETE FROM ${mcpOauthStateTable} WHERE id IN (
+      SELECT id FROM ${mcpOauthStateTable}
+      WHERE kind <> 'rate' AND expires_at <= (now() AT TIME ZONE 'UTC')
+      ORDER BY expires_at LIMIT ${EXPIRED_STATE_BATCH}
+      FOR UPDATE SKIP LOCKED
+    )
+  `);
 }
 
 export async function putState(
@@ -27,81 +32,132 @@ export async function putState(
   key: string,
   payload: unknown,
   expiresAt: Date,
+  consumeRequestId?: string,
 ): Promise<void> {
-  await db.insert(mcpOauthStateTable).values({ kind, key, payload, expiresAt });
-}
-
-export async function putStateWithCap(
-  kind: OauthStateKind,
-  key: string,
-  payload: unknown,
-  expiresAt: Date,
-  maxRows: number,
-): Promise<void> {
-  if (!Number.isSafeInteger(maxRows) || maxRows < 1) {
-    throw new Error("State cap must be a positive integer");
+  const serialized = JSON.stringify(payload);
+  if (
+    typeof serialized !== "string" ||
+    Buffer.byteLength(serialized) > OAUTH_PAYLOAD_BYTES ||
+    key.length > 128
+  ) {
+    throw new HTTPException(413, { message: "OAuth state is too large" });
   }
-
-  await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`SELECT pg_advisory_xact_lock(1527, hashtext(${kind}))`,
+  const clientId =
+    payload && typeof payload === "object" && "clientId" in payload
+      ? payload.clientId
+      : undefined;
+  const limits = OAUTH_STATE_LIMITS[kind];
+  const denial = await db.transaction(async (tx) => {
+    // Separate fixed locks keep a registration flood from occupying the code
+    // issuance lock. Try-lock bounds the queue during concurrent floods.
+    const lock = await tx.execute<{ acquired: boolean; nowMs: number }>(
+      sql`SELECT pg_try_advisory_xact_lock(773621, ${limits.lock}) AS acquired, (extract(epoch FROM now()) * 1000)::double precision AS "nowMs"`,
     );
-    await tx
-      .delete(mcpOauthStateTable)
+    if (!lock.rows[0]?.acquired) return "busy";
+    const now = new Date(Number(lock.rows[0].nowMs));
+    await sweepExpired(tx);
+    const [rate] = await tx
+      .select()
+      .from(mcpOauthStateTable)
       .where(
         and(
-          eq(mcpOauthStateTable.kind, kind),
-          lte(mcpOauthStateTable.expiresAt, new Date()),
+          eq(mcpOauthStateTable.kind, "rate"),
+          eq(mcpOauthStateTable.key, kind),
         ),
+      )
+      .limit(1);
+    const used =
+      rate && rate.expiresAt > now
+        ? Number((rate.payload as { count?: number }).count ?? 0)
+        : 0;
+    if (!Number.isSafeInteger(used) || used < 0 || used >= limits.perMinute)
+      return "rate";
+    const [total] = await tx
+      .select({ total: count() })
+      .from(
+        tx
+          .select({ id: mcpOauthStateTable.id })
+          .from(mcpOauthStateTable)
+          .where(eq(mcpOauthStateTable.kind, kind))
+          .limit(limits.rows)
+          .as("bounded_states"),
       );
-
-    const [countRow] = await tx
-      .select({ pending: count() })
-      .from(mcpOauthStateTable)
-      .where(eq(mcpOauthStateTable.kind, kind));
-    if ((countRow?.pending ?? 0) >= maxRows) throw new StateCapacityError();
-
-    await tx
-      .insert(mcpOauthStateTable)
-      .values({ kind, key, payload, expiresAt });
-  });
-}
-
-export async function putAuthorizationRequestWithCaps(
-  key: string,
-  payload: { clientId: string } & Record<string, unknown>,
-  expiresAt: Date,
-  globalCap: number,
-  clientCap: number,
-): Promise<void> {
-  await db.transaction(async (tx) => {
-    // One global lock makes the cleanup, both counts, and insert atomic across replicas.
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(1528, 1)`);
-    await tx
-      .delete(mcpOauthStateTable)
-      .where(
-        and(
-          eq(mcpOauthStateTable.kind, "request"),
-          lte(mcpOauthStateTable.expiresAt, new Date()),
-        ),
+    if ((total?.total ?? limits.rows) >= limits.rows) return "capacity";
+    if (limits.perClient && typeof clientId === "string") {
+      const [clientTotal] = await tx.select({ total: count() }).from(
+        tx
+          .select({ id: mcpOauthStateTable.id })
+          .from(mcpOauthStateTable)
+          .where(
+            and(
+              eq(mcpOauthStateTable.kind, kind),
+              sql`${mcpOauthStateTable.payload}->>'clientId' = ${clientId}`,
+            ),
+          )
+          .limit(limits.perClient)
+          .as("bounded_client_states"),
       );
-    const [counts] = await tx
-      .select({
-        total: count(),
-        forClient: sql<number>`count(*) filter (where ${mcpOauthStateTable.payload}->>'clientId' = ${payload.clientId})`,
-      })
-      .from(mcpOauthStateTable)
-      .where(eq(mcpOauthStateTable.kind, "request"));
-    if (
-      (counts?.total ?? 0) >= globalCap ||
-      Number(counts?.forClient ?? 0) >= clientCap
-    ) {
-      throw new StateCapacityError();
+      if ((clientTotal?.total ?? limits.perClient) >= limits.perClient)
+        return "client";
+    }
+    if (consumeRequestId) {
+      const consumed = await tx
+        .delete(mcpOauthStateTable)
+        .where(
+          and(
+            eq(mcpOauthStateTable.kind, "request"),
+            eq(mcpOauthStateTable.key, consumeRequestId),
+            gt(mcpOauthStateTable.expiresAt, now),
+          ),
+        )
+        .returning({ id: mcpOauthStateTable.id });
+      if (!consumed.length) return "missing-request";
     }
     await tx
       .insert(mcpOauthStateTable)
-      .values({ kind: "request", key, payload, expiresAt });
+      .values({ kind, key, payload, expiresAt });
+    const rateExpires = new Date(
+      (Math.floor(now.getTime() / 60_000) + 1) * 60_000,
+    );
+    await tx
+      .insert(mcpOauthStateTable)
+      .values({
+        kind: "rate",
+        key: kind,
+        payload: { count: used + 1 },
+        expiresAt: rateExpires,
+      })
+      .onConflictDoUpdate({
+        target: [mcpOauthStateTable.kind, mcpOauthStateTable.key],
+        set: { payload: { count: used + 1 }, expiresAt: rateExpires },
+      });
+    return null;
   });
+  // Return denials outside the transaction: expired-row cleanup must commit
+  // even when a legacy over-cap table refuses this insert.
+  if (denial === "missing-request")
+    throw new HTTPException(404, {
+      res: Response.json(
+        { error: "invalid_or_expired_request" },
+        { status: 404 },
+      ),
+    });
+  if (denial)
+    throw new HTTPException(429, {
+      res: Response.json(
+        {
+          error: "temporarily_unavailable",
+          error_description: "OAuth capacity reached; retry later",
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": denial === "busy" ? "1" : "60",
+            "Cache-Control": "no-store",
+          },
+        },
+      ),
+    });
 }
 
 export async function getState<T>(
@@ -117,7 +173,7 @@ export async function getState<T>(
     .limit(1);
 
   if (!row) return null;
-  if (row.expiresAt.getTime() < Date.now()) return null;
+  if (row.expiresAt.getTime() <= Date.now()) return null;
   return row.payload as T;
 }
 
@@ -134,130 +190,10 @@ export async function consumeState<T>(
     .returning();
 
   if (!row) return null;
-  if (row.expiresAt.getTime() < Date.now()) return null;
+  if (row.expiresAt.getTime() <= Date.now()) return null;
   return row.payload as T;
 }
 
 export async function deleteExpiredStates(): Promise<void> {
-  await db
-    .delete(mcpOauthStateTable)
-    .where(lte(mcpOauthStateTable.expiresAt, new Date()));
-}
-
-export async function consumeFixedWindowRateLimit(
-  key: string,
-  maxRequests: number,
-  windowMs: number,
-): Promise<RateLimitResult> {
-  return consumeFixedWindowRateLimits([{ key, maxRequests, windowMs }]);
-}
-
-export async function consumeFixedWindowRateLimits(
-  limits: FixedWindowRateLimit[],
-): Promise<RateLimitResult> {
-  if (limits.length === 0) {
-    throw new Error("At least one rate limit is required");
-  }
-  for (const limit of limits) {
-    if (
-      !limit.key ||
-      !Number.isSafeInteger(limit.maxRequests) ||
-      limit.maxRequests < 1 ||
-      !Number.isSafeInteger(limit.windowMs) ||
-      limit.windowMs < 1
-    ) {
-      throw new Error("Rate limits require a key and positive integer bounds");
-    }
-  }
-  const keys = [...new Set(limits.map(({ key }) => key))].sort();
-  if (keys.length !== limits.length) {
-    throw new Error("Rate limit keys must be unique");
-  }
-
-  return db.transaction(async (tx) => {
-    for (const key of keys) {
-      await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(1526, hashtext(${key}))`,
-      );
-    }
-
-    const now = new Date();
-    await tx
-      .delete(mcpOauthStateTable)
-      .where(
-        and(
-          eq(mcpOauthStateTable.kind, "rate"),
-          lte(mcpOauthStateTable.expiresAt, now),
-        ),
-      );
-
-    const rows = await tx
-      .select()
-      .from(mcpOauthStateTable)
-      .where(
-        and(
-          eq(mcpOauthStateTable.kind, "rate"),
-          inArray(mcpOauthStateTable.key, keys),
-        ),
-      );
-    const rowsByKey = new Map(rows.map((row) => [row.key, row]));
-    const states = limits.map((limit) => {
-      const row = rowsByKey.get(limit.key);
-      const countValue = (row?.payload as { count?: unknown } | undefined)
-        ?.count;
-      const currentCount =
-        row &&
-        typeof countValue === "number" &&
-        Number.isSafeInteger(countValue)
-          ? countValue
-          : row
-            ? limit.maxRequests
-            : 0;
-      const retryAfterSeconds = row
-        ? Math.max(
-            1,
-            Math.ceil((row.expiresAt.getTime() - now.getTime()) / 1000),
-          )
-        : Math.ceil(limit.windowMs / 1000);
-      return { limit, row, currentCount, retryAfterSeconds };
-    });
-    const denied = states.filter(
-      ({ limit, currentCount }) => currentCount >= limit.maxRequests,
-    );
-    if (denied.length > 0) {
-      return {
-        allowed: false,
-        retryAfterSeconds: Math.max(
-          ...denied.map(({ retryAfterSeconds }) => retryAfterSeconds),
-        ),
-      };
-    }
-
-    for (const { limit, row, currentCount } of states) {
-      if (row) {
-        await tx
-          .update(mcpOauthStateTable)
-          .set({ payload: { count: currentCount + 1 }, updatedAt: now })
-          .where(
-            and(
-              eq(mcpOauthStateTable.kind, "rate"),
-              eq(mcpOauthStateTable.key, limit.key),
-            ),
-          );
-      } else {
-        await tx.insert(mcpOauthStateTable).values({
-          kind: "rate",
-          key: limit.key,
-          payload: { count: 1 },
-          expiresAt: new Date(now.getTime() + limit.windowMs),
-        });
-      }
-    }
-    return {
-      allowed: true,
-      retryAfterSeconds: Math.max(
-        ...states.map(({ retryAfterSeconds }) => retryAfterSeconds),
-      ),
-    };
-  });
+  await sweepExpired(db);
 }

@@ -6,7 +6,14 @@ import {
   waitFor,
 } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 import { Route } from "./verify-otp";
 
 const emailOtp = vi.fn();
@@ -23,6 +30,7 @@ vi.mock("@tanstack/react-router", () => ({
   Link: ({ children }: { children: ReactNode }) => <a href="/">{children}</a>,
   useRouter: () => ({ history: { push } }),
   useSearch: () => search,
+  useLocation: () => ({ state: null }),
 }));
 
 vi.mock("@/components/ui/input-otp", () => ({
@@ -68,6 +76,10 @@ vi.mock("@/lib/auth-client", () => ({
 
 vi.mock("@/lib/toast", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
+}));
+
+vi.mock("@/hooks/queries/config/use-get-config", () => ({
+  default: () => ({ data: undefined }),
 }));
 
 vi.mock("react-i18next", () => ({

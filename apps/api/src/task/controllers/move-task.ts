@@ -1,14 +1,20 @@
-import { and, asc, eq, max } from "drizzle-orm";
+import { and, asc, eq, isNotNull, notInArray } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import {
   assetTable,
   columnTable,
+  externalLinkTable,
+  integrationTable,
   projectTable,
   taskTable,
 } from "../../database/schema";
 import { publishEvent } from "../../events";
+import createActivities from "../../activity/controllers/create-activities";
+import { assertProjectAccess } from "../../project-access/assert-project-access";
+import { filterUsersWithProjectAccess } from "../../project-access/filter-users-with-project-access";
 import { claimTaskNumber } from "./claim-task-numbers";
+import { nextTaskPosition } from "./next-task-position";
 import { lockWorkspaceTaskHierarchy } from "./task-cascade";
 
 type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -61,26 +67,6 @@ async function resolveDestinationStatus(
   return requestedColumn ?? matchingCurrentColumn ?? firstColumn;
 }
 
-async function getNextTaskPosition(
-  dbOrTx: DbOrTx,
-  projectId: string,
-  status: string,
-  columnId: string,
-) {
-  const [maxPositionResult] = await dbOrTx
-    .select({ maxPosition: max(taskTable.position) })
-    .from(taskTable)
-    .where(
-      and(
-        eq(taskTable.projectId, projectId),
-        eq(taskTable.status, status),
-        eq(taskTable.columnId, columnId),
-      ),
-    );
-
-  return (maxPositionResult?.maxPosition ?? 0) + 1;
-}
-
 async function moveTask({
   taskId,
   destinationProjectId,
@@ -124,10 +110,13 @@ async function moveTask({
   }
 
   if (sourceProject.workspaceId !== destinationProject.workspaceId) {
-    throw new HTTPException(400, {
-      message: "Tasks can only be moved within the same workspace",
+    // Same response as a missing destination: do not reveal another workspace.
+    throw new HTTPException(404, {
+      message: "Project not found",
     });
   }
+
+  await assertProjectAccess(currentUserId, destinationProjectId);
 
   const {
     movedTask,
@@ -215,15 +204,13 @@ async function moveTask({
       destinationStatus,
     );
 
-    const [nextTaskNumber, nextPosition] = await Promise.all([
-      claimTaskNumber(destinationProjectId, tx),
-      getNextTaskPosition(
-        tx,
-        destinationProjectId,
-        resolvedColumn.slug,
-        resolvedColumn.id,
-      ),
-    ]);
+    const nextTaskNumber = await claimTaskNumber(destinationProjectId, tx);
+    const nextPosition = await nextTaskPosition(
+      tx,
+      destinationProjectId,
+      resolvedColumn.slug,
+      resolvedColumn.id,
+    );
 
     const [updatedTask] = await tx
       .update(taskTable)
@@ -243,13 +230,61 @@ async function moveTask({
       });
     }
 
+    let movedTask = updatedTask;
+    const assigneeId = updatedTask.userId;
+    if (
+      assigneeId &&
+      !(
+        await filterUsersWithProjectAccess(
+          [assigneeId],
+          destinationProjectId,
+          tx,
+        )
+      ).has(assigneeId)
+    ) {
+      const [unassignedTask] = await tx
+        .update(taskTable)
+        .set({ userId: null })
+        .where(eq(taskTable.id, taskId))
+        .returning();
+      movedTask = unassignedTask ?? { ...updatedTask, userId: null };
+      await createActivities(
+        [
+          {
+            taskId,
+            type: "unassigned",
+            userId: currentUserId,
+            content: null,
+            eventData: {},
+          },
+        ],
+        tx,
+      );
+    }
+
+    await tx
+      .delete(externalLinkTable)
+      .where(
+        and(
+          eq(externalLinkTable.taskId, taskId),
+          isNotNull(externalLinkTable.integrationId),
+          notInArray(
+            externalLinkTable.integrationId,
+            tx
+              .select({ id: integrationTable.id })
+              .from(integrationTable)
+              .where(eq(integrationTable.projectId, destinationProjectId)),
+          ),
+        ),
+      );
+
     await tx
       .update(assetTable)
       .set({ projectId: destinationProjectId })
       .where(eq(assetTable.taskId, taskId));
 
     return {
-      movedTask: updatedTask,
+      movedTask,
       sourceProjectSnapshot: lockedSourceProject,
       destinationProjectSnapshot: lockedDestinationProject,
       oldStatus: lockedTask.status,

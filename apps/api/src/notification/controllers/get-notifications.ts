@@ -7,7 +7,22 @@ import {
   workspaceTable,
 } from "../../database/schema";
 
-async function getNotifications(userId: string) {
+import type { PermissionMap } from "../../utils/role-permissions";
+import { notificationReadAccess } from "../resource-access";
+import { notificationWorkspaceFilter } from "../workspace-filter";
+
+async function getNotifications(
+  userId: string,
+  workspaceId?: string,
+  apiKeyPermissions?: PermissionMap | null,
+) {
+  const access = await notificationReadAccess(
+    userId,
+    notificationTable.resourceId,
+    notificationTable.resourceType,
+    apiKeyPermissions,
+    workspaceId,
+  );
   const rows = await db
     .select({
       notification: notificationTable,
@@ -24,7 +39,13 @@ async function getNotifications(userId: string) {
     )
     .leftJoin(projectTable, eq(taskTable.projectId, projectTable.id))
     .leftJoin(workspaceTable, eq(projectTable.workspaceId, workspaceTable.id))
-    .where(eq(notificationTable.userId, userId))
+    .where(
+      and(
+        eq(notificationTable.userId, userId),
+        notificationWorkspaceFilter(workspaceId),
+        access,
+      ),
+    )
     .orderBy(desc(notificationTable.createdAt))
     .limit(50);
 

@@ -1,5 +1,7 @@
 import { client } from "@kaneo/libs";
 
+import { HttpError } from "@/lib/http-error";
+
 async function getGiteaIntegration(projectId: string) {
   const response = await client["gitea-integration"].project[":projectId"].$get(
     {
@@ -8,12 +10,15 @@ async function getGiteaIntegration(projectId: string) {
   );
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error);
+    throw await HttpError.fromResponse(response);
   }
 
   const data = await response.json();
   return data;
 }
+
+export type GiteaIntegration = NonNullable<
+  Awaited<ReturnType<typeof getGiteaIntegration>>
+>;
 
 export default getGiteaIntegration;

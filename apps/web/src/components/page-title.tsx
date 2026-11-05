@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 type PageTitleProps = {
-  title: string;
+  title?: string;
   suffix?: string;
   hideAppName?: boolean;
 };
@@ -12,6 +12,7 @@ export default function PageTitle({
   hideAppName = false,
 }: PageTitleProps) {
   useEffect(() => {
+    if (!title) return;
     const formattedTitle = hideAppName
       ? title
       : suffix

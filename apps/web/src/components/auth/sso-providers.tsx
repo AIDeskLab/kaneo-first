@@ -1,6 +1,7 @@
-import { Github, KeyRound } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Github } from "@/components/icons/github";
 import { Button } from "@/components/ui/button";
 import type { GetConfigResponse } from "@/fetchers/config/get-config";
 import { authClient } from "@/lib/auth-client";
@@ -13,6 +14,8 @@ type Props = {
   errorCallbackURL: string;
   lastLoginMethod?: string | null;
   disabled?: boolean;
+  captchaToken?: string | null;
+  onCaptchaReset?: () => void;
 };
 
 export function SSOProviders({
@@ -21,6 +24,8 @@ export function SSOProviders({
   errorCallbackURL,
   lastLoginMethod,
   disabled = false,
+  captchaToken,
+  onCaptchaReset,
 }: Props) {
   const { t } = useTranslation();
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
@@ -31,12 +36,20 @@ export function SSOProviders({
   ) => {
     setLoadingProvider(provider);
     try {
-      const result = await authClient.signIn.social({
-        provider,
-        callbackURL,
-        errorCallbackURL,
-      });
-      if (result.error) throw new Error(result.error.message);
+      const result = await authClient.signIn.social(
+        {
+          provider,
+          callbackURL,
+          errorCallbackURL,
+        },
+        captchaToken
+          ? { headers: { "x-turnstile-token": captchaToken } }
+          : undefined,
+      );
+      if (result.error) {
+        onCaptchaReset?.();
+        throw new Error(result.error.message);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t(errorKey));
     } finally {
@@ -47,12 +60,20 @@ export function SSOProviders({
   const handleCustomOAuth = async () => {
     setLoadingProvider("custom");
     try {
-      const result = await authClient.signIn.oauth2({
-        providerId: "custom",
-        callbackURL,
-        errorCallbackURL,
-      });
-      if (result.error) throw new Error(result.error.message);
+      const result = await authClient.signIn.social(
+        {
+          provider: "custom",
+          callbackURL,
+          errorCallbackURL,
+        },
+        captchaToken
+          ? { headers: { "x-turnstile-token": captchaToken } }
+          : undefined,
+      );
+      if (result.error) {
+        onCaptchaReset?.();
+        throw new Error(result.error.message);
+      }
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : t("auth:signIn.oidcError"),

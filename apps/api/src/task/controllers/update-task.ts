@@ -2,8 +2,13 @@ import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { projectTable, taskTable } from "../../database/schema";
+import {
+  publishTaskMutation,
+  recordTaskMutation,
+} from "./task-mutation-effects";
 import { publishEvent } from "../../events";
-import { deleteOrphanedAssets } from "../../storage/cleanup-assets";
+import { assertAssignableUser } from "../../utils/assert-assignable-user";
+import { BOARD_DESCRIPTION_MAX_BYTES } from "../description-pages";
 import { lockWorkspaceTaskHierarchy } from "./task-cascade";
 import { updateTaskHierarchyStatus } from "./update-task-hierarchy-status";
 import {
@@ -18,7 +23,7 @@ async function updateTask(
   startDate: Date | undefined,
   dueDate: Date | undefined,
   projectId: string,
-  description: string,
+  description: string | undefined,
   priority: string,
   position: number,
   userId?: string,
@@ -28,9 +33,14 @@ async function updateTask(
   const [existingTask] = await db
     .select({
       id: taskTable.id,
+      title: taskTable.title,
       description: taskTable.description,
       status: taskTable.status,
+      priority: taskTable.priority,
+      dueDate: taskTable.dueDate,
+      userId: taskTable.userId,
       projectId: taskTable.projectId,
+      position: taskTable.position,
     })
     .from(taskTable)
     .where(eq(taskTable.id, id))
@@ -55,8 +65,8 @@ async function updateTask(
   });
   if (!project) throw new HTTPException(404, { message: "Project not found" });
 
-  const { changedTasks, refreshProjectIds, updatedTask } = await db.transaction(
-    async (tx) => {
+  const { changedTasks, refreshProjectIds, updatedTask, previousAssigneeId } =
+    await db.transaction(async (tx) => {
       await lockWorkspaceTaskHierarchy(tx, project.workspaceId);
 
       const requestedAssigneeId = normalizedUserId ?? null;
@@ -71,8 +81,14 @@ async function updateTask(
 
       const [lockedTask] = await tx
         .select({
+          id: taskTable.id,
+          title: taskTable.title,
+          status: taskTable.status,
+          priority: taskTable.priority,
+          dueDate: taskTable.dueDate,
           userId: taskTable.userId,
           projectId: taskTable.projectId,
+          position: taskTable.position,
         })
         .from(taskTable)
         .where(eq(taskTable.id, id))
@@ -93,6 +109,35 @@ async function updateTask(
           message: "Task project changed while the task was being updated",
         });
       }
+      if (
+        lockedTask.position !== existingTask.position ||
+        lockedTask.status !== existingTask.status
+      ) {
+        throw new HTTPException(409, {
+          message: "Task order changed; refresh before updating",
+        });
+      }
+      if (requestedAssigneeId && requestedAssigneeId !== lockedTask.userId) {
+        await assertAssignableUser(
+          requestedAssigneeId,
+          project.workspaceId,
+          lockedTask.projectId,
+          tx,
+        );
+      }
+
+      await recordTaskMutation(
+        tx,
+        lockedTask,
+        {
+          title,
+          status,
+          priority,
+          dueDate: dueDate || null,
+          userId: requestedAssigneeId,
+        },
+        currentUserId,
+      );
 
       // Status cascades to all recursive "subtask" descendants; other fields
       // (priority/assignee/dates/etc.) apply only to the root task.
@@ -109,7 +154,7 @@ async function updateTask(
           title,
           startDate: startDate || null,
           dueDate: dueDate || null,
-          description,
+          ...(description !== undefined ? { description } : {}),
           priority,
           position,
           userId: requestedAssigneeId,
@@ -121,9 +166,12 @@ async function updateTask(
         throw new HTTPException(404, { message: "Task not found" });
       }
 
-      return { ...hierarchyResult, updatedTask: task };
-    },
-  );
+      return {
+        ...hierarchyResult,
+        updatedTask: task,
+        previousAssigneeId: lockedTask.userId,
+      };
+    });
 
   for (const changed of changedTasks) {
     await publishEvent("task.status_changed", {
@@ -145,6 +193,27 @@ async function updateTask(
     });
   }
 
+  await publishTaskMutation(existingTask, updatedTask, currentUserId, {
+    fields: ["title", "priority", "description", "dueDate"],
+    skipRelationRefresh: true,
+    skipSubtaskParentRefresh: true,
+  });
+
+  if ((previousAssigneeId ?? null) !== (normalizedUserId ?? null)) {
+    await publishEvent(
+      normalizedUserId ? "task.assignee_changed" : "task.unassigned",
+      {
+        taskId: updatedTask.id,
+        projectId: updatedTask.projectId,
+        userId: currentUserId,
+        oldAssignee: previousAssigneeId,
+        newAssigneeId: normalizedUserId ?? null,
+        title: updatedTask.title,
+        type: normalizedUserId ? "assignee_changed" : "unassigned",
+      },
+    );
+  }
+
   await publishEvent("task.updated", {
     taskId: updatedTask.id,
     projectId: updatedTask.projectId,
@@ -153,13 +222,16 @@ async function updateTask(
     userId: currentUserId,
   });
 
-  if (existingTask.description !== description) {
-    deleteOrphanedAssets(existingTask.description, description, {
-      taskId: id,
-    }).catch(() => {});
-  }
-
-  return updatedTask;
+  const descriptionBytes = Buffer.byteLength(
+    updatedTask.description ?? "",
+    "utf8",
+  );
+  const descriptionDeferred = descriptionBytes > BOARD_DESCRIPTION_MAX_BYTES;
+  return {
+    ...updatedTask,
+    description: descriptionDeferred ? null : updatedTask.description,
+    descriptionDeferred,
+  };
 }
 
 export default updateTask;

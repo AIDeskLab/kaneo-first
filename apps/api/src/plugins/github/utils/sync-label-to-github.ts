@@ -1,7 +1,10 @@
 import { eq } from "drizzle-orm";
 import db from "../../../database";
 import { externalLinkTable } from "../../../database/schema";
-import { getInstallationOctokit } from "./github-app";
+import type { GitHubConfig } from "../config";
+import { canSyncTask } from "../../sync/eligibility";
+import { dispatchIssueWrite } from "../../sync/dispatch-issue-write";
+import { getVerifiedInstallationOctokit } from "./github-app";
 import { removeLabel } from "./labels";
 
 const namedColorToHex: Record<string, string> = {
@@ -100,9 +103,14 @@ async function getGitHubContextsFromLinks(
     if (!Number.isSafeInteger(issueNumber) || issueNumber <= 0) {
       throw new Error("GitHub issue external ID is invalid");
     }
-    const octokit = await getInstallationOctokit(installationId);
+    if (!(await canSyncTask(externalLink.taskId, integration.id))) continue;
+    const octokit = await getVerifiedInstallationOctokit(
+      config as GitHubConfig,
+    );
     if (!octokit) throw new Error("GitHub client could not be created");
     contexts.push({
+      externalLink,
+      expectedConfig: integration.config,
       octokit,
       owner: repositoryOwner,
       repo: repositoryName,
@@ -119,17 +127,30 @@ export async function syncLabelToGitHub(
 ) {
   const contexts = await getGitHubContexts(taskId);
   const color = toHexColor(labelColor);
-  for (const { octokit, owner, repo, issueNumber } of contexts) {
+  for (const {
+    externalLink,
+    expectedConfig,
+    octokit,
+    owner,
+    repo,
+    issueNumber,
+  } of contexts) {
     try {
       await octokit.rest.issues.getLabel({ owner, repo, name: labelName });
     } catch {
       try {
-        await octokit.rest.issues.createLabel({
-          owner,
-          repo,
-          name: labelName,
-          color,
-        });
+        const created = await dispatchIssueWrite(
+          externalLink,
+          expectedConfig,
+          () =>
+            octokit.rest.issues.createLabel({
+              owner,
+              repo,
+              name: labelName,
+              color,
+            }),
+        );
+        if (!created) return;
       } catch (createError: unknown) {
         if (
           !(
@@ -143,18 +164,31 @@ export async function syncLabelToGitHub(
         }
       }
     }
-    await octokit.rest.issues.addLabels({
-      owner,
-      repo,
-      issue_number: issueNumber,
-      labels: [labelName],
-    });
+    const added = await dispatchIssueWrite(externalLink, expectedConfig, () =>
+      octokit.rest.issues.addLabels({
+        owner,
+        repo,
+        issue_number: issueNumber,
+        labels: [labelName],
+      }),
+    );
+    if (!added) return;
   }
 }
 
 export async function removeLabelFromGitHub(taskId: string, labelName: string) {
   const contexts = await getGitHubContexts(taskId);
-  for (const { octokit, owner, repo, issueNumber } of contexts) {
-    await removeLabel(octokit, owner, repo, issueNumber, labelName);
+  for (const {
+    externalLink,
+    expectedConfig,
+    octokit,
+    owner,
+    repo,
+    issueNumber,
+  } of contexts) {
+    const removed = await dispatchIssueWrite(externalLink, expectedConfig, () =>
+      removeLabel(octokit, owner, repo, issueNumber, labelName),
+    );
+    if (!removed) return;
   }
 }

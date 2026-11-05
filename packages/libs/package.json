@@ -1,23 +1,26 @@
 {
-	"name": "@kaneo/libs",
-	"version": "0.0.0",
-	"main": "./src/index.ts",
-	"types": "./src/index.ts",
-	"license": "MIT",
-	"scripts": {
-		"lint": "biome check --write .",
-		"test": "vitest run --config vitest.config.ts",
-		"test:watch": "vitest --config vitest.config.ts"
-	},
-	"devDependencies": {
-		"@types/react": "^19.2.17",
-		"@types/react-dom": "^19.2.3",
-		"@kaneo/api": "workspace:*",
-		"hono": "^4.12.34",
-		"react": "^19.2.7",
-		"@kaneo/typescript-config": "workspace:*",
-		"typescript": "^5.9.2",
-		"vite": "^7.3.5",
-		"vitest": "^4.1.10"
-	}
+  "name": "@kaneo/libs",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "license": "MIT",
+  "scripts": {
+    "lint": "vp check .",
+    "test": "vp run test:run",
+    "typecheck": "vp run check:types",
+    "test:watch": "vp test --config vitest.config.ts"
+  },
+  "devDependencies": {
+    "@kaneo/api": "workspace:*",
+    "@kaneo/typescript-config": "workspace:*",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "hono": "^4.13.14",
+    "react": "^19.3.1",
+    "typescript": "^7.0.2",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "^4.1.10"
+  }
 }

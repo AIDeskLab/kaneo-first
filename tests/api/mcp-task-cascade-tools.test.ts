@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { registerMcpTools } from "../../apps/api/src/mcp/tools";
 import { registerTools } from "../../packages/mcp/src/tools/register";
 

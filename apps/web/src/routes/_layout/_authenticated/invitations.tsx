@@ -1,6 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { CheckCircle, Loader2, Mail, X } from "lucide-react";
+import {
+  CheckCircle,
+  Loader2,
+  Mail,
+  X,
+  UserXIcon,
+  UserCheckIcon,
+} from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import PageTitle from "@/components/page-title";
@@ -16,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePendingInvitations } from "@/hooks/queries/invitation/use-pending-invitations";
+import useWorkspaceCreationAccess from "@/hooks/use-workspace-creation-access";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/cn";
 import { formatDateMedium } from "@/lib/format";
@@ -33,6 +41,12 @@ function InvitationsPage() {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const { user } = useAuth();
+  // The same rule the onboarding screen applies, so this page cannot offer a
+  // route into a form that screen would refuse to show. It also covers the
+  // stale session role: the first administrator of an instance is promoted
+  // after their session is cached, and deciding on that would hide the only
+  // two controls on the page from the one user entitled to both.
+  const { canCreateWorkspace } = useWorkspaceCreationAccess();
 
   const handleSkip = () => {
     if (!user?.name) {
@@ -61,7 +75,9 @@ function InvitationsPage() {
         organizationId: data?.invitation.organizationId || organizationId,
       });
 
-      toast.success(t("invitations:toast.acceptSuccess"));
+      toast.success(t("invitations:toast.acceptSuccess"), {
+        icon: UserCheckIcon,
+      });
 
       await queryClient.invalidateQueries({
         queryKey: ["invitations", "pending"],
@@ -96,7 +112,7 @@ function InvitationsPage() {
         return;
       }
 
-      toast.success(t("invitations:toast.rejectSuccess"));
+      toast.success(t("invitations:toast.rejectSuccess"), { icon: UserXIcon });
 
       await queryClient.invalidateQueries({
         queryKey: ["invitations", "pending"],
@@ -145,7 +161,7 @@ function InvitationsPage() {
   return (
     <>
       <PageTitle title={t("invitations:pageTitle")} />
-      <div className="flex w-full min-h-screen items-center justify-center p-6 bg-background">
+      <div className="flex w-full min-h-svh items-center justify-center p-6 bg-background">
         <div className="w-full max-w-2xl space-y-8">
           <div className="space-y-3 text-center">
             <h1 className="text-3xl font-semibold">
@@ -171,9 +187,14 @@ function InvitationsPage() {
               <p className="text-sm text-muted-foreground max-w-md mb-6">
                 {t("invitations:noPendingDescription")}
               </p>
-              <Button onClick={handleSkip} variant="default">
-                {t("invitations:continueToSetup")}
-              </Button>
+              {canCreateWorkspace && (
+                // Without creation rights there is no setup to continue to,
+                // and this would bounce back to the onboarding screen that
+                // sent the user here.
+                <Button onClick={handleSkip} variant="default">
+                  {t("invitations:continueToSetup")}
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-6">
@@ -274,15 +295,20 @@ function InvitationsPage() {
                   </TableBody>
                 </Table>
               </div>
-              <div className="flex justify-center pt-2">
-                <Button
-                  variant="ghost"
-                  onClick={handleSkip}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  {t("invitations:skipForNow")}
-                </Button>
-              </div>
+              {canCreateWorkspace && (
+                // Skipping exists to go and create your own workspace. When
+                // only instance admins may create one, it leads to a screen
+                // with nothing to do and no way back to this invitation.
+                <div className="flex justify-center pt-2">
+                  <Button
+                    variant="ghost"
+                    onClick={handleSkip}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    {t("invitations:skipForNow")}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>
