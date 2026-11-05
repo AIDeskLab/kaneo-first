@@ -1,7 +1,10 @@
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import * as v from "valibot";
+import db from "../database";
+import { projectTable } from "../database/schema";
 import { projectSchema } from "../schemas";
 import {
   hasWorkspacePermission,
@@ -210,6 +213,17 @@ const project = new Hono<{
       const { name, icon, slug, description, isPublic, projectGroupId } =
         c.req.valid("json");
       const workspaceId = c.get("workspaceId");
+      const [current] = await db
+        .select({ isPublic: projectTable.isPublic })
+        .from(projectTable)
+        .where(eq(projectTable.id, id))
+        .limit(1);
+      if (current && current.isPublic !== isPublic) {
+        await requireWorkspacePermission({ project: ["share"] })(
+          c,
+          async () => {},
+        );
+      }
       const updatedProject = await updateProjectCtrl(
         id,
         name,
