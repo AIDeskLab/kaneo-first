@@ -18,5 +18,8 @@ export async function getCurrentUser(client: ToolClient) {
     "/api/auth/get-session",
     { method: "GET" },
   );
-  return response === null ? null : currentUserSchema.parse(response.user);
+  if (response === null) {
+    throw new Error("No authenticated user");
+  }
+  return currentUserSchema.parse(response.user);
 }
