@@ -211,7 +211,7 @@ function RouteComponent() {
       projectId={projectId}
       workspaceId={workspaceId}
       activeView="board"
-      headerActions={boardHeaderSearch}
+      toolbar={boardHeaderSearch}
     >
       <PageTitle
         title={`${project?.name} — ${viewMode === "board" ? t("tasks:view.board") : t("tasks:view.list")}`}

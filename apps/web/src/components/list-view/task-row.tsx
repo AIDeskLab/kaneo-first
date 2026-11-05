@@ -56,9 +56,14 @@ type TaskRowProps = {
   task: Task;
   projectSlug: string;
   depth?: number;
+  rowId?: string;
   hasChildren?: boolean;
+  childCount?: number;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
+  onToggleExpanded?: (rowId: string) => void;
+  reserveToggleSpace?: boolean;
+  isTaskDragging?: boolean;
   parentTitle?: string | null;
   parentId?: string | null;
   showParentBadge?: boolean;
@@ -71,9 +76,14 @@ function TaskRow({
   task,
   projectSlug,
   depth = 0,
+  rowId,
   hasChildren = false,
+  childCount = 0,
   isExpanded = false,
   onToggleExpand,
+  onToggleExpanded,
+  reserveToggleSpace = false,
+  isTaskDragging = false,
   parentTitle,
   parentId,
   showParentBadge = false,
@@ -216,7 +226,12 @@ function TaskRow({
     });
   };
 
-  const showHierarchyChrome = hierarchyMode !== "flat";
+  const showHierarchyChrome = hierarchyMode !== "flat" || reserveToggleSpace;
+  const showChildren = hasChildren || childCount > 0;
+  const toggleExpanded = () => {
+    if (onToggleExpand) onToggleExpand();
+    else if (onToggleExpanded && rowId) onToggleExpanded(rowId);
+  };
   const indentPx = 16 + depth * 20;
 
   return (
@@ -235,8 +250,12 @@ function TaskRow({
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
+            {...attributes}
+            {...listeners}
             role="button"
             tabIndex={0}
+            data-task-row-id={rowId}
+            data-task-dragging={isTaskDragging || undefined}
             onClick={handleClick}
             onKeyDown={handleKeyDown}
             className={cn(
@@ -244,17 +263,15 @@ function TaskRow({
               isTaskSelected ? "bg-accent/45" : "hover:bg-accent/60",
             )}
             style={{ paddingLeft: `${indentPx}px` }}
-            {...attributes}
-            {...listeners}
           >
             {showHierarchyChrome && (
               <div className="flex w-4 shrink-0 items-center justify-center">
-                {hasChildren ? (
+                {showChildren ? (
                   <button
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
-                      onToggleExpand?.();
+                      toggleExpanded();
                     }}
                     className="inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
                     aria-label={

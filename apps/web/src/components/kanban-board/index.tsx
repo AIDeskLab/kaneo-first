@@ -247,7 +247,16 @@ function KanbanBoard({ project, disableDragDrop = false }: KanbanBoardProps) {
                 key={column.id}
                 className="h-full max-w-96 min-w-80 shrink-0 flex-1"
               >
-                <Column column={column} disableDragDrop={disableDragDrop} />
+                <Column
+                  column={column}
+                  disableDragDrop={disableDragDrop}
+                  activeTaskId={
+                    activeId !== null &&
+                    column.tasks.some((task) => task.id === String(activeId))
+                      ? String(activeId)
+                      : null
+                  }
+                />
               </div>
             ))}
           </div>

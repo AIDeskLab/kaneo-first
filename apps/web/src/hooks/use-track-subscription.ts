@@ -16,11 +16,11 @@ export function useTrackSubscription(
       purchase.interval,
       seats,
     );
-    track("Subscribed", {
-      props: {
-        ...purchase,
-        ...(revenue === undefined ? {} : { revenue_usd: revenue }),
-      },
-    });
+    const props: Record<string, string | number | boolean> = {
+      plan: purchase.plan,
+      interval: purchase.interval,
+    };
+    if (revenue !== undefined) props.revenue_usd = revenue;
+    track("Subscribed", { props });
   }, [checkout, seats]);
 }

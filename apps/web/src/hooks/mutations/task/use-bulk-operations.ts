@@ -172,5 +172,6 @@ export function useBulkOperations() {
     bulkAddLabel: bulkAddLabel.mutateAsync,
     bulkDueDate: bulkDueDate.mutateAsync,
     bulkArchivePending: bulkArchive.isPending,
+    isDeleting: bulkDelete.isPending,
   };
 }

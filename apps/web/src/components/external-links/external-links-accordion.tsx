@@ -17,6 +17,7 @@ import {
 import type { ExternalLink } from "@/types/external-link";
 
 interface ExternalLinksAccordionProps {
+  taskId?: string;
   externalLinks: ExternalLink[];
   isLoading?: boolean;
 }

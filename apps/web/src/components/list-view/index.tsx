@@ -41,13 +41,21 @@ import TaskTreeList from "./task-tree-list";
 
 const EMPTY_TREE_TASKS: ReturnType<typeof flattenTree> = [];
 
+const DEFAULT_SORT: SortConfig = { field: "position", direction: "asc" };
+
 type ListViewProps = {
   project: ProjectWithTasks;
-  sort: SortConfig;
+  sort?: SortConfig;
   disableDragDrop?: boolean;
+  disableCollectionActions?: boolean;
 };
 
-function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
+function ListView({
+  project,
+  sort = DEFAULT_SORT,
+  disableDragDrop = false,
+  disableCollectionActions = false,
+}: ListViewProps) {
   const { t } = useTranslation();
   const { setProject } = useProjectStore();
   const { hierarchyMode } = useUserPreferencesStore();
@@ -390,6 +398,7 @@ function ListView({ project, sort, disableDragDrop = false }: ListViewProps) {
                 overColumnId={overColumnId}
                 onToggleSection={toggleSection}
                 onAddTask={(columnId) => {
+                  if (disableCollectionActions) return;
                   setIsTaskModalOpen(true);
                   setActiveColumn(columnId);
                 }}

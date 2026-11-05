@@ -12,9 +12,13 @@ import { ArchiveTasksModal } from "../../shared/modals/archive-tasks-modal";
 
 type ColumnHeaderProps = {
   column: ProjectWithTasks["columns"][number];
+  disableCollectionActions?: boolean;
 };
 
-export function ColumnHeader({ column }: ColumnHeaderProps) {
+export function ColumnHeader({
+  column,
+  disableCollectionActions = false,
+}: ColumnHeaderProps) {
   const { t } = useTranslation();
   const { project } = useProjectStore();
   const { bulkArchive, bulkArchivePending } = useBulkOperations();
@@ -26,7 +30,13 @@ export function ColumnHeader({ column }: ColumnHeaderProps) {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
   const handleConfirmArchive = async () => {
-    if (!column.isFinal || !project || bulkArchivePending) return;
+    if (
+      disableCollectionActions ||
+      !column.isFinal ||
+      !project ||
+      bulkArchivePending
+    )
+      return;
 
     const taskIds = column.tasks.map((task) => task.id);
     try {
@@ -53,17 +63,20 @@ export function ColumnHeader({ column }: ColumnHeaderProps) {
       </div>
 
       <div className="flex items-center">
-        {canTask && column.isFinal && column.tasks.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setIsArchiveModalOpen(true)}
-            className="flex items-center rounded-md px-2 py-1 text-left text-muted-foreground transition-colors hover:bg-accent/50"
-            title={t("tasks:listView.archiveAllTooltip")}
-          >
-            <Archive className="w-4 h-4 text-muted-foreground" />
-          </button>
-        )}
-        {canCreate && (
+        {canTask &&
+          !disableCollectionActions &&
+          column.isFinal &&
+          column.tasks.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setIsArchiveModalOpen(true)}
+              className="flex items-center rounded-md px-2 py-1 text-left text-muted-foreground transition-colors hover:bg-accent/50"
+              title={t("tasks:listView.archiveAllTooltip")}
+            >
+              <Archive className="w-4 h-4 text-muted-foreground" />
+            </button>
+          )}
+        {canCreate && !disableCollectionActions && (
           <button
             type="button"
             onClick={() => setIsTaskModalOpen(true)}

@@ -259,6 +259,7 @@ export function useTaskFilters(
     updateFilter,
     updateLabelFilter,
     updateCustomFieldFilter,
+    filterTasks,
     filteredProject,
     hasActiveFilters,
     clearFilters,
