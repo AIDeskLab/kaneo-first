@@ -24,6 +24,10 @@
       "types": "./dist/tools/register.d.ts",
       "import": "./dist/tools/register.js"
     },
+    "./upstream": {
+      "types": "./dist/kaneo/upstream.d.ts",
+      "import": "./dist/kaneo/upstream.js"
+    },
     "./device-flow": {
       "types": "./dist/auth/device-flow.d.ts",
       "import": "./dist/auth/device-flow.js"
