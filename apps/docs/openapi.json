@@ -185,6 +185,7 @@
           "name",
           "icon",
           "isFinal",
+          "position",
           "tasks"
         ]
       },
@@ -690,6 +691,10 @@
           },
           "billingEnabled": {
             "type": "boolean"
+          },
+          "clientUrl": {
+            "type": "string",
+            "description": "Public web app origin, without a trailing slash, used to build invitation links."
           }
         },
         "required": [
@@ -714,7 +719,101 @@
           "customOAuthLogoutUrl",
           "customOAuthManagedProfileFields",
           "customOAuthAccountUrl",
-          "billingEnabled"
+          "billingEnabled",
+          "clientUrl"
+        ]
+      },
+      "McpClientRegistration": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "client_id_issued_at": {
+            "type": "number"
+          },
+          "redirect_uris": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "client_name": {
+            "type": "string"
+          },
+          "token_endpoint_auth_method": {
+            "type": "string",
+            "enum": [
+              "none"
+            ]
+          },
+          "grant_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "authorization_code"
+              ]
+            }
+          },
+          "response_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "code"
+              ]
+            }
+          }
+        },
+        "required": [
+          "client_id",
+          "client_id_issued_at",
+          "redirect_uris",
+          "token_endpoint_auth_method",
+          "grant_types",
+          "response_types"
+        ]
+      },
+      "OAuthError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "error_description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "McpAuthorizationRequest": {
+        "type": "object",
+        "properties": {
+          "client_name": {
+            "type": "string"
+          },
+          "redirect_uri": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_name",
+          "redirect_uri"
+        ]
+      },
+      "McpAuthorizationDecision": {
+        "type": "object",
+        "properties": {
+          "redirect": {
+            "type": "string",
+            "description": "Where to send the browser next: back to the client with a code on approval, or with an error on denial."
+          }
+        },
+        "required": [
+          "redirect"
         ]
       },
       "OAuthIdToken": {
@@ -6092,6 +6191,292 @@
         "required": [
           "revoked"
         ]
+      },
+      "ProjectListItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Project"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "statistics": {
+                "$ref": "#/components/schemas/ProjectStatistics"
+              },
+              "archivedTasks": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/BoardTask"
+                },
+                "description": "Always empty."
+              },
+              "plannedTasks": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/BoardTask"
+                },
+                "description": "Always empty."
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/BoardColumn"
+                },
+                "description": "Always empty."
+              }
+            },
+            "required": [
+              "statistics",
+              "archivedTasks",
+              "plannedTasks",
+              "columns"
+            ]
+          }
+        ]
+      },
+      "ProjectStatistics": {
+        "type": "object",
+        "properties": {
+          "completionPercentage": {
+            "type": "number"
+          },
+          "totalTasks": {
+            "type": "number"
+          },
+          "dueDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "The soonest due date among the project's open tasks."
+          }
+        },
+        "required": [
+          "completionPercentage",
+          "totalTasks",
+          "dueDate"
+        ]
+      },
+      "Project": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "backgroundVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "slug": {
+            "type": "string",
+            "description": "Short prefix used in task identifiers, e.g. KAN-12."
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isPublic": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "When true the project's board is readable without signing in, via /api/public-project/{id}."
+          },
+          "archivedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Non-null once archived; archived projects are hidden by default."
+          },
+          "position": {
+            "type": "number",
+            "description": "Sidebar order, ascending."
+          },
+          "lastTaskNumber": {
+            "type": "number",
+            "description": "Highest task number issued in this project; the next task gets this plus one."
+          }
+        },
+        "required": [
+          "id",
+          "workspaceId",
+          "backgroundVersion",
+          "slug",
+          "icon",
+          "name",
+          "description",
+          "createdAt",
+          "isPublic",
+          "archivedAt",
+          "position",
+          "lastTaskNumber"
+        ]
+      },
+      "BoardResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Board"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/BoardPagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ]
+      },
+      "BulkTaskResult": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "updatedCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "success",
+          "updatedCount"
+        ]
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "position": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Order within its column, ascending."
+          },
+          "number": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Per-project counter shown as {projectSlug}-{number}."
+          },
+          "userId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The assignee, if any."
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "descriptionDeferred": {
+            "type": "boolean",
+            "description": "True when the list omits a large description; load the task detail or description pages to read it. Do not replace stored text with this null summary."
+          },
+          "status": {
+            "type": "string",
+            "description": "The slug of the column the task sits in."
+          },
+          "priority": {
+            "type": "string",
+            "description": "One of: no-priority, low, medium, high, urgent."
+          },
+          "startDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "dueDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "recurrence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskRecurrence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "customFields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fieldId": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "fieldId",
+                "value"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "position",
+          "number",
+          "userId",
+          "title",
+          "description",
+          "status",
+          "priority",
+          "startDate",
+          "dueDate",
+          "createdAt"
+        ]
       }
     },
     "parameters": {}
@@ -6312,7 +6697,7 @@
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 2000000000,
+              "maximum": 2147483647,
               "default": 0
             },
             "required": false,
@@ -6412,7 +6797,7 @@
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 2000000000,
+              "maximum": 2147483647,
               "default": 0
             },
             "required": false,
@@ -9119,6 +9504,333 @@
           },
           "302": {
             "description": "Redirects the browser to the web app device screen"
+          },
+          "429": {
+            "$ref": "#/components/responses/ApiKeyRateLimited"
+          }
+        }
+      }
+    },
+    "/mcp/register": {
+      "post": {
+        "operationId": "registerMcpOAuthClient",
+        "tags": [
+          "MCP"
+        ],
+        "summary": "Register MCP OAuth client",
+        "description": "Dynamically register a public OAuth client for the MCP endpoint. Public clients hold no secret, so authorization is protected by PKCE and an explicit consent step.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "redirect_uris": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 2048
+                    },
+                    "minItems": 1,
+                    "maxItems": 10
+                  },
+                  "client_name": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "token_endpoint_auth_method": {
+                    "type": "string",
+                    "enum": [
+                      "none"
+                    ]
+                  },
+                  "grant_types": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "authorization_code",
+                        "refresh_token"
+                      ]
+                    },
+                    "maxItems": 2
+                  },
+                  "response_types": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "code"
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 1
+                  }
+                },
+                "required": [
+                  "redirect_uris"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registered OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpClientRegistration"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid client metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/authorize": {
+      "get": {
+        "operationId": "authorizeMcpOAuthClient",
+        "tags": [
+          "MCP"
+        ],
+        "summary": "Start MCP authorization",
+        "description": "Begin an MCP OAuth authorization. Redirects the browser to the Kaneo consent page, which then approves or denies the request.",
+        "security": [],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "code"
+              ]
+            },
+            "required": true,
+            "name": "response_type",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "client_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "required": true,
+            "name": "redirect_uri",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "description": "PKCE challenge; only S256 is accepted."
+            },
+            "required": true,
+            "description": "PKCE challenge; only S256 is accepted.",
+            "name": "code_challenge",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "S256"
+              ]
+            },
+            "required": true,
+            "name": "code_challenge_method",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Opaque client state, returned unchanged. The complete authorization URL is limited to 8 KiB."
+            },
+            "required": false,
+            "description": "Opaque client state, returned unchanged. The complete authorization URL is limited to 8 KiB.",
+            "name": "state",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to the Kaneo consent page"
+          },
+          "400": {
+            "description": "Invalid authorization request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/authorize/request/{requestId}": {
+      "get": {
+        "operationId": "getMcpAuthorizationRequest",
+        "tags": [
+          "MCP"
+        ],
+        "summary": "Get consent request",
+        "description": "Get the client name and redirect URI for a pending consent request, so the consent page can show who is asking.",
+        "security": [],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorization request details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpAuthorizationRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or expired authorization request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "decideMcpAuthorizationRequest",
+        "tags": [
+          "MCP"
+        ],
+        "summary": "Decide consent request",
+        "description": "Approve or deny a pending consent request and get the URL to send the browser back to.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "approved": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "approved"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OAuth client redirect",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpAuthorizationDecision"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Untrusted request origin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or expired authorization request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
           },
           "429": {
             "$ref": "#/components/responses/ApiKeyRateLimited"
@@ -24084,6 +24796,381 @@
           },
           "404": {
             "description": "User or API key not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/ApiKeyRateLimited"
+          }
+        }
+      }
+    },
+    "/project": {
+      "get": {
+        "operationId": "listProjects",
+        "tags": [
+          "Projects"
+        ],
+        "summary": "List projects",
+        "description": "Get all projects in a workspace",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "workspaceId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Pass \"true\" to include archived projects in the list."
+            },
+            "required": false,
+            "description": "Pass \"true\" to include archived projects in the list.",
+            "name": "includeArchived",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of projects with statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectListItem"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/ApiKeyRateLimited"
+          }
+        }
+      }
+    },
+    "/task/tasks/{projectId}": {
+      "get": {
+        "operationId": "listTasks",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "List tasks",
+        "description": "Get tasks for a project, grouped into board columns",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "priority",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "assigneeId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "required": false,
+            "name": "relatedPage",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "createdAt",
+                "priority",
+                "dueDate",
+                "position",
+                "title",
+                "number"
+              ]
+            },
+            "required": false,
+            "name": "sortBy",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            },
+            "required": false,
+            "name": "sortOrder",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "dueBefore",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "dueAfter",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project board",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/ApiKeyRateLimited"
+          }
+        }
+      }
+    },
+    "/task/bulk": {
+      "patch": {
+        "operationId": "bulkUpdateTasks",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Update tasks in bulk",
+        "description": "Apply one operation to several tasks",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "taskIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1
+                  },
+                  "operation": {
+                    "type": "string",
+                    "enum": [
+                      "updateStatus",
+                      "updatePriority",
+                      "updateAssignee",
+                      "delete",
+                      "addLabel",
+                      "removeLabel",
+                      "updateDueDate"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "The new value for the chosen operation. Unused by `delete`; null clears an assignee or due date."
+                  }
+                },
+                "required": [
+                  "taskIds",
+                  "operation"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bulk operation completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkTaskResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid bulk operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/ApiKeyRateLimited"
+          }
+        }
+      }
+    },
+    "/task/{id}": {
+      "get": {
+        "operationId": "getTask",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Get a task",
+        "description": "Get a task by ID",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "detail",
+                "board"
+              ]
+            },
+            "required": false,
+            "name": "view",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Task not found",
             "content": {
               "application/json": {
                 "schema": {
