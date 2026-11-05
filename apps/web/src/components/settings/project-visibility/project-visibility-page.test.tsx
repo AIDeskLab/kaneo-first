@@ -33,7 +33,7 @@ vi.mock("@/hooks/queries/project/use-get-project", () => ({
 }));
 vi.mock("@/hooks/use-workspace-permission", () => ({
   useWorkspacePermission: () => ({
-    hasPermission: async () => m.canShare,
+    canShareProjects: () => m.canShare,
   }),
 }));
 vi.mock("@/hooks/mutations/project/use-update-project", () => ({

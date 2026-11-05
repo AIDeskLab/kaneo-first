@@ -26,6 +26,7 @@ describe("updateTaskLabelsInProject", () => {
           name: "Todo",
           icon: null,
           isFinal: false,
+          position: 0,
           tasks: [
             {
               id: "task-1",

@@ -33,6 +33,7 @@ function config(overrides: Partial<GetConfigResponse> = {}) {
     customOAuthManagedProfileFields: [],
     customOAuthAccountUrl: null,
     billingEnabled: false,
+    clientUrl: "http://localhost:5173",
     ...overrides,
   } satisfies GetConfigResponse;
 }

@@ -30,6 +30,7 @@ vi.mock("../../apps/api/src/utils/verify-api-key", () => ({
 
 vi.mock("../../apps/api/src/mcp/tools", () => ({
   registerMcpTools: vi.fn(),
+  toMcpToolRegistrar: vi.fn(() => ({ registerTool: vi.fn() })),
 }));
 
 import {
@@ -399,7 +400,7 @@ describe("MCP session admission endpoint concurrency", () => {
     endpointMocks.getSession.mockClear();
   });
 
-  it("returns 503 from the MCP endpoint when capacity is already exhausted", async () => {
+  it("does not turn a full session table into an endpoint 503", async () => {
     await mcpSessionAdmission.closeAllSessions();
     for (let index = 0; index < 2; index++) {
       const reserved = mcpSessionAdmission.tryReserveSession("user-a");
@@ -428,11 +429,11 @@ describe("MCP session admission endpoint concurrency", () => {
       }),
     });
 
-    expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({
-      error: "server_busy",
-      error_description: "MCP session capacity reached",
-    });
+    // The request path is the upstream stateless handler. Session admission
+    // still covers its own table, and that table no longer rejects /mcp.
+    expect(response.status).not.toBe(503);
+    const body = await response.json().catch(() => null);
+    expect(body).not.toMatchObject({ error: "server_busy" });
   });
 
   it("models concurrent initialize admission after async auth without exceeding caps", async () => {

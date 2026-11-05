@@ -39,6 +39,7 @@ function board(id: string): ProjectWithTasks {
         name: "To do",
         icon: null,
         isFinal: false,
+        position: 0,
         tasks: [task(id)],
       },
     ],

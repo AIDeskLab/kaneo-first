@@ -59,6 +59,7 @@ describe("useTaskFiltersWithLabelsSupport", () => {
           name: "Todo",
           icon: null,
           isFinal: false,
+          position: 0,
           tasks: [
             {
               id: "task-1",
@@ -148,6 +149,7 @@ describe("useTaskFiltersWithLabelsSupport", () => {
           name: "Todo",
           icon: null,
           isFinal: false,
+          position: 0,
           tasks: [],
         },
       ],
@@ -183,6 +185,7 @@ describe("useTaskFiltersWithLabelsSupport", () => {
             name: "Todo",
             icon: null,
             isFinal: false,
+            position: 0,
             tasks: [
               {
                 id: "task-123",

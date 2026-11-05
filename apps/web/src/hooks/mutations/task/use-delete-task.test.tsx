@@ -56,6 +56,7 @@ function makeProject() {
         name: "To Do",
         icon: null,
         isFinal: false,
+        position: 0,
         tasks: [makeTask("delete-me"), makeTask("keep-me")],
       },
     ],
@@ -94,6 +95,8 @@ describe("useDeleteTask", () => {
     const deletedTask = {
       ...makeTask("delete-me"),
       priority: "no-priority",
+      workspaceId: "workspace-1",
+      parentSubtaskCounts: [],
     };
     queryClient.setQueryData(["tasks", project.id], project);
     queryClient.setQueryData(["task", deletedTask.id], deletedTask);

@@ -11,6 +11,10 @@ vi.mock("../../../apps/api/src/import/destination-fetch", () => ({
   destinationFetch: (input: string, init?: RequestInit) => fetch(input, init),
 }));
 
+vi.mock("node:dns/promises", () => ({
+  lookup: vi.fn(async () => [{ address: "93.184.216.34", family: 4 }]),
+}));
+
 const { default: verifyGiteaAccess } =
   await import("../../../apps/api/src/gitea-integration/controllers/verify-gitea-access");
 
@@ -27,8 +31,8 @@ function makeResponse(status: number, body: string | object = ""): Response {
 }
 
 beforeEach(() => {
-  // Bypass the SSRF DNS check so the test does not depend on outbound DNS
-  // resolving gitea.example. Without this, the real lookup would fail in CI.
+  // Gitea ignores the webhook private-destination switch. The DNS mock above
+  // keeps these cases off the network without opening loopback targets.
   process.env.KANEO_ALLOW_PRIVATE_WEBHOOK_DESTINATIONS = "true";
 });
 

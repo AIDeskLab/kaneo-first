@@ -41,6 +41,7 @@ describe("removeTaskFromProject", () => {
           name: "To Do",
           icon: null,
           isFinal: false,
+          position: 0,
           tasks: [task("delete-me", "to-do"), task("keep-me", "to-do")],
         },
       ],
