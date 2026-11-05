@@ -3,6 +3,12 @@ import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import { columnTable, projectTable, taskTable } from "../../database/schema";
 import { publishEvent } from "../../events";
+import { filterUsersWithProjectAccess } from "../../project-access/filter-users-with-project-access";
+import {
+  NO_PROJECT_ACCESS,
+  NOT_ASSIGNABLE,
+} from "../../utils/assert-assignable-user";
+import { resolveImportAssignees } from "../resolve-import-assignees";
 import {
   coercePriority,
   coerceStatus,
@@ -11,10 +17,7 @@ import {
 } from "../validate-task-fields";
 import { claimTaskNumber } from "./claim-task-numbers";
 import { nextTaskPosition } from "./next-task-position";
-import {
-  lockWorkspaceAssignees,
-  requireWorkspaceAssignees,
-} from "./workspace-assignee-lock";
+import { lockWorkspaceAssignees } from "./workspace-assignee-lock";
 
 export type ImportTask = {
   title: string;
@@ -58,29 +61,28 @@ async function importTasks(
   }> = [];
   await db.transaction(async (tx) => {
     await lockWorkspaceAssignees(tx, project.workspaceId, assigneeIds);
+    const assignees = await resolveImportAssignees(
+      assigneeIds,
+      project.workspaceId,
+      tx,
+    );
+    const assignableIds = await filterUsersWithProjectAccess(
+      assignees.values(),
+      projectId,
+      tx,
+    );
 
     for (const taskData of tasksToImport) {
       try {
-        const assigneeId = taskData.userId?.trim() || null;
-        if (assigneeId) {
-          try {
-            await requireWorkspaceAssignees(tx, project.workspaceId, [
-              assigneeId,
-            ]);
-          } catch (error) {
-            if (error instanceof HTTPException) {
-              results.push({
-                success: false,
-                error:
-                  error.status === 404
-                    ? "Assignee not found"
-                    : "Assignee is not a member of this workspace",
-                task: taskData,
-              });
-              continue;
-            }
-            throw error;
-          }
+        const reference = taskData.userId?.trim() || null;
+        const assigneeId = reference ? assignees.get(reference) : null;
+        if (reference && (!assigneeId || !assignableIds.has(assigneeId))) {
+          results.push({
+            success: false,
+            error: assigneeId ? NO_PROJECT_ACCESS : NOT_ASSIGNABLE,
+            task: taskData,
+          });
+          continue;
         }
         const { status, warning: statusWarning } = coerceStatus(
           taskData.status,

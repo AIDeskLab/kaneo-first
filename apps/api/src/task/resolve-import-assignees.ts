@@ -5,6 +5,7 @@ import { instanceAdminRoleSql } from "../utils/instance-admin-role";
 export async function resolveImportAssignees(
   references: string[],
   workspaceId: string,
+  database: Pick<typeof db, "select"> = db,
 ): Promise<Map<string, string>> {
   const resolved = new Map<string, string>();
   if (references.length === 0) return resolved;
@@ -12,7 +13,7 @@ export async function resolveImportAssignees(
   // Membership is a predicate: duplicate membership rows still mean one user.
   const eligible = or(
     exists(
-      db
+      database
         .select({ id: schema.workspaceUserTable.id })
         .from(schema.workspaceUserTable)
         .where(
@@ -24,7 +25,7 @@ export async function resolveImportAssignees(
     ),
     instanceAdminRoleSql(schema.userTable.role),
   );
-  const idUsers = await db
+  const idUsers = await database
     .select({ id: schema.userTable.id, eligible: sql<boolean>`${eligible}` })
     .from(schema.userTable)
     .where(inArray(schema.userTable.id, references));
@@ -45,7 +46,7 @@ export async function resolveImportAssignees(
   ];
   if (emails.length === 0) return resolved;
 
-  const emailUsers = await db
+  const emailUsers = await database
     .select({ id: schema.userTable.id, email: schema.userTable.email })
     .from(schema.userTable)
     .where(
