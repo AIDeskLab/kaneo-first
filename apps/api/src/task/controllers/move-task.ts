@@ -126,8 +126,9 @@ async function moveTask({
   }
 
   if (sourceProject.workspaceId !== destinationProject.workspaceId) {
-    throw new HTTPException(400, {
-      message: "Tasks can only be moved within the same workspace",
+    // Same response as a missing destination: do not reveal another workspace.
+    throw new HTTPException(404, {
+      message: "Project not found",
     });
   }
 
