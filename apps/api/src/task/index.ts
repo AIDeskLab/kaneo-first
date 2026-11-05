@@ -78,6 +78,7 @@ const task = new Hono<{
   Variables: {
     userId: string;
     authorizedTaskAssignee?: { userId: string | null };
+    apiKey?: { permissions?: Record<string, string[]> | null };
   };
 }>()
   .get(
@@ -1071,7 +1072,12 @@ const task = new Hono<{
     requireWorkspacePermission({ task: ["create"] }),
     async (c) => {
       const { projectId } = c.req.valid("param");
-      const { filename, contentType, size } = c.req.valid("json");
+      const { filename, contentType, size, surface } = c.req.valid("json");
+      if (surface != null && surface !== "description") {
+        throw new HTTPException(400, {
+          message: "Staged uploads only support the description surface",
+        });
+      }
       return c.json(
         await stageTaskAssetUpload(projectId, c.get("userId"), {
           filename,
@@ -1103,7 +1109,12 @@ const task = new Hono<{
     requireWorkspacePermission({ task: ["create"] }),
     async (c) => {
       const { projectId } = c.req.valid("param");
-      const { filename, contentType, size, key } = c.req.valid("json");
+      const { filename, contentType, size, key, surface } = c.req.valid("json");
+      if (surface != null && surface !== "description") {
+        throw new HTTPException(400, {
+          message: "Staged uploads only support the description surface",
+        });
+      }
       const asset = await finalizeStagedTaskAsset(projectId, c.get("userId"), {
         filename,
         contentType,
@@ -1198,11 +1209,15 @@ const task = new Hono<{
     ),
     async (c) => {
       const { ticketId } = c.req.valid("param");
+      const apiKey = c.get("apiKey") as
+        | { permissions?: Record<string, string[]> | null }
+        | undefined;
       return c.json(
         await getTaskByTicketId(
           ticketId,
           c.get("userId"),
           c.req.valid("query"),
+          apiKey ? (apiKey.permissions ?? null) : undefined,
         ),
       );
     },
