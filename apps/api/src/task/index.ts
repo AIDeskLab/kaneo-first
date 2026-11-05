@@ -222,6 +222,44 @@ const task = new Hono<{
     },
   )
   .post(
+    "/reorder",
+    describeRoute({
+      operationId: "reorderTasks",
+      tags: ["Tasks"],
+      description: "Reorder tasks within a project",
+    }),
+    validator(
+      "json",
+      v.object({
+        projectId: v.string(),
+        tasks: v.array(
+          v.object({
+            id: v.string(),
+            position: v.number(),
+            status: v.optional(v.string()),
+          }),
+        ),
+        expectedTasks: v.optional(
+          v.array(
+            v.object({
+              id: v.string(),
+              position: v.nullable(v.number()),
+              status: v.string(),
+            }),
+          ),
+        ),
+      }),
+    ),
+    workspaceAccess.fromProject("projectId"),
+    requireWorkspacePermission({ task: ["update"] }),
+    async (c) => {
+      const { projectId, tasks, expectedTasks } = c.req.valid("json");
+      return c.json(
+        await reorderTasks(projectId, tasks, c.get("userId"), expectedTasks),
+      );
+    },
+  )
+  .post(
     "/:projectId",
     describeRoute({
       operationId: "createTask",
@@ -1125,44 +1163,6 @@ const task = new Hono<{
         process.env.KANEO_API_URL || new URL(c.req.url).origin,
       );
       return c.json({ id: asset.id, url: `${base}/asset/${asset.id}` });
-    },
-  )
-  .post(
-    "/reorder",
-    describeRoute({
-      operationId: "reorderTasks",
-      tags: ["Tasks"],
-      description: "Reorder tasks within a project",
-    }),
-    validator(
-      "json",
-      v.object({
-        projectId: v.string(),
-        tasks: v.array(
-          v.object({
-            id: v.string(),
-            position: v.number(),
-            status: v.optional(v.string()),
-          }),
-        ),
-        expectedTasks: v.optional(
-          v.array(
-            v.object({
-              id: v.string(),
-              position: v.nullable(v.number()),
-              status: v.string(),
-            }),
-          ),
-        ),
-      }),
-    ),
-    workspaceAccess.fromProject("projectId"),
-    requireWorkspacePermission({ task: ["update"] }),
-    async (c) => {
-      const { projectId, tasks, expectedTasks } = c.req.valid("json");
-      return c.json(
-        await reorderTasks(projectId, tasks, c.get("userId"), expectedTasks),
-      );
     },
   )
   .post(
