@@ -18,12 +18,13 @@ the previous image. It runs the MinIO binary directly with temporary test data.
   tab's realtime cache update, reload persistence and cross-workspace denial.
 - `realtime.mjs`: authenticated clients receive the same mutation with no Redis,
   and when connected to separate API instances sharing Redis.
-- `upgrade.sh` / `upgrade.mjs`: resolve the latest stable GitHub release to an
-  image digest, seed it through public APIs, then replace it with the candidate
-  image on the same database. Verify account credentials, owner membership,
-  project/task fields, comments, private image bytes and subsequent writes.
-  A repository with no published release (`releases/latest` returns HTTP 404)
-  skips this step with a notice. Other `gh` failures still fail the job.
+- `upgrade.sh` / `upgrade.mjs`: resolve the newest published app release
+  (`vX.Y.Z` or `X.Y.Z`, skipping package tags such as `mcp-v*` and `cli-v*`)
+  to an image digest, seed it through public APIs, then replace it with the
+  candidate image on the same database. Verify account credentials, owner
+  membership, project/task fields, comments, private image bytes and subsequent
+  writes. A repository with no matching app release skips this step with a
+  notice. Other `gh` failures still fail the job.
 - `require-ci.mjs`: release publication requires the latest CI run for the exact
   main SHA to succeed. It accepts push and manual CI runs, waits up to 30 minutes,
   and rejects failed, cancelled and skipped runs. If no push run exists (for
