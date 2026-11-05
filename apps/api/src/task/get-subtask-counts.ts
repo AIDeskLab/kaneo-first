@@ -1,12 +1,14 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
+import type db from "../database";
 import { projectTable, taskRelationTable, taskTable } from "../database/schema";
 import { projectAccessCondition } from "../project-access/project-access-condition";
-import type { TaskReadDatabase } from "./bounded-read";
 import { taskIsCompleted } from "./task-is-completed";
+
+type SubtaskCountDatabase = Pick<typeof db, "select">;
 
 /** Load direct-child progress for the entire page, independent of board filters. */
 export async function getSubtaskCounts(
-  db: TaskReadDatabase,
+  db: SubtaskCountDatabase,
   taskIds: string[],
   workspaceId: string,
   publicOnly: boolean,
