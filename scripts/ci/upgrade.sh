@@ -2,7 +2,23 @@
 set -euo pipefail
 
 # The standard GitHub latest release excludes prereleases and package-only releases.
-tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+# A fork that has never published a release gets HTTP 404. Skip the upgrade
+# check in that case. Any other gh failure still fails the job. Do not publish
+# a release or pull an image to paper over the missing tag.
+stderr=$(mktemp)
+trap 'rm -f "$stderr"' EXIT
+set +e
+tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>"$stderr")
+status=$?
+set -e
+if [[ $status -ne 0 ]]; then
+  if grep -Eq 'HTTP 404|Not Found' "$stderr"; then
+    echo "No stable GitHub release for ${GITHUB_REPOSITORY} (releases/latest returned 404). Skipping the upgrade check."
+    exit 0
+  fi
+  cat "$stderr" >&2
+  exit "$status"
+fi
 version=${tag#v}
 node scripts/security/validate-release-version.mjs "$version" --new-version
 if [[ "$tag" != "v$version" ]]; then

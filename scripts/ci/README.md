@@ -22,6 +22,8 @@ the previous image. It runs the MinIO binary directly with temporary test data.
   image digest, seed it through public APIs, then replace it with the candidate
   image on the same database. Verify account credentials, owner membership,
   project/task fields, comments, private image bytes and subsequent writes.
+  A repository with no published release (`releases/latest` returns HTTP 404)
+  skips this step with a notice. Other `gh` failures still fail the job.
 - `require-ci.mjs`: release publication requires the latest CI run for the exact
   main SHA to succeed. It accepts push and manual CI runs, waits up to 30 minutes,
   and rejects failed, cancelled and skipped runs. If no push run exists (for
