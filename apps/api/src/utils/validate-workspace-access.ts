@@ -6,6 +6,7 @@ import { hasInstanceAdminRole } from "./instance-admin-role";
 
 type ValidateWorkspaceAccessOptions = {
   notFoundMessage?: string;
+  outsiderStatus?: 403 | 404;
 };
 
 export async function validateWorkspaceAccess(
@@ -70,6 +71,11 @@ export async function validateWorkspaceAccess(
         .limit(1);
 
   if (!workspace) {
+    if (options.outsiderStatus === 403) {
+      throw new HTTPException(403, {
+        message: "You don't have access to this workspace",
+      });
+    }
     throw notFound();
   }
   // Checked after membership so outsiders cannot learn a workspace is archived.

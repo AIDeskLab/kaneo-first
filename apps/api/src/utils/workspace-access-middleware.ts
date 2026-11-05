@@ -77,6 +77,7 @@ export function workspaceAccessMiddleware(
     let workspaceId: string | null = null;
     let projectIds: string[] = [];
     let notFoundMessage = WORKSPACE_NOT_FOUND;
+    let outsiderStatus: 403 | 404 = 404;
 
     for (const source of config.sources) {
       if (source.type === "query") {
@@ -104,6 +105,7 @@ export function workspaceAccessMiddleware(
           }
           workspaceId = scope.workspaceId;
           projectIds = scope.projectId ? [scope.projectId] : [];
+          if (source.resource === "projectGroup") outsiderStatus = 403;
         }
       } else if (source.type === "lookupMany") {
         const body = await readJsonObjectBody(c);
@@ -158,6 +160,7 @@ export function workspaceAccessMiddleware(
 
     await validateWorkspaceAccess(userId, workspaceId, apiKeyId, {
       notFoundMessage,
+      outsiderStatus,
     });
     await assertProjectAccess(userId, projectIds);
 
