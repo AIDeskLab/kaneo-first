@@ -644,7 +644,7 @@
 			"accountCreated": "Account created successfully",
 			"passwordTooShort": "Password is too short",
 			"creatingAccount": "Creating Account...",
-			"createAccount": "Create Account",
+			"createAccount": "Create account",
 			"setPassword": "Set password",
 			"setPasswordPlaceholder": "Choose a password",
 			"createAccountAndContinue": "Create account & continue"
