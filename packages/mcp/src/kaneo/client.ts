@@ -1,4 +1,5 @@
 import type { AuthService } from "../auth/auth-service.js";
+import { fetchUpstream, parseUpstreamJson } from "./upstream.js";
 
 export type Json =
   | null
@@ -34,11 +35,7 @@ export class KaneoClient {
     }
 
     const url = `${this.baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
-    const timeoutSignal = AbortSignal.timeout(10_000);
-    const signal = init?.signal
-      ? AbortSignal.any([init.signal, timeoutSignal])
-      : timeoutSignal;
-    const res = await fetch(url, { ...init, headers, signal });
+    const res = await fetchUpstream(url, path, init, headers);
 
     // With a static API key there is nothing to refresh, so surface the 401
     // instead of looping back into the interactive device flow.
@@ -52,38 +49,6 @@ export class KaneoClient {
 
   async json<T = Json>(path: string, init?: RequestInit): Promise<T> {
     const res = await this.authorizedFetch(path, init);
-    const text = await res.text();
-    let body: unknown = null;
-    if (text) {
-      try {
-        body = JSON.parse(text) as unknown;
-      } catch {
-        body = text;
-      }
-    }
-    if (!res.ok) {
-      let detail: string;
-      if (
-        typeof body === "object" &&
-        body !== null &&
-        "message" in body &&
-        typeof (body as { message: unknown }).message === "string"
-      ) {
-        detail = (body as { message: string }).message;
-      } else if (typeof body === "string" && body.length > 0) {
-        detail = body.length > 500 ? `${body.slice(0, 500)}…` : body;
-      } else {
-        detail = `HTTP ${res.status}`;
-      }
-      const code =
-        typeof body === "object" &&
-        body !== null &&
-        "code" in body &&
-        typeof (body as { code: unknown }).code === "string"
-          ? ` (${(body as { code: string }).code})`
-          : "";
-      throw new Error(`${path}: ${detail}${code}`);
-    }
-    return body as T;
+    return parseUpstreamJson<T>(res, path);
   }
 }

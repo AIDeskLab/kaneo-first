@@ -91,6 +91,35 @@ describe("MCP API URLs", () => {
     );
   });
 
+  it("fetches the loopback host when the public API URL is a different host", async () => {
+    const apiFetch = vi.fn(async () =>
+      Response.json({
+        user: {
+          id: "test-user",
+          name: "Test User",
+          email: "test@example.com",
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", apiFetch);
+    const mcpRoutes = await loadMcpRoutes("http://127.0.0.1:1337");
+
+    const metadataResponse = await mcpRoutes.request(
+      "/.well-known/oauth-authorization-server/api",
+    );
+    const metadata = (await metadataResponse.json()) as { issuer: string };
+
+    expect(metadata.issuer).toBe("http://public.test:5273/api");
+
+    const toolResponse = await mcpRoutes.request(toolRequest());
+
+    expect(toolResponse.status).toBe(200);
+    expect(apiFetch).toHaveBeenCalledOnce();
+    const fetched = String(apiFetch.mock.calls[0]?.[0]);
+    expect(new URL(fetched).hostname).toBe("127.0.0.1");
+    expect(fetched).toBe("http://127.0.0.1:1337/api/auth/get-session");
+  });
+
   it.each(["http://api.internal:1337/api/", "http://api.internal:1337/"])(
     "uses the configured internal URL %s without duplicate slashes",
     async (internalApiUrl) => {
