@@ -28,8 +28,28 @@ const prioritySchema = z.enum([
 const nonEmptyString = z.string().trim().min(1);
 const optionalNonEmptyString = nonEmptyString.optional();
 const nullableOptionalNonEmptyString = nonEmptyString.nullable().optional();
-const isoDateTimeSchema = z.string().datetime({ offset: true });
+// A calendar date (YYYY-MM-DD) or an ISO 8601 datetime that `new Date` can
+// parse, which is what validateAndParseDate stores for those shapes. The
+// original text is forwarded; a date-only value is stored as UTC midnight.
+const API_DATE_STRING =
+  /^\d{4}-\d{2}-\d{2}(?:[tT]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:[zZ]|[+-]\d{2}:?\d{2})?)?$/;
+const isoDateTimeSchema = z
+  .string()
+  .regex(
+    API_DATE_STRING,
+    "Expected a date string (e.g. YYYY-MM-DD or 2025-01-15T10:30:00Z)",
+  )
+  .refine(
+    (value) => !Number.isNaN(new Date(value).getTime()),
+    "Expected a date string (e.g. YYYY-MM-DD or 2025-01-15T10:30:00Z)",
+  )
+  .describe("Calendar date YYYY-MM-DD or an ISO 8601 datetime");
+const isoTimestampSchema = z
+  .string()
+  .datetime({ offset: true })
+  .describe("ISO 8601 timestamp with a timezone offset");
 const optionalIsoDateTimeSchema = isoDateTimeSchema.optional();
+const optionalIsoTimestampSchema = isoTimestampSchema.optional();
 const nullableOptionalIsoDateTimeSchema = isoDateTimeSchema
   .nullable()
   .optional();
@@ -920,8 +940,8 @@ export function registerTools(
         "Log time against a task. Omit endTime to leave the entry running.",
       inputSchema: z.object({
         taskId: nonEmptyString,
-        startTime: isoDateTimeSchema,
-        endTime: optionalIsoDateTimeSchema,
+        startTime: isoTimestampSchema,
+        endTime: optionalIsoTimestampSchema,
         description: optionalNonEmptyString,
       }),
     },
@@ -946,8 +966,8 @@ export function registerTools(
         "Update a time entry. startTime is required; omitting endTime keeps the stored one. startTime cannot be later than the end time.",
       inputSchema: z.object({
         id: nonEmptyString,
-        startTime: isoDateTimeSchema,
-        endTime: optionalIsoDateTimeSchema,
+        startTime: isoTimestampSchema,
+        endTime: optionalIsoTimestampSchema,
         description: optionalNonEmptyString,
       }),
     },
