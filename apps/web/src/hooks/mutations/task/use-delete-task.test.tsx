@@ -18,13 +18,14 @@ vi.mock("@/fetchers/task/delete-task", () => ({
   default: vi.fn(),
 }));
 
-function makeTask(id: string): Task {
+function makeTask(id: string): Task & { columnId: null } {
   return {
     id,
     title: id,
     number: 1,
     description: null,
     status: "to-do",
+    columnId: null,
     priority: null,
     startDate: null,
     dueDate: null,
