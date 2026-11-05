@@ -28,7 +28,7 @@ describe("project position migration", () => {
       .set({ createdAt: tiedCreatedAt, position: 99 });
 
     const migration = await readFile(
-      resolve(process.cwd(), "drizzle/0036_young_albert_cleary.sql"),
+      resolve(process.cwd(), "drizzle/0037_tiny_raza.sql"),
       "utf8",
     );
     const statement = migration
