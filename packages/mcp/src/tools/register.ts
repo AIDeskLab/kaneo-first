@@ -195,8 +195,21 @@ export function registerTools(
             : typeof existing.isPublic === "boolean"
               ? existing.isPublic
               : false;
+        // Send the current group so a description edit does not drop it.
+        const projectGroupId =
+          typeof existing.projectGroupId === "string" ||
+          existing.projectGroupId === null
+            ? existing.projectGroupId
+            : undefined;
 
-        const body = { name, icon, slug, description, isPublic };
+        const body = {
+          name,
+          icon,
+          slug,
+          description,
+          isPublic,
+          projectGroupId,
+        };
 
         return client.json(`/api/project/${encodeURIComponent(id)}`, {
           method: "PUT",

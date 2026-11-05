@@ -25,9 +25,7 @@ async function updateProject(
       and(eq(projectTable.id, id), eq(projectTable.workspaceId, workspaceId)),
     );
 
-  const isProjectExisting = Boolean(existingProject);
-
-  if (!isProjectExisting) {
+  if (!existingProject) {
     throw new HTTPException(404, {
       message:
         "Project doesn't exist or doesn't belong to the specified workspace",
@@ -53,9 +51,15 @@ async function updateProject(
     }
   }
 
+  // Omitted projectGroupId leaves the current group. null still clears it.
+  const nextProjectGroupId =
+    projectGroupId === undefined
+      ? existingProject.projectGroupId
+      : projectGroupId;
+
   const [updatedWorkspace] = await db.transaction(async (tx) => {
     await lockProjectOrdering(tx, workspaceId);
-    if (!existingProject || !isSameProjectKey(existingProject.slug, slug)) {
+    if (!isSameProjectKey(existingProject.slug, slug)) {
       await assertProjectKeyAvailable(tx, workspaceId, slug, id);
     }
     return tx
@@ -66,7 +70,7 @@ async function updateProject(
         slug,
         description,
         isPublic,
-        projectGroupId: projectGroupId ?? null,
+        projectGroupId: nextProjectGroupId,
       })
       .where(
         and(eq(projectTable.id, id), eq(projectTable.workspaceId, workspaceId)),

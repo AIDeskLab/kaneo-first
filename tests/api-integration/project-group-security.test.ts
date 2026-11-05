@@ -129,4 +129,48 @@ describe("project group workspace isolation", () => {
       projectGroupId: localGroup.id,
     });
   });
+
+  it("keeps the project group when an update omits projectGroupId", async () => {
+    const actor = await createWorkspaceMember({ role: "admin" });
+    const [group] = await db
+      .insert(schema.projectGroupTable)
+      .values({ workspaceId: actor.workspace.id, name: "Delivery" })
+      .returning();
+    if (!group) throw new Error("Failed to create group");
+    const { project } = await createProjectFixture({
+      workspaceId: actor.workspace.id,
+    });
+    await db
+      .update(schema.projectTable)
+      .set({ projectGroupId: group.id })
+      .where(eq(schema.projectTable.id, project.id));
+    mockAuthenticatedSession(actor.user);
+    const { app } = createApp();
+
+    const response = await app.request(`/api/project/${project.id}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: project.name,
+        icon: project.icon ?? "Folder",
+        slug: project.slug,
+        description: "Updated description",
+        isPublic: false,
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      description: "Updated description",
+      projectGroupId: group.id,
+    });
+    await expect(
+      db.query.projectTable.findFirst({
+        where: eq(schema.projectTable.id, project.id),
+      }),
+    ).resolves.toMatchObject({
+      description: "Updated description",
+      projectGroupId: group.id,
+    });
+  });
 });
