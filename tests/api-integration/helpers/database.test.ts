@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
+import { Client } from "pg";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import db, { schema } from "../../../apps/api/src/database";
 import {
@@ -143,4 +144,64 @@ describe("resetTestDatabase", () => {
       await db.execute(sql.raw(`DROP TABLE ${quoted}`));
     }
   });
+
+  it("retries a truncate that deadlocks with a concurrent reader", async () => {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error("DATABASE_URL must be defined for integration tests");
+    }
+
+    const other = new Client({ connectionString });
+    await other.connect();
+    let resetPromise: Promise<void> | undefined;
+    try {
+      // Outlive the pool's default deadlock_timeout so this session is not
+      // the victim. The truncate has to notice 40P01 and retry.
+      await other.query("SET deadlock_timeout = '8s'");
+      await other.query("BEGIN");
+      // Hold a late table so TRUNCATE, which locks alphabetically, is blocked
+      // after it already owns "account". Reading "account" then deadlocks.
+      await other.query('LOCK TABLE "user" IN ACCESS SHARE MODE');
+      resetPromise = resetTestDatabase();
+      await waitForTruncateDeadlockSetup();
+      await other.query('SELECT 1 FROM "account"').catch(() => undefined);
+    } finally {
+      await other.query("ROLLBACK").catch(() => undefined);
+      try {
+        await resetPromise;
+      } finally {
+        await other.end();
+      }
+    }
+  });
 });
+
+async function waitForTruncateDeadlockSetup() {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const result = await db.execute<{
+      account_locked: boolean;
+      user_waiting: boolean;
+    }>(sql`
+      SELECT
+        EXISTS (
+          SELECT 1
+          FROM pg_locks
+          WHERE relation = to_regclass('public.account')
+            AND mode = 'AccessExclusiveLock'
+            AND granted
+        ) AS account_locked,
+        EXISTS (
+          SELECT 1
+          FROM pg_locks
+          WHERE relation = to_regclass('public.user')
+            AND mode = 'AccessExclusiveLock'
+            AND NOT granted
+        ) AS user_waiting
+    `);
+    const row = result.rows[0];
+    if (row?.account_locked === true && row?.user_waiting === true) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error("Truncate did not lock account before waiting on user");
+}
