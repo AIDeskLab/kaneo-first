@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, max, notInArray } from "drizzle-orm";
+import { and, asc, eq, isNotNull, notInArray } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import db from "../../database";
 import {
@@ -14,6 +14,7 @@ import createActivities from "../../activity/controllers/create-activities";
 import { assertProjectAccess } from "../../project-access/assert-project-access";
 import { filterUsersWithProjectAccess } from "../../project-access/filter-users-with-project-access";
 import { claimTaskNumber } from "./claim-task-numbers";
+import { nextTaskPosition } from "./next-task-position";
 import { lockWorkspaceTaskHierarchy } from "./task-cascade";
 
 type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -64,26 +65,6 @@ async function resolveDestinationStatus(
   );
 
   return requestedColumn ?? matchingCurrentColumn ?? firstColumn;
-}
-
-async function getNextTaskPosition(
-  dbOrTx: DbOrTx,
-  projectId: string,
-  status: string,
-  columnId: string,
-) {
-  const [maxPositionResult] = await dbOrTx
-    .select({ maxPosition: max(taskTable.position) })
-    .from(taskTable)
-    .where(
-      and(
-        eq(taskTable.projectId, projectId),
-        eq(taskTable.status, status),
-        eq(taskTable.columnId, columnId),
-      ),
-    );
-
-  return (maxPositionResult?.maxPosition ?? 0) + 1;
 }
 
 async function moveTask({
@@ -223,15 +204,13 @@ async function moveTask({
       destinationStatus,
     );
 
-    const [nextTaskNumber, nextPosition] = await Promise.all([
-      claimTaskNumber(destinationProjectId, tx),
-      getNextTaskPosition(
-        tx,
-        destinationProjectId,
-        resolvedColumn.slug,
-        resolvedColumn.id,
-      ),
-    ]);
+    const nextTaskNumber = await claimTaskNumber(destinationProjectId, tx);
+    const nextPosition = await nextTaskPosition(
+      tx,
+      destinationProjectId,
+      resolvedColumn.slug,
+      resolvedColumn.id,
+    );
 
     const [updatedTask] = await tx
       .update(taskTable)

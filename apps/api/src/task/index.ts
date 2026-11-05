@@ -37,6 +37,7 @@ import deleteTask from "./controllers/delete-task";
 import duplicateTask from "./controllers/duplicate-task";
 import getAssignedTasks from "./controllers/get-assigned-tasks";
 import getTaskByTicketId from "./controllers/get-task-by-ticket-id";
+import { MAX_TASK_POSITION } from "./controllers/next-task-position";
 import reorderTasks from "./controllers/reorder-tasks";
 import {
   finalizeStagedTaskAsset,
@@ -530,7 +531,12 @@ const task = new Hono<{
         priority: v.picklist(VALID_PRIORITIES),
         status: v.string(),
         projectId: v.string(),
-        position: v.pipe(v.number(), v.minValue(0)),
+        position: v.pipe(
+          v.number(),
+          v.integer(),
+          v.minValue(0),
+          v.maxValue(MAX_TASK_POSITION),
+        ),
         userId: v.optional(v.string()),
       }),
     ),
