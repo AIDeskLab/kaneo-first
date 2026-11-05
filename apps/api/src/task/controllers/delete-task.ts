@@ -6,6 +6,7 @@ import { publishEvent } from "../../events";
 import { cleanupAssetKeys } from "../../storage/cleanup-assets";
 import { deleteTaskHierarchy } from "./delete-task-hierarchy";
 import getTask from "./get-task";
+import { lockWorkspaceTaskHierarchy } from "./task-cascade";
 
 async function deleteTask(taskId: string, currentUserId: string) {
   const task = await getTask(taskId);
@@ -24,6 +25,9 @@ async function deleteTask(taskId: string, currentUserId: string) {
 
   const { deletedTasks, deletedRelations, assetKeys } = await db.transaction(
     async (tx) => {
+      // Same order as updateTask: advisory lock, then row locks. Locking the
+      // row first deadlocks with a full update waiting on this advisory lock.
+      await lockWorkspaceTaskHierarchy(tx, project.workspaceId);
       const [locked] = await tx
         .select({ id: taskTable.id, projectId: taskTable.projectId })
         .from(taskTable)

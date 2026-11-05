@@ -24,6 +24,7 @@ import { validateDateRange } from "../../utils/validate-dates";
 import { assertValidPriority } from "../validate-task-fields";
 import { getSubtaskParentProjects } from "../get-subtask-parent-projects";
 import { deleteTaskHierarchy } from "./delete-task-hierarchy";
+import { lockWorkspaceTaskHierarchy } from "./task-cascade";
 import { updateTaskHierarchyStatus } from "./update-task-hierarchy-status";
 import {
   lockWorkspaceAssignees,
@@ -265,6 +266,7 @@ async function bulkUpdateTasks({
       );
       const { deletedTasks, deletedRelations, assetKeys } =
         await db.transaction(async (tx) => {
+          await lockWorkspaceTaskHierarchy(tx, workspaceId);
           const locked = await tx
             .select({ id: taskTable.id, projectId: taskTable.projectId })
             .from(taskTable)
